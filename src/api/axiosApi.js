@@ -40,12 +40,22 @@ axiosApi.interceptors.response.use(
 );
 
 export const authApi = {
+  // 1. Đăng nhập
   login: (identifier, password) => {
-    // Gọi endpoint login (thay '/auth/login' bằng endpoint thực tế của bạn nếu khác)
     return axiosApi.post('/auth/login', { identifier, password });
   },
   
-  // Các API khác sẽ thêm vào đây sau (quên mật khẩu, reset, v.v.)
+  // 2. Yêu cầu quên mật khẩu (Gửi mã OTP về email)
+  forgotPassword: (identifier) => {
+    return axiosApi.post('/auth/forgot-password', { identifier });
+  },
+
+  // 3. Xác thực OTP (Tùy backend của bạn dùng hàm nào, tôi lấy theo reset trực tiếp)
+  resetPassword: (otp, newPassword) => {
+    return axiosApi.post('/auth/reset-password', { otp, newPassword });
+  }
+  
+  // Lưu ý: Đổi lại đường dẫn '/auth/...' cho khớp chính xác với router backend của bạn nhé.
 };
 
 export const serviceApi = {
@@ -54,4 +64,5 @@ export const serviceApi = {
   
   // Lấy các variants (biến thể/sản phẩm) dựa trên serviceId
   getVariantsByServiceId: (serviceId) => axiosApi.get(`/service-variant/service/${serviceId}`),
+  getVariantById: (id) => axiosApi.get(`/service-variant/${id}`),
 };

@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-
-import './Services.css'; // Import file CSS thuần
+import { useNavigate } from 'react-router-dom'; // Import hook chuyển trang
+import './Services.css'; 
 import { serviceApi } from '../../api/axiosApi';
 
 const Services = () => {
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  const navigate = useNavigate(); // Khởi tạo navigate
 
   useEffect(() => {
     const fetchAllProducts = async () => {
@@ -57,6 +59,11 @@ const Services = () => {
     fetchAllProducts();
   }, []);
 
+  // Hàm xử lý khi click vào 1 dòng
+  const handleRowClick = (productId) => {
+    navigate(`/services/${productId}`); // Chuyển hướng sang trang chi tiết
+  };
+
   if (isLoading) return <div className="state-message">Đang tải dữ liệu...</div>;
   if (error) return <div className="state-message error-message">{error}</div>;
 
@@ -68,6 +75,7 @@ const Services = () => {
         <table className="services-table">
           <thead>
             <tr>
+              <th>STT</th> {/* THÊM CỘT STT */}
               <th>Hình ảnh</th>
               <th>Tên sản phẩm</th>
               <th>Danh mục</th>
@@ -76,8 +84,15 @@ const Services = () => {
             </tr>
           </thead>
           <tbody>
-            {products.map((item) => (
-              <tr key={item.id}>
+            {products.map((item, index) => (
+              <tr 
+                key={item.id} 
+                onClick={() => handleRowClick(item.id)} // Gắn sự kiện click vào hàng
+                className="clickable-row"
+              >
+                {/* CỘT STT */}
+                <td>{index + 1}</td> 
+
                 <td>
                   <img 
                     src={item.image} 
@@ -103,8 +118,25 @@ const Services = () => {
                   </span>
                 </td>
                 <td>
-                  <button className="action-btn btn-edit">Sửa</button>
-                  <button className="action-btn btn-delete">Xóa</button>
+                  {/* Dùng e.stopPropagation() để chặn sự kiện click hàng (nhảy trang) khi bấm nút */}
+                  <button 
+                    className="action-btn btn-edit"
+                    onClick={(e) => {
+                      e.stopPropagation(); 
+                      console.log('Sửa', item.id);
+                    }}
+                  >
+                    Sửa
+                  </button>
+                  <button 
+                    className="action-btn btn-delete"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      console.log('Xóa', item.id);
+                    }}
+                  >
+                    Xóa
+                  </button>
                 </td>
               </tr>
             ))}

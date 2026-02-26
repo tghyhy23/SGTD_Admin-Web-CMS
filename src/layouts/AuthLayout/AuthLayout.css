@@ -1,16 +1,94 @@
 /* src/layouts/AuthLayout/AuthLayout.css */
-.auth-layout {
+
+.auth-page-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100vw;
+  background: radial-gradient(circle at top right, #73D291, #12915A);
+  color: #ffffff;
+}
+.logo_nav {
+  position: absolute;
+  top: 20px;
+  padding: 0 8%;
+}
+.logo-image {
+  width: 400px;
+  height: 100%;
+  object-fit: contain;
+}
+/* --- BÊN TRÁI --- */
+.auth-left-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px 10%;
+  position: relative;
+}
+
+.auth-logo-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  background-color: var(--bg-color);
+  width: 200px;
+  height: 60px;
 }
-.auth-container {
-  background: var(--white);
-  padding: 40px;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+
+.sidebar-logo-img{
   width: 100%;
-  max-width: 400px;
+  height: 100%;
+  object-fit: contain;
+}
+
+
+.auth-welcome-title {
+  font-size: 64px;
+  font-weight: 800;
+  margin-bottom: 24px;
+  letter-spacing: 2px;
+}
+
+.auth-divider {
+  width: 60px;
+  height: 3px;
+  background-color: #ffffff;
+  margin-bottom: 30px;
+}
+
+.auth-subtitle {
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 450px;
+  opacity: 0.8;
+  margin-bottom: 40px;
+}
+
+/* --- BÊN PHẢI --- */
+.auth-right-side {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.glass-form-card {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 480px;
+  padding: 40px;
+}
+
+/* Responsive cho Mobile */
+@media (max-width: 900px) {
+  .auth-page-container { flex-direction: column; }
+  .auth-left-side { padding: 40px 20px; text-align: center; align-items: center; }
+  .auth-logo-placeholder { position: static; margin-bottom: 20px; }
+  .auth-right-side { padding: 20px; }
 }
