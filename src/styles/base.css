@@ -1,0 +1,66 @@
+/* src/styles/base.css */
+:root {
+  --primary-color: #12915A;
+  --primary-hover: #e1fcf19d;
+  --bg-color: #fff;
+  --main-bg-color: #f0f2f5;
+  --sidebar-bg: #fff;
+  --sidebar-text: #12915A;
+  --sidebar-hover: #334155;
+  --text-main: #333333;
+  --white: #ffffff;
+  --border-color: #e2e8f0;
+  /* =========================================
+     2. TYPOGRAPHY - SIZES (Kích thước chữ)
+     (Ánh xạ từ config Typography.size)
+     ========================================= */
+  --fs-xs: 12px;
+  --fs-s: 14px;
+  --fs-m: 16px;
+  --fs-ml: 18px;
+  --fs-l: 20px;
+  --fs-xl: 24px;
+  --fs-xxl: 32px;
+  --fs-display: 48px;
+
+  /* =========================================
+     3. TYPOGRAPHY - WEIGHTS (Độ đậm nhạt)
+     (Ánh xạ từ config Typography.weight)
+     ========================================= */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semi-bold: 600;
+  --fw-bold: 700;
+  --fw-black: 900;
+
+  /* =========================================
+     4. BORDER RADIUS (Độ bo góc)
+     ========================================= */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-ml: 10px;
+  --radius-lg: 12px;
+}
+
+/* Reset CSS */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif; /* Hoặc font bạn chọn */
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul {
+  list-style: none;
+}

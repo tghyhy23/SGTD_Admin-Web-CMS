@@ -1,0 +1,64 @@
+/* src/pages/Auth/Login/Login.css */
+.login-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.login-wrapper h2 {
+  text-align: center;
+  color: var(--text-main);
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+.login-wrapper form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.login-wrapper input {
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.login-wrapper input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: var(--white);
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 10px;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+.login-wrapper a {
+  text-align: center;
+  color: var(--primary-color);
+  font-size: 14px;
+  margin-top: 8px;
+  display: inline-block;
+  transition: color 0.2s;
+}
+
+.login-wrapper a:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+}

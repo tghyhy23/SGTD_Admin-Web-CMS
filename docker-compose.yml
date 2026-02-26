@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  backend-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sgtd-admin
+    restart: always
+    ports:
+      - "8082:5174"
+    env_file:
+      - .env
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge

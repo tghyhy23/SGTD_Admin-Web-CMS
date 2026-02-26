@@ -1,0 +1,61 @@
+/* src/components/Navbar/Navbar.css */
+.navbar {
+  height: 58px;
+  background-color: var(--navbar-bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 1px 4px rgba(0,21,41,0.08);
+  z-index: 100;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64px; /* Bằng với chiều cao của Navbar */
+  padding: 0 32px;
+}
+
+.sidebar-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.nav-item {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: var(--text-main);
+  transition: color 0.3s;
+}
+
+.nav-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.user-profile {
+  gap: 8px;
+  font-weight: 500;
+}
+.user-name {
+  font-size: var(--fs-s);
+  color: var(--text-main);
+}
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}

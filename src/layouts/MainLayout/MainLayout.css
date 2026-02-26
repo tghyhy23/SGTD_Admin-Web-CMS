@@ -1,0 +1,23 @@
+/* src/layouts/MainLayout/MainLayout.css */
+.main-layout {
+  display: flex;
+  flex-direction: column; /* Xếp theo chiều dọc: Navbar trên, body dưới */
+  height: 100vh;
+  overflow: hidden;
+}
+
+.layout-body {
+  background: var(--main-bg-color);
+  display: flex; /* Xếp theo chiều ngang: Sidebar trái, Content phải */
+  flex: 1;
+  overflow: hidden; /* Để content bên trong tự cuộn */
+}
+
+.main-content {
+  background: var(--bg-color);
+  border-radius: var(--radius-sm);
+  margin: 20px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}

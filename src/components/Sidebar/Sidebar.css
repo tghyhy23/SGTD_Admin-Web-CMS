@@ -1,0 +1,72 @@
+/* src/components/Sidebar/Sidebar.css */
+.sidebar {
+  width: 260px;
+  margin-top: 20px;
+  padding: 20px 10px;
+  background: #fff;
+  border-radius: var(--radius-ml);
+  box-shadow: 0 4px 10px 0 rgba(0, 0, 0, 0.10);
+  /* thêm shadow */       
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  z-index: 11;
+}
+
+.menu-label{
+  font-size: var(--fs-s);
+  font-weight: var(--fw-medium);
+  color: var(--text-main);
+}
+
+.sidebar-menu {
+  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  list-style: none; /* Xóa dấu chấm của thẻ li */
+  overflow-y: auto; /* Cuộn nếu menu quá dài */
+}
+
+/* Scrollbar mỏng đẹp cho sidebar */
+.sidebar-menu::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-menu::-webkit-scrollbar-thumb {
+  background-color: #d9d9d9;
+  border-radius: 4px;
+}
+
+.sidebar-menu a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  color: var(--text-main);
+  font-size: var(--fs-s);
+  text-decoration: none;
+}
+.menu-icon {
+  color: var(--text-main);
+  width: 16px;
+  height: 16px;
+}
+/* Hiệu ứng rê chuột */
+.sidebar-menu a:hover {
+  background-color: var(--primary-hover); /* Nền xanh rất nhạt */
+  color: var(--primary-color);
+  border-left: 4px solid var(--primary-color); 
+  border-radius: var(--radius-sm);
+}
+
+/* Hiệu ứng khi đang ở trang đó (Active) */
+.sidebar-menu a.active-link  {
+  background-color: var(--primary-hover); /* Nền xanh rất nhạt */
+  color: var(--primary-color);
+  border-left: 4px solid var(--primary-color); 
+  font-weight: var(--fw-medium);
+  border-radius: var(--radius-sm);
+}
+
+.sidebar-menu a.active-link .menu-icon {
+  opacity: 1;
+}
