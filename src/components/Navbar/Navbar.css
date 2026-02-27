@@ -1,12 +1,12 @@
 /* src/components/Navbar/Navbar.css */
 .navbar {
   height: 58px;
-  background-color: var(--navbar-bg);
+  background-color: var(--navbar-bg, #ffffff);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
   box-shadow: 0 1px 4px rgba(0,21,41,0.08);
   z-index: 100;
 }
@@ -21,7 +21,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 64px; /* Bằng với chiều cao của Navbar */
+  height: 64px; 
   padding: 0 32px;
 }
 
@@ -35,7 +35,7 @@
   cursor: pointer;
   display: flex;
   align-items: center;
-  color: var(--text-main);
+  color: var(--text-main, #333);
   transition: color 0.3s;
 }
 
@@ -45,17 +45,125 @@
   object-fit: contain;
 }
 
+/* --- PHẦN USER PROFILE --- */
 .user-profile {
+  display: flex;         /* Bổ sung để avatar và tên nằm ngang */
+  align-items: center;   /* Căn giữa theo chiều dọc */
   gap: 8px;
   font-weight: 500;
 }
+
 .user-name {
-  font-size: var(--fs-s);
-  color: var(--text-main);
+  font-size: var(--fs-s, 14px);
+  color: var(--text-main, #333);
 }
+
 .avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+/* =========================================
+   PHẦN CSS BỔ SUNG CHO MENU DROPDOWN (HOVER)
+   ========================================= */
+
+/* Bao bọc phần avatar để giữ dropdown menu */
+.user-profile-container {
+  position: relative;
+  cursor: pointer;
+  padding: 8px 0; /* Padding giúp menu không bị tắt khi di chuột xuống dưới */
+}
+
+/* Cửa sổ Dropdown hiển thị thông tin và nút đăng xuất */
+.profile-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 220px;
+  background-color: #ffffff;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  animation: dropFade 0.2s ease-out;
+  overflow: hidden;
+  cursor: default; /* Tránh icon mũi tên biến thành bàn tay ở khoảng trống */
+}
+
+/* Phần trên cùng của dropdown (Role và Email) */
+.dropdown-header {
+  gap: 4px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: #f9fafb;
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-role {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-color); /* Dùng màu xanh nhấn mạnh */
+  text-transform: uppercase;
+}
+
+.dropdown-email {
+  font-size: 14px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Danh sách các chức năng (Trang cá nhân, Đăng xuất) */
+.dropdown-list {
+  padding: 10px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0; /* Clear margin mặc định của ul */
+}
+
+.dropdown-list li {
+  border-radius: 4px;
+  padding: 10px 16px;
+  font-size: 14px;
+  color: var(--text-main);
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+/* THÊM MỚI ĐỂ CĂN CHỈNH ICON VÀ TEXT */
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px; /* Khoảng cách giữa icon và chữ */
+}
+
+.dropdown-list li:hover {
+  background-color: #f3f4f6; /* Màu xám nhạt khi hover */
+}
+
+/* Nút Đăng xuất nổi bật màu đỏ */
+.dropdown-list li.logout-btn {
+  color: #eb3c2f; /* Đỏ */
+}
+
+.dropdown-list li.logout-btn:hover {
+  background-color: #fee2e2; /* Nền đỏ nhạt khi hover nút Đăng xuất */
+}
+
+/* Hiệu ứng trượt và mờ dần khi mở menu */
+@keyframes dropFade {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

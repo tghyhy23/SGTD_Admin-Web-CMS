@@ -12,7 +12,7 @@ const AuthLayout = () => {
     <div className="auth-page-container">
       {/* NỬA BÊN TRÁI - GIỚI THIỆU (Sẽ cố định ở mọi trang Auth) */}
       <div className="auth-left-side">
-        <h1 className="auth-welcome-title">Welcome Admin!</h1>
+        <h1 className="auth-welcome-title">Chào mừng trở lại!</h1>
         <div className="auth-divider"></div>
         <p className="auth-subtitle">
           Chào mừng bạn đến với hệ thống quản lí. Vui lòng đăng nhập để tiếp tục quản lý dữ liệu, dịch vụ của bạn một cách an toàn và hiệu quả.
