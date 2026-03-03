@@ -504,7 +504,7 @@ const Services = () => {
                         {filteredProducts.map((item, index) => (
                             <tr key={item.id} onClick={() => handleRowClick(item.id)} className="clickable-row">
                                 <td>{index + 1}</td>
-                                <td>
+                                <td className="td-image">
                                     <img
                                         src={item.image}
                                         alt={item.name}

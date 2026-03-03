@@ -111,7 +111,7 @@ export const AuthProvider = ({ children }) => {
             // 2. Bộ từ điển dịch sang Tiếng Việt
             const errorDictionary = {
                 "Identifier and password are required": "Vui lòng nhập đầy đủ tài khoản và mật khẩu.",
-                "Too many login attempts. Please try again later.": "Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.",
+                "Too many authentication attempts. Account temporarily locked.": "Bạn đã nhập quá nhiều lần. Vui lòng thử lại sau.",
                 "Invalid identifier or password!": "Tài khoản hoặc mật khẩu không chính xác!",
                 "Your account is inactive or has been suspended.": "Tài khoản của bạn đã bị khóa hoặc ngừng hoạt động.",
                 "Your account is not verified. Please check your email or phone.": "Tài khoản chưa xác thực. Vui lòng kiểm tra email của bạn.",

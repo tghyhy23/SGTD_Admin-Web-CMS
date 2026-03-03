@@ -103,3 +103,60 @@ export const serviceApi = {
         return axiosApi.delete(`/service-variant/${variantId}`);
     },
 };
+
+export const clinicApi = {
+    // API lấy danh sách phòng khám (branch)
+    getAllClinics: (params) => axiosApi.get("/branch", { params }),
+    // Chừa sẵn API lấy chi tiết để lát bạn làm trang ClinicDetail
+    getClinicById: (id) => axiosApi.get(`/branch/${id}`),
+    deleteClinic: (id) => axiosApi.delete(`/branch/${id}`),
+};
+
+export const postApi = {
+    // Gọi route /manage/list của Admin để lấy được cả bài ACTIVE và INACTIVE
+    getAllPosts: (params) => axiosApi.get("/post/manage/list", { params }), 
+    getPostById: (id) => axiosApi.get(`/post/${id}`),
+    deletePost: (id) => axiosApi.delete(`/post/${id}`),
+    toggleStatus: (id) => axiosApi.patch(`/post/toggle-status/${id}`), // Có thể dùng sau này
+};
+
+export const bannerApi = {
+    // Lấy danh sách banner (dành cho Admin)
+    getAllBanners: (params) => axiosApi.get("/banner", { params }), 
+    
+    // Lấy chi tiết 1 banner
+    getBannerById: (id) => axiosApi.get(`/banner/${id}`),
+    
+    // Tạo banner mới (hỗ trợ upload file)
+    createBanner: (formData) => axiosApi.post("/banner", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+    }),
+    
+    // Cập nhật banner
+    updateBanner: (id, formData) => axiosApi.put(`/banner/${id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+    }),
+    
+    // Xóa banner
+    deleteBanner: (id) => axiosApi.delete(`/banner/${id}`),
+    
+    // Thay đổi trạng thái (Active/Inactive)
+    toggleStatus: (id) => axiosApi.patch(`/banner/${id}/toggle-status`),
+    
+    // Cập nhật thứ tự hiển thị hàng loạt
+    bulkUpdateOrder: (updates) => axiosApi.patch("/banner/bulk-update-order", { updates }),
+};
+
+export const categoryApi = {
+    // Lấy danh sách danh mục (đang gọi vào route /service theo ý bạn)
+    getAllCategories: (params) => axiosApi.get("/service", { params }), 
+    getCategoryById: (id) => axiosApi.get(`/service/${id}`),
+    createCategory: (formData) => axiosApi.post("/service", formData, {
+        headers: { "Content-Type": "multipart/form-data" }, 
+    }),
+    updateCategory: (id, formData) => axiosApi.put(`/service/${id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+    }),
+    deleteCategory: (id) => axiosApi.delete(`/service/${id}`),
+    toggleStatus: (id) => axiosApi.patch(`/service/${id}/toggle-status`),
+};
