@@ -22,6 +22,7 @@ import Blogs from './pages/Blogs/Blogs';
 import BlogDetail from './pages/Blogs/BlogDetail';
 import Banners from './pages/Banners/Banners';
 import Categories from './pages/Categories/Categories';
+import Promotions from './pages/Promotions/Promotions';
 
 
 function App() {
@@ -63,8 +64,11 @@ function App() {
             {/* Banner */}
             <Route path="/banners" element={<Banners />} />
 
-            {/* Banner */}
+            {/* Danh mục */}
             <Route path="/categories" element={<Categories />} />
+
+            {/* Promotions */}
+            <Route path="/promotions" element={<Promotions />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

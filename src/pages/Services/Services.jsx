@@ -30,21 +30,17 @@ const Services = () => {
     const [sortOrder, setSortOrder] = useState("none");
     const [showSortDropdown, setShowSortDropdown] = useState(false);
 
-    // STATE CHO MODAL TẠO MỚI/SỬA & TOAST MESSAGE
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const fileInputRef = useRef(null);
     const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
-    // STATE CHO TÍNH NĂNG CẬP NHẬT
     const [isEditMode, setIsEditMode] = useState(false);
     const [editProductId, setEditProductId] = useState(null);
 
-    // THÊM MỚI: STATE CHO MODAL XÓA
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [productToDelete, setProductToDelete] = useState(null);
 
-    // State Form Data
     const initialForm = {
         serviceId: "",
         name: "",
@@ -63,9 +59,8 @@ const Services = () => {
 
     const navigate = useNavigate();
 
-    // FETCH DỮ LIỆU
-    const fetchAllProducts = async () => {
-        setIsLoading(true);
+    const fetchAllProducts = async (isSilent = false) => {
+        if (!isSilent) setIsLoading(true);
         try {
             const serviceRes = await serviceApi.getAllServices();
 
@@ -112,15 +107,14 @@ const Services = () => {
             setError("Không thể tải danh sách dịch vụ");
             console.error(err);
         } finally {
-            setIsLoading(false);
+            if (!isSilent) setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchAllProducts();
+        fetchAllProducts(); 
     }, []);
 
-    // LOGIC TOAST MESSAGE VÀ UPLOAD ẢNH (PREVIEW)
     const showToast = (message, type = "success") => {
         setToast({ show: true, message, type });
         setTimeout(() => setToast((prev) => ({ ...prev, show: false })), 3000);
@@ -154,9 +148,6 @@ const Services = () => {
         setOldImageUrls(updatedOldImages);
     };
 
-    // ==========================================
-    // GIỮ NGUYÊN HÀM TẠO SẢN PHẨM CŨ CỦA BẠN
-    // ==========================================
     const handleCreateSubmit = async (e) => {
         e.preventDefault();
 
@@ -185,12 +176,12 @@ const Services = () => {
             const response = await serviceApi.createVariant(submitData);
 
             if (response && response.success) {
+                await fetchAllProducts(true); // Đợi lấy data xong
                 showToast("Tạo sản phẩm thành công!");
                 setIsModalOpen(false);
                 setFormData(initialForm);
                 setImageFiles([]);
                 setImagePreviews([]);
-                fetchAllProducts();
             } else {
                 showToast(response?.message || "Lỗi tạo sản phẩm", "error");
             }
@@ -203,9 +194,6 @@ const Services = () => {
         }
     };
 
-    // ==========================================
-    // CẬP NHẬT HÀM SỬA SẢN PHẨM
-    // ==========================================
     const handleUpdateSubmit = async (e) => {
         e.preventDefault();
         if (!formData.serviceId) {
@@ -216,7 +204,6 @@ const Services = () => {
         try {
             const submitData = new FormData();
 
-            // 1. Gắn các trường text
             Object.keys(formData).forEach((key) => {
                 if (key === "image" || key === "images") return;
                 if (formData[key] !== null && formData[key] !== undefined && formData[key] !== "") {
@@ -224,32 +211,28 @@ const Services = () => {
                 }
             });
 
-            // 2. Gắn URL ảnh cũ (nếu có).
-            // Gửi mảng chuỗi lên với key là "images" (vì Backend loop qua updates.images)
-            if (oldImageUrls && oldImageUrls.length > 0) {
+            // XỬ LÝ ẢNH CŨ VÀ XÓA ẢNH
+            if (oldImageUrls.length === 0 && imageFiles.length === 0) {
+                // Nếu người dùng xóa sạch ảnh cũ và không tải lên ảnh mới
+                submitData.append("images", ""); 
+            } else if (oldImageUrls.length > 0) {
+                // Nếu vẫn còn ảnh cũ
                 oldImageUrls.forEach((url) => {
-                    submitData.append("images", url); // <--- Key là "images"
+                    submitData.append("images", url);
                 });
             }
 
-            // 3. Gắn File ảnh mới (nếu có).
-            // LƯU Ý: Backend ở route Update có dùng upload.array('image', 5) giống Create không?
-            // Nếu có, key ở đây phải là "image" (giống lúc Create bạn đã làm).
             if (imageFiles && imageFiles.length > 0) {
                 Array.from(imageFiles).forEach((file) => {
-                    submitData.append("image", file); // <--- Key là "image" (để Multer nhận)
+                    submitData.append("image", file);
                 });
-            }
-
-            // DEBUG DỮ LIỆU TRƯỚC KHI GỬI
-            console.log("=== FORMDATA UPDATE GỬI ĐI ===");
-            for (let [key, value] of submitData.entries()) {
-                console.log(`${key}:`, value);
             }
 
             const response = await serviceApi.updateVariant(editProductId, submitData);
 
             if (response && response.success) {
+                await fetchAllProducts(true); // Chờ update giao diện xong mới đóng modal
+                
                 showToast("Cập nhật sản phẩm thành công!");
                 setIsModalOpen(false);
                 setFormData(initialForm);
@@ -258,7 +241,6 @@ const Services = () => {
                 setOldImageUrls([]);
                 setIsEditMode(false);
                 setEditProductId(null);
-                fetchAllProducts();
             } else {
                 showToast(response?.message || "Lỗi cập nhật sản phẩm", "error");
             }
@@ -271,18 +253,12 @@ const Services = () => {
         }
     };
 
-    // ==========================================
-    // THÊM MỚI: LOGIC CHUẨN BỊ XÓA (MỞ MODAL XÓA)
-    // ==========================================
     const handleDeleteClick = (e, id, name) => {
         e.stopPropagation();
         setProductToDelete({ id, name });
         setIsDeleteModalOpen(true);
     };
 
-    // ==========================================
-    // THÊM MỚI: THỰC THI XÓA SẢN PHẨM
-    // ==========================================
     const confirmDelete = async () => {
         if (!productToDelete) return;
 
@@ -290,10 +266,11 @@ const Services = () => {
         try {
             const response = await serviceApi.deleteVariant(productToDelete.id);
             if (response && response.success) {
+                await fetchAllProducts(true);
+                
                 showToast("Xóa sản phẩm thành công!", "success");
                 setIsDeleteModalOpen(false);
                 setProductToDelete(null);
-                fetchAllProducts();
             } else {
                 showToast(response?.message || "Lỗi xóa sản phẩm", "error");
             }
@@ -306,7 +283,6 @@ const Services = () => {
         }
     };
 
-    // MỞ FORM CHỈNH SỬA
     const handleEditClick = (e, item) => {
         e.stopPropagation();
         setIsEditMode(true);
@@ -325,12 +301,11 @@ const Services = () => {
         });
 
         setImageFiles([]);
-        setImagePreviews([]); // Đảm bảo clear preview mới
-        setOldImageUrls(item.imageUrls || []); // Set ảnh cũ
+        setImagePreviews([]); 
+        setOldImageUrls(item.imageUrls || []); 
         setIsModalOpen(true);
     };
 
-    // LOGIC TƯƠNG TÁC UI (LỌC, SẮP XẾP)
     const handleRowClick = (productId) => {
         navigate(`/services/${productId}`);
     };
@@ -465,7 +440,6 @@ const Services = () => {
                         )}
                     </div>
 
-                    {/* MỞ MODAL KHI CLICK THÊM MỚI (Reset form) */}
                     <button
                         className="add-btn"
                         onClick={() => {
@@ -547,7 +521,6 @@ const Services = () => {
                 {filteredProducts.length === 0 && <div className="state-message">Không tìm thấy sản phẩm nào phù hợp.</div>}
             </div>
 
-            {/* MODAL FORM */}
             {isModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
@@ -558,10 +531,8 @@ const Services = () => {
                             </button>
                         </div>
 
-                        {/* ĐỔI LOGIC ONSUBMIT DỰA VÀO CHẾ ĐỘ THÊM HOẶC SỬA */}
                         <form className="modal-form" onSubmit={isEditMode ? handleUpdateSubmit : handleCreateSubmit}>
                             <div className="form-grid">
-                                {/* Cột trái */}
                                 <div className="form-column-left">
                                     <div className="form-group">
                                         <label>
@@ -605,7 +576,6 @@ const Services = () => {
                                     <div className="form-group">
                                         <label>Hình ảnh (Tối đa 5 ảnh)</label>
                                         <div className="image-upload-container">
-                                            {/* HIỂN THỊ ẢNH CŨ */}
                                             {oldImageUrls.map((url, index) => (
                                                 <div key={`old-${index}`} className="image-preview-box">
                                                     <img src={url} alt={`old-preview-${index}`} />
@@ -615,7 +585,6 @@ const Services = () => {
                                                 </div>
                                             ))}
 
-                                            {/* HIỂN THỊ ẢNH MỚI */}
                                             {imagePreviews.map((src, index) => (
                                                 <div key={`new-${index}`} className="image-preview-box">
                                                     <img src={src} alt={`new-preview-${index}`} />
@@ -635,7 +604,6 @@ const Services = () => {
                                     </div>
                                 </div>
 
-                                {/* Cột phải: Các thông số khác */}
                                 <div className="form-column-right">
                                     <h3 className="form-sub-title">Thông số kỹ thuật</h3>
 
@@ -674,9 +642,6 @@ const Services = () => {
                 </div>
             )}
 
-            {/* ==========================================
-                THÊM MỚI: MODAL XÁC NHẬN XÓA
-                ========================================== */}
             {isDeleteModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content-delete">

@@ -1,4 +1,21 @@
 /* Style cho nút Ẩn (khi banner đang Active) */
+.x-btn {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+}
 .btn-toggle-hide {
     background-color: #fef2f2;
     color: #ef4444;

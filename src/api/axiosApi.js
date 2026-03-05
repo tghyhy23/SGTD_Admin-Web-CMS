@@ -105,19 +105,58 @@ export const serviceApi = {
 };
 
 export const clinicApi = {
-    // API lấy danh sách phòng khám (branch)
+    // 1. Lấy danh sách phòng khám (kèm filter, search, phân trang)
     getAllClinics: (params) => axiosApi.get("/branch", { params }),
-    // Chừa sẵn API lấy chi tiết để lát bạn làm trang ClinicDetail
+    
+    // 2. Lấy chi tiết 1 phòng khám
     getClinicById: (id) => axiosApi.get(`/branch/${id}`),
+    
+    // 3. Tạo phòng khám mới (Gửi FormData vì có file ảnh)
+    createClinic: (formData) => axiosApi.post("/branch", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+    }),
+
+    // 4. Cập nhật phòng khám (Gửi FormData)
+    updateClinic: (id, formData) => axiosApi.put(`/branch/${id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+    }),
+
+    // 5. Bật/tắt trạng thái hoạt động
+    toggleStatus: (id) => axiosApi.patch(`/branch/${id}/toggle-status`),
+
+    // 6. Xóa phòng khám
     deleteClinic: (id) => axiosApi.delete(`/branch/${id}`),
+
+    // 7. Lấy thống kê của phòng khám (Admin/Manager)
+    getClinicStats: (id, params) => axiosApi.get(`/branch/${id}/stats`, { params }),
 };
 
 export const postApi = {
-    // Gọi route /manage/list của Admin để lấy được cả bài ACTIVE và INACTIVE
+    // 1. Lấy danh sách cho Admin
     getAllPosts: (params) => axiosApi.get("/post/manage/list", { params }), 
+
+    // 2. Xem chi tiết bài viết
     getPostById: (id) => axiosApi.get(`/post/${id}`),
-    deletePost: (id) => axiosApi.delete(`/post/${id}`),
-    toggleStatus: (id) => axiosApi.patch(`/post/toggle-status/${id}`), // Có thể dùng sau này
+
+    // 3. Tạo mới bài viết (Hỗ trợ upload file)
+    createPost: (formData) => axiosApi.post("/post", formData, {
+        headers: {
+            "Content-Type": "multipart/form-data",
+        },
+    }),
+
+    // 4. Cập nhật bài viết (Hỗ trợ upload file)
+    updatePost: (id, formData) => axiosApi.put(`/post/${id}`, formData, {
+        headers: {
+            "Content-Type": "multipart/form-data",
+        },
+    }),
+
+    // 5. Bật/Tắt trạng thái
+    toggleStatus: (id) => axiosApi.patch(`/post/manage/toggle-status/${id}`),
+
+    // 6. Xóa bài viết
+    deletePost: (id) => axiosApi.delete(`/post/manage/${id}`),
 };
 
 export const bannerApi = {
@@ -149,6 +188,7 @@ export const bannerApi = {
 
 export const categoryApi = {
     // Lấy danh sách danh mục (đang gọi vào route /service theo ý bạn)
+    getRealCategories: () => axiosApi.get("/category"),
     getAllCategories: (params) => axiosApi.get("/service", { params }), 
     getCategoryById: (id) => axiosApi.get(`/service/${id}`),
     createCategory: (formData) => axiosApi.post("/service", formData, {
