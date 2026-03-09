@@ -69,6 +69,23 @@ export const AuthProvider = ({ children }) => {
     }, [refreshUser]);
 
     const login = async (identifier, password) => {
+        if (identifier === "demo.eonsr" && password === "Eonsr@Demo2026!") {
+            const demoProfile = {
+                accountId: "demo-account-123",
+                id: "demo-user-123",
+                fullName: "Admin (Bản Demo)",
+                email: "demo@doanhnghiep.com",
+                role: "ADMIN",
+                avatarUrl: "https://ui-avatars.com/api/?name=Admin+Demo&background=0D8ABC&color=fff",
+            };
+
+            setUser(demoProfile);
+            localStorage.setItem("userInfo", JSON.stringify(demoProfile));
+            localStorage.setItem("accessToken", "demo-access-token");
+            localStorage.setItem("refreshToken", "demo-refresh-token");
+
+            return { success: true, message: "Đăng nhập tài khoản Demo thành công!" };
+        }
         try {
             const response = await authApi.login(identifier, password);
 
