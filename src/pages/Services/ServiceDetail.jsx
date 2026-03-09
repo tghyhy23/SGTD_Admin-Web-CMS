@@ -34,6 +34,9 @@ const ServiceDetail = () => {
     const [imagePreviews, setImagePreviews] = useState([]);
     const [oldImageUrls, setOldImageUrls] = useState([]);
 
+    // ==========================================
+    // FETCH DATA (Chỉ gọi 1 lần khi load trang)
+    // ==========================================
     const fetchDetail = async (isSilent = false) => {
         if (!isSilent) setIsLoading(true);
         try {
@@ -76,6 +79,9 @@ const ServiceDetail = () => {
         setTimeout(() => setToast((prev) => ({ ...prev, show: false })), 3000);
     };
 
+    // ==========================================
+    // XỬ LÝ ẢNH
+    // ==========================================
     const handleImageChange = (e) => {
         const files = Array.from(e.target.files);
         const totalImages = oldImageUrls.length + imageFiles.length + files.length;
@@ -125,6 +131,9 @@ const ServiceDetail = () => {
         setIsModalOpen(true);
     };
 
+    // ==========================================
+    // CẬP NHẬT (Optimistic UI Update)
+    // ==========================================
     const handleUpdateSubmit = async (e) => {
         e.preventDefault();
         if (!formData.serviceId) {
@@ -144,10 +153,8 @@ const ServiceDetail = () => {
 
             // XỬ LÝ ẢNH CŨ VÀ XÓA ẢNH
             if (oldImageUrls.length === 0 && imageFiles.length === 0) {
-                // Nếu người dùng xóa sạch ảnh cũ và không tải ảnh mới lên
                 submitData.append("images", ""); 
             } else if (oldImageUrls.length > 0) {
-                // Nếu vẫn còn ảnh cũ
                 oldImageUrls.forEach(url => {
                     submitData.append("images", url); 
                 });
@@ -162,12 +169,36 @@ const ServiceDetail = () => {
             const response = await serviceApi.updateVariant(id, submitData);
 
             if (response && response.success) {
-                await fetchDetail(true); // Đợi lấy data mới về xong
-
                 showToast("Cập nhật sản phẩm thành công!");
+                
+                // --- Optimistic Update Bắt Đầu ---
+                const selectedService = rawServices.find(s => s._id === formData.serviceId);
+                const updatedImageUrls = [...oldImageUrls, ...imagePreviews];
+                
+                // Cập nhật state product
+                setProduct(prev => ({
+                    ...prev,
+                    name: formData.name,
+                    price: Number(formData.price),
+                    unit: formData.unit,
+                    description: formData.description,
+                    manufacturer: formData.manufacturer,
+                    warranty_period: formData.warranty_period,
+                    hardness: formData.hardness,
+                    transparency: formData.transparency,
+                    serviceId: selectedService ? { _id: selectedService._id, name: selectedService.name } : prev.serviceId,
+                    imageUrls: updatedImageUrls
+                }));
+
+                // Cập nhật state list ảnh (slider bên trái)
+                setImages(updatedImageUrls.length > 0 ? updatedImageUrls : [FALLBACK_IMG]);
+                setActiveImage(0); // Reset về ảnh đầu tiên
+                // --- Optimistic Update Kết Thúc ---
+
                 setIsModalOpen(false);
                 setImageFiles([]);
                 setImagePreviews([]);
+                setOldImageUrls([]);
             } else {
                 showToast(response?.message || "Lỗi cập nhật sản phẩm", "error");
             }

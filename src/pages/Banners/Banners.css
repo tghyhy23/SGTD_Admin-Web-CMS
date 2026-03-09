@@ -17,27 +17,24 @@
     line-height: 1;
 }
 .btn-toggle-hide {
-    background-color: #fef2f2;
-    color: #ef4444;
-    border: 1px solid #f87171;
+    background-color: #ffffff;
+    color: #333333b1;
+    border: 1px solid #333333b1;
     transition: all 0.2s ease-in-out;
 }
 
 .btn-toggle-hide:hover {
-    background-color: #fee2e2;
-    color: #dc2626;
-    border-color: #ef4444;
+    background-color: #e1e1e1;
 }
 
 /* Style cho nút Hiện (khi banner đang Inactive) */
 .btn-toggle-show {
-    background-color: white;
-    color: var(--primary-color);
-    border: 1px solid var(--primary-color);
-    transition: all 0.15s ease-in-out;
+    background-color: #ffffff;
+    color: #333333b1;
+    border: 1px solid #333333b1;
+    transition: all 0.2s ease-in-out;
 }
 
 .btn-toggle-show:hover {
-    background-color: var(--primary-hover);
-    border: 1px solid var(--primary-hover);
+    background-color: #e1e1e1;
 }

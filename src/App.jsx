@@ -23,6 +23,11 @@ import BlogDetail from './pages/Blogs/BlogDetail';
 import Banners from './pages/Banners/Banners';
 import Categories from './pages/Categories/Categories';
 import Promotions from './pages/Promotions/Promotions';
+import Users from './pages/Users/Users';
+import PromotionDetail from './pages/Promotions/PromotionDetail';
+import Location from './pages/Location/Location';
+import Notifications from './pages/Notifications/Notifications';
+import Warranties from './pages/Waranties/Warranties';
 
 
 function App() {
@@ -47,7 +52,7 @@ function App() {
         ) : (
           <Route element={<MainLayout />}>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/users" element={<div>Trang Quản lý người dùng</div>} />
+            <Route path="/users" element={<Users />} />
             
             {/* 2. KHAI BÁO CÁC ROUTE CỦA SERVICES Ở ĐÂY */}
             <Route path="/services" element={<Services />} />
@@ -64,11 +69,21 @@ function App() {
             {/* Banner */}
             <Route path="/banners" element={<Banners />} />
 
+            {/* Notification */}
+            <Route path="/notifications" element={<Notifications />} />
+
             {/* Danh mục */}
             <Route path="/categories" element={<Categories />} />
 
+            {/* Chi Nhánh, địa điểm */}
+            <Route path="/locations" element={<Location />} />
+
+            {/* Chi Nhánh, địa điểm */}
+            <Route path="/warranties" element={<Warranties />} />
+
             {/* Promotions */}
             <Route path="/promotions" element={<Promotions />} />
+            <Route path="/promotion/:id" element={<PromotionDetail />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

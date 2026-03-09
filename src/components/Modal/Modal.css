@@ -17,7 +17,7 @@
 /* Khung modal trắng */
 .custom-modal-content {
     background-color: #ffffff;
-    border-radius: 12px;
+    border-radius: 4px;
     width: 90%; /* Chiếm 90% màn hình trên mobile */
     max-height: 90vh; /* Không vượt quá chiều cao màn hình */
     display: flex;
@@ -89,7 +89,7 @@
     width: 100%;
     padding: 10px 14px;
     border: 1px solid #d1d5db;
-    border-radius: 8px;
+    border-radius: 4px;
     font-size: 14px;
     outline: none;
     transition: border-color 0.2s;
@@ -98,8 +98,8 @@
 }
 
 .form-input:focus, .form-textarea:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: #12915A;
+    box-shadow: 0 0 0 3px rgba(18, 145, 90, 0.1);
 }
 
 .form-file-input {
@@ -131,7 +131,7 @@
     justify-content: flex-end;
     gap: 12px;
     margin-top: 24px;
-    padding-top: 16px;
+    padding: 16px 0;
     border-top: 1px solid #f3f4f6;
 }
 
@@ -141,7 +141,7 @@
     color: white;
     border: none;
     padding: 8px 16px;
-    border-radius: 6px;
+    border-radius: 4px;
     font-weight: 500;
     cursor: pointer;
     transition: background-color 0.2s;

@@ -97,7 +97,7 @@
 }
 .action-btn {
     border-radius: 4px;
-    padding: 4px 10px;
+    padding: 8px 16px;
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
@@ -111,8 +111,8 @@
 }
 
 .btn-edit:hover {
+   border: 1px solid #377bf6;
     background: #e6efff;
-    border: 1px solid #e6efff;
     color: #377bf6;
 }
 
@@ -126,6 +126,7 @@
 .btn-delete:hover {
     border: 1px solid #fee4e3;
     background: #fee4e3;
+     border: 1px solid #eb3c2f;
     color: #eb3c2f;
 }
 
@@ -254,6 +255,8 @@
         align-items: center;  
         justify-content: center;
     gap: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
 }
 
 .add-btn:hover {
@@ -330,7 +333,7 @@
 
 .modal-content {
   background-color: #ffffff;
-  border-radius: 12px;
+  border-radius: 4px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -478,7 +481,7 @@ flex: 1;
 }
 
 .form-column-right {
- width: 350px;
+ flex: 1;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -629,7 +632,6 @@ flex: 1;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  background-color: #fafafa;
 }
 
 .btn-secondary {

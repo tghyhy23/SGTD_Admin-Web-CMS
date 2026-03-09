@@ -156,7 +156,7 @@ export const postApi = {
     toggleStatus: (id) => axiosApi.patch(`/post/manage/toggle-status/${id}`),
 
     // 6. Xóa bài viết
-    deletePost: (id) => axiosApi.delete(`/post/manage/${id}`),
+    deletePost: (id) => axiosApi.delete(`/post/${id}`),
 };
 
 export const bannerApi = {
@@ -199,4 +199,200 @@ export const categoryApi = {
     }),
     deleteCategory: (id) => axiosApi.delete(`/service/${id}`),
     toggleStatus: (id) => axiosApi.patch(`/service/${id}/toggle-status`),
+};
+
+export const reviewApi = {
+    // Lấy danh sách review cho Admin (Có filter, phân trang)
+    getAdminReviewsByBranch: (branchId, params) => axiosApi.get(`/review/branch/${branchId}`, { params }),
+    
+    // Tạo review seeding
+    createSeedReview: (formData) => axiosApi.post(`/review`, formData , {
+        headers: { "Content-Type": "multipart/form-data" }, 
+    }),
+    
+    // Cập nhật review seeding
+    updateSeedReview: (id, formData) => axiosApi.put(`/review/${id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+    }),
+    
+    // Ẩn/Hiện review
+    toggleHideReview: (id) => axiosApi.patch(`/review/${id}/toggle-hide`),
+    
+    // Xóa review
+    deleteReview: (id) => axiosApi.delete(`/review/${id}`)
+};
+
+export const promotionApi = {
+    // ============================================
+    // PUBLIC ROUTES
+    // ============================================
+
+    // router.get("/all-active", getAllActivePromotions);
+    getAllActivePromotions: (params) => axiosApi.get("/promotion/all-active", { params }),
+
+    // router.get("/branch/:branchId", getPromotionsByBranch);
+    getPromotionsByBranch: (branchId, params) => axiosApi.get(`/promotion/branch/${branchId}`, { params }),
+
+    // ============================================
+    // ADMIN/MANAGER ROUTES
+    // ============================================
+
+    // router.post("/", protectRoute(ROLE_GROUPS.ADMINS), createPromotion);
+    createPromotion: (formData) => axiosApi.post("/promotion", formData, {
+        headers: { "Content-Type": "multipart/form-data" } // QUAN TRỌNG
+    }),
+
+    // router.get("/", protectRoute(ROLE_GROUPS.ADMINS), getAllPromotions);
+    getAllPromotions: (params) => axiosApi.get("/promotion", { params }),
+
+    // router.get("/:id", protectRoute(ROLE_GROUPS.ADMINS), getPromotionDetail);
+    getPromotionDetail: (id) => axiosApi.get(`/promotion/${id}`),
+
+    // router.put("/:id", protectRoute(ROLE_GROUPS.ADMINS), updatePromotion);
+    updatePromotion: (id, formData) => axiosApi.put(`/promotion/${id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" } // QUAN TRỌNG
+    }),
+
+    // router.patch("/:id/toggle-status", protectRoute(ROLE_GROUPS.ADMINS), togglePromotionStatus);
+    togglePromotionStatus: (id) => axiosApi.patch(`/promotion/${id}/toggle-status`),
+
+    // router.delete("/:id", protectRoute(ROLE_GROUPS.ADMINS), deletePromotion);
+    deletePromotion: (id) => axiosApi.delete(`/promotion/${id}`),
+
+    // router.get("/:id/stats", protectRoute(ROLE_GROUPS.ADMINS), getPromotionStats);
+    getPromotionStats: (id) => axiosApi.get(`/promotion/${id}/stats`),
+};
+
+export const userApi = {
+    // Lấy danh sách (Có sẵn)
+    getAllUsers: (params) => axiosApi.get("/auth/view-all-users", { params }),
+
+    // Lấy profile của chính mình (Có sẵn)
+    getUserProfile: () => axiosApi.get("/auth/user-profile"),
+
+    // Update profile của chính mình (Có sẵn)
+    updateUserProfile: (data) => axiosApi.put("/auth/user-profile/update", data),
+
+    // Xóa tài khoản của chính mình (Có sẵn)
+    deleteAccount: () => axiosApi.delete("/auth/delete-account"),
+    
+    // ==========================================
+    // CÁC HÀM MỚI DÀNH CHO ADMIN QUẢN LÝ USER
+    // ==========================================
+    
+    // Sửa thông tin user bất kỳ (Admin) - Gửi FormData vì backend hỗ trợ up avatar
+    updateUserByAdmin: (id, formData) => axiosApi.put(`/auth/edit-user/${id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+    }),
+
+    // Xóa user bất kỳ (Admin)
+    deleteUserByAdmin: (id) => axiosApi.delete(`/auth/delete-account/${id}`),
+};
+
+export const locationApi = {
+    // ==========================================
+    // PROVINCES
+    // ==========================================
+    getProvinces: (params) => axiosApi.get("/location/provinces", { params }),
+    getProvinceById: (id) => axiosApi.get(`/location/provinces/${id}`),
+    createProvince: (data) => axiosApi.post("/location/provinces", data),
+    updateProvince: (id, data) => axiosApi.put(`/location/provinces/${id}`, data),
+    deleteProvince: (id) => axiosApi.delete(`/location/provinces/${id}`),
+
+    // ==========================================
+    // DISTRICTS
+    // ==========================================
+    getAllDistricts: (params) => axiosApi.get("/location/districts", { params }),
+    getDistrictsByProvince: (provinceId) => axiosApi.get(`/location/districts/province/${provinceId}`),
+    getDistrictById: (id) => axiosApi.get(`/location/districts/${id}`),
+    createDistrict: (data) => axiosApi.post("/location/districts", data),
+    updateDistrict: (id, data) => axiosApi.put(`/location/districts/${id}`, data),
+    deleteDistrict: (id) => axiosApi.delete(`/location/districts/${id}`),
+};
+
+
+export const notificationApi = {
+    // ============================================
+    // USER ROUTES (Dành cho app/web của khách hàng)
+    // ============================================
+    
+    // Lấy danh sách thông báo của tôi (có phân trang, filter)
+    getMyNotifications: (params) => axiosApi.get("/notification/my-notifications", { params }),
+    
+    // Lấy số lượng thông báo chưa đọc
+    getUnreadCount: () => axiosApi.get("/notification/unread-count"),
+    
+    // Đánh dấu 1 thông báo là đã đọc
+    markAsRead: (id) => axiosApi.patch(`/notification/${id}/read`),
+    
+    // Đánh dấu tất cả là đã đọc
+    markAllAsRead: () => axiosApi.patch("/notification/mark-all-read"),
+    
+    // Xóa thông báo (soft delete)
+    deleteNotification: (id) => axiosApi.delete(`/notification/${id}`),
+
+    // ============================================
+    // ADMIN ROUTES (Dành cho trang Quản trị)
+    // ============================================
+    
+    // Lấy thống kê tổng quan (Tổng, đã đọc, chưa đọc, tỷ lệ...)
+    getNotificationStats: () => axiosApi.get("/notification/stats"),
+    
+    // Lấy toàn bộ thông báo trong hệ thống (có filter, search, phân trang)
+    getAllNotifications: (params) => axiosApi.get("/notification", { params }),
+    
+    // Tạo thông báo cho 1 user cụ thể
+    createForUser: (data) => axiosApi.post("/notification/create-for-user", data),
+    
+    // Tạo thông báo cho một danh sách user
+    createForMultipleUsers: (data) => axiosApi.post("/notification/create-for-multiple", data),
+    
+    // Gửi thông báo cho TẤT CẢ user (Broadcast)
+    broadcastNotification: (data) => axiosApi.post("/notification/broadcast", data),
+    
+    // Xóa các thông báo quá cũ để dọn dẹp DB (truyền { days: 90 } vào data)
+    cleanOldNotifications: (data) => axiosApi.post("/notification/clean-old", data),
+};
+
+export const bookingApi = {
+    // Lấy tất cả danh sách booking cho Admin (có phân trang, filter)
+    getAllBookingsAdmin: (params) => axiosApi.get("/booking/admin/all", { params }),
+    
+    // Admin xác nhận lịch
+    confirmBooking: (id) => axiosApi.post(`/booking/${id}/confirm`),
+    
+    // Admin đánh dấu đã hoàn thành sau khi khách khám xong
+    completeBooking: (id) => axiosApi.post(`/booking/${id}/complete`),
+    
+    // Admin xóa lịch
+    deleteBooking: (id) => axiosApi.delete(`/booking/${id}`),
+
+    // (Tùy chọn) Admin Hủy lịch - Nếu backend của bạn cho phép admin gọi route này
+    cancelBooking: (id, data) => axiosApi.post(`/booking/${id}/cancel`, data),
+};
+
+export const systemModuleApi = {
+    getModules: (params) => axiosApi.get("/module", { params }), // Sửa lại route /system-module nếu backend của bạn đặt tên khác
+};
+
+export const warrantyApi = {
+    // PUBLIC
+    getWarrantiesByPhone: (phoneNumber) => axiosApi.get(`/warranty/lookup/${phoneNumber}`),
+
+    // ADMIN
+    getAllWarranties: (params) => axiosApi.get("/warranty", { params }),
+    getWarrantyStats: () => axiosApi.get("/warranty/stats"),
+    getWarrantyDetail: (id) => axiosApi.get(`/warranty/${id}`),
+    
+    // FORM DATA / JSON
+    createWarranty: (data) => axiosApi.post("/warranty", data),
+    updateWarranty: (id, data) => axiosApi.put(`/warranty/${id}`, data),
+    
+    // ACTIONS
+    useWarranty: (id, data) => axiosApi.patch(`/warranty/${id}/use`, data),
+    cancelWarranty: (id, data) => axiosApi.patch(`/warranty/${id}/cancel`, data),
+    deleteWarranty: (id) => axiosApi.delete(`/warranty/${id}`),
+    
+    // CRON
+    updateExpiredWarranties: () => axiosApi.post("/warranty/update-expired"),
 };

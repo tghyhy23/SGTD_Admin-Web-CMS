@@ -1,0 +1,24 @@
+.modal-content-clinic {
+  width: 45%;
+  background-color: #ffffff;
+  border-radius: 12px;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.3s ease-out;
+  overflow: hidden;
+}
+.form-group {
+        /* padding: 8px 24px; */
+}
+.modal-content-review {
+        width: 40%;
+        background-color: #ffffff;
+        border-radius: 12px;
+        max-height: 95vh;
+        display: flex;
+        flex-direction: column;
+        animation: slideUp 0.3s ease-out;
+        overflow: hidden;
+}

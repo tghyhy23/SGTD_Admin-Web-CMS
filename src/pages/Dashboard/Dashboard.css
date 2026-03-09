@@ -1,0 +1,61 @@
+.font-medium { font-weight: 400; }
+.text-dark { color: var(--text-main) }
+.text-gray { color: #6b7280; }
+.text-sm { font-size: 12px; }
+.truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+    white-space: nowrap;
+}
+
+.status-badge.pending {
+    background-color: #fef3c7;
+    color: #d97706;
+    border: 1px solid #fcd34d;
+}
+
+.status-badge.confirmed {
+    background: #377af613;
+    border: 1px solid #377bf6;
+    color: #377bf6;
+    transition: all 0.12s
+}
+
+.status-badge.completed {
+    background-color: #dcfce7;
+    color: #059669;
+    border: 1px solid #bbf7d0;
+}
+
+.status-badge.cancelled {
+    background-color: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+.btn-default {
+        font-weight: 500;
+        font-size: 14px;
+        cursor: pointer;
+        padding: 8px 16px;
+        border-radius: 4px;
+    background-color: #ffffff;
+    color: #333333b1;
+    border: 1px solid #333333b1;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-default:hover {
+    background-color: #e1e1e1;
+}

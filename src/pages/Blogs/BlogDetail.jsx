@@ -47,8 +47,8 @@ const BlogDetail = () => {
     // ==========================================
     // FETCH DỮ LIỆU
     // ==========================================
-    const fetchDetail = async () => {
-        setIsLoading(true);
+    const fetchDetail = async (isSilent = false) => {
+        if (!isSilent) setIsLoading(true);
         try {
             const response = await postApi.getPostById(id);
             if (response && response.success) {
@@ -60,7 +60,7 @@ const BlogDetail = () => {
             console.error("Lỗi lấy chi tiết:", err);
             setError("Lỗi khi tải dữ liệu từ máy chủ.");
         } finally {
-            setIsLoading(false);
+            if (!isSilent) setIsLoading(false);
         }
     };
 
@@ -120,7 +120,7 @@ const BlogDetail = () => {
     };
 
     // ==========================================
-    // GỬI DATA CẬP NHẬT (Gọi API)
+    // GỬI DATA CẬP NHẬT (Optimistic UI Update)
     // ==========================================
     const handleUpdateSubmit = async (e) => {
         e.preventDefault();
@@ -134,23 +134,16 @@ const BlogDetail = () => {
             const submitData = new FormData();
 
             // Thêm các dữ liệu văn bản vào FormData
-            submitData.append("title", formData.title);
-            submitData.append("externalUrl", formData.externalUrl);
-            submitData.append("description", formData.description);
-            submitData.append("serviceType", formData.serviceType);
-            submitData.append("postType", formData.postType);
-            submitData.append("status", formData.status);
-            submitData.append("isFeatured", formData.isFeatured);
-            submitData.append("isPinned", formData.isPinned);
-            submitData.append("notes", formData.notes);
+            Object.keys(formData).forEach((key) => {
+                submitData.append(key, formData[key]);
+            });
 
             // Đảm bảo contentType không bị mất
             submitData.append("contentType", post.contentType || "Post");
 
             // Thêm File ảnh nếu người dùng có chọn ảnh mới
-            // Lưu ý: Đặt tên key "thumbnail" phải khớp với tên field mà Multer (Backend) đang hứng
             if (imageFile) {
-                submitData.append("thumbnail", imageFile);
+                submitData.append("image", imageFile);
             }
 
             // Gọi API cập nhật với formData
@@ -158,11 +151,26 @@ const BlogDetail = () => {
 
             if (response && response.success) {
                 showToast("Cập nhật bài viết thành công!");
-                setIsModalOpen(false);
+                
+                // --- Optimistic Update ---
+                setPost(prev => ({
+                    ...prev,
+                    title: formData.title,
+                    externalUrl: formData.externalUrl,
+                    description: formData.description,
+                    serviceType: formData.serviceType,
+                    postType: formData.postType,
+                    status: formData.status,
+                    isFeatured: formData.isFeatured,
+                    isPinned: formData.isPinned,
+                    notes: formData.notes,
+                    thumbnailUrl: imagePreview || prev.thumbnailUrl, // Cập nhật hình ảnh nếu có đổi
+                    updatedAt: new Date().toISOString()
+                }));
+                // -------------------------
 
-                // Xóa state ảnh và gọi lại API lấy detail
+                setIsModalOpen(false);
                 setImageFile(null);
-                fetchDetail();
             } else {
                 showToast(response?.message || "Lỗi cập nhật bài viết", "error");
             }
@@ -286,11 +294,11 @@ const BlogDetail = () => {
             </div>
 
             {/* ==========================================
-          MODAL FORM CẬP NHẬT BÀI VIẾT (Đã đổi cấu trúc HTML giống ServiceDetail)
+          MODAL FORM CẬP NHẬT BÀI VIẾT
           ========================================== */}
             {isModalOpen && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: "850px" }}>
+                    <div className="modal-content-blogs">
                         <div className="modal-header">
                             <h2>Chỉnh sửa Bài viết</h2>
                             <button className="close-modal-btn" onClick={() => !isSubmitting && setIsModalOpen(false)}>

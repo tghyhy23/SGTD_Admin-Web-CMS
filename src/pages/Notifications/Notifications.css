@@ -1,0 +1,66 @@
+/* Bảng thống kê (Stats Grid) */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: #fff;
+    padding: 24px 20px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.05);
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 6px;
+    font-family: monospace; /* Giúp các con số hiển thị đều đặn hơn */
+}
+
+.stat-label {
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Các màu chữ tùy chỉnh cho Card */
+.text-green { color: #10b981; }
+.text-orange { color: #f59e0b; }
+.text-blue { color: #3b82f6; }
+.text-red { color: #ef4444; }
+
+/* * Để fix lỗi form không xổ dropdown được nếu bị thuộc tính overflow-y: auto cắt mất
+ * ta sử dụng overfow: visible cho form tạo thông báo
+ */
+.modal-form {
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+
+/* Tinh chỉnh cho Custom Dropdown bên trong Modal Form không bị ẩn */
+.filter-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    background: white;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    z-index: 50; /* Z-index cao để đè lên các thành phần khác */
+    width: auto;
+    min-width: 100%;
+}

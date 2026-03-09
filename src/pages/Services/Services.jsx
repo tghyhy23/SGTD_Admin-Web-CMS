@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Services.css";
-import { serviceApi } from "../../api/axiosApi";
+import { serviceApi, categoryApi } from "../../api/axiosApi";
 
 const removeVietnameseTones = (str) => {
     if (!str) return "";
@@ -15,10 +15,14 @@ const removeVietnameseTones = (str) => {
         .trim();
 };
 
+const FALLBACK_IMAGE = "https://via.placeholder.com/150";
+
 const Services = () => {
     const [allProducts, setAllProducts] = useState([]);
     const [categories, setCategories] = useState([]);
     const [rawServices, setRawServices] = useState([]);
+
+    const [activeParentCategory, setActiveParentCategory] = useState(null);
 
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -27,7 +31,7 @@ const Services = () => {
     const [selectedCategory, setSelectedCategory] = useState("");
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
-    const [sortOrder, setSortOrder] = useState("none");
+    const [sortOrder, setSortOrder] = useState("newest");
     const [showSortDropdown, setShowSortDropdown] = useState(false);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -52,6 +56,7 @@ const Services = () => {
         hardness: "",
         transparency: "",
     };
+
     const [formData, setFormData] = useState(initialForm);
     const [imageFiles, setImageFiles] = useState([]);
     const [imagePreviews, setImagePreviews] = useState([]);
@@ -59,76 +64,147 @@ const Services = () => {
 
     const navigate = useNavigate();
 
-    const fetchAllProducts = async (isSilent = false) => {
-        if (!isSilent) setIsLoading(true);
-        try {
-            const serviceRes = await serviceApi.getAllServices();
-
-            if (serviceRes && serviceRes.data && serviceRes.data.services) {
-                const servicesData = serviceRes.data.services;
-                setRawServices(servicesData);
-
-                const uniqueCategories = Array.from(new Set(servicesData.map((s) => s.name)));
-                setCategories(uniqueCategories);
-
-                const productPromises = servicesData.map(async (service) => {
-                    try {
-                        const res = await serviceApi.getVariantsByServiceId(service._id);
-                        if (res && res.success) {
-                            return res.data.variants.map((variant) => ({
-                                id: variant._id,
-                                name: variant.name,
-                                price: variant.price,
-                                unit: variant.unit,
-                                description: variant.description,
-                                image: variant.imageUrls && variant.imageUrls.length > 0 ? variant.imageUrls[0] : service.thumbnailUrl,
-                                category: service.name,
-                                serviceId: service._id,
-                                manufacturer: variant.manufacturer || "",
-                                warranty_period: variant.warranty_period || "",
-                                hardness: variant.hardness || "",
-                                transparency: variant.transparency || "",
-                                imageUrls: variant.imageUrls || [],
-                            }));
-                        }
-                        return [];
-                    } catch (err) {
-                        console.error(`Lỗi lấy variant cho service ${service._id}:`, err);
-                        return [];
-                    }
-                });
-
-                const results = await Promise.all(productPromises);
-                const flatProducts = results.flat();
-
-                setAllProducts(flatProducts);
-            }
-        } catch (err) {
-            setError("Không thể tải danh sách dịch vụ");
-            console.error(err);
-        } finally {
-            if (!isSilent) setIsLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchAllProducts(); 
-    }, []);
-
     const showToast = (message, type = "success") => {
         setToast({ show: true, message, type });
         setTimeout(() => setToast((prev) => ({ ...prev, show: false })), 3000);
     };
 
+    const getActiveCategoryFromStorage = () => {
+        try {
+            const savedCategory = localStorage.getItem("activeCategory");
+            if (!savedCategory) return null;
+            return JSON.parse(savedCategory);
+        } catch (err) {
+            console.error("Lỗi parse activeCategory:", err);
+            return null;
+        }
+    };
+
+    // ==========================================
+    // FETCH DATA THEO PARENT CATEGORY TỪ NAVBAR
+    // ==========================================
+    const fetchProductsByActiveCategory = async () => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const savedCategory = getActiveCategoryFromStorage();
+            setActiveParentCategory(savedCategory);
+
+            const parentId = savedCategory?._id || null;
+
+            // Nếu chưa có activeCategory thì không fetch bừa
+            if (!parentId) {
+                setRawServices([]);
+                setCategories([]);
+                setAllProducts([]);
+                setIsLoading(false);
+                return;
+            }
+
+            // Lấy danh sách service thuộc parent category đang chọn
+            // Giống pattern của page Categories
+            const serviceRes = await categoryApi.getAllCategories({
+                limit: 100,
+                categoryId: parentId,
+            });
+
+            if (!serviceRes || !serviceRes.success) {
+                setRawServices([]);
+                setCategories([]);
+                setAllProducts([]);
+                setError("Không thể tải danh sách dịch vụ.");
+                return;
+            }
+
+            const servicesData = serviceRes.data?.services || [];
+            setRawServices(servicesData);
+
+            const uniqueCategories = Array.from(
+                new Set(servicesData.map((s) => s.name).filter(Boolean))
+            );
+            setCategories(uniqueCategories);
+
+            if (servicesData.length === 0) {
+                setAllProducts([]);
+                return;
+            }
+
+            // Lấy variants của từng service thuộc parent category hiện tại
+            const productPromises = servicesData.map(async (service) => {
+                try {
+                    const res = await serviceApi.getVariantsByServiceId(service._id);
+
+                    if (res && res.success) {
+                        return (res.data?.variants || []).map((variant) => ({
+                            id: variant._id,
+                            _id: variant._id,
+                            name: variant.name,
+                            price: variant.price,
+                            unit: variant.unit,
+                            description: variant.description,
+                            image:
+                                variant.imageUrls && variant.imageUrls.length > 0
+                                    ? variant.imageUrls[0]
+                                    : service.thumbnailUrl || FALLBACK_IMAGE,
+                            category: service.name,
+                            serviceId: service._id,
+                            manufacturer: variant.manufacturer || "",
+                            warranty_period: variant.warranty_period || "",
+                            hardness: variant.hardness || "",
+                            transparency: variant.transparency || "",
+                            imageUrls: variant.imageUrls || [],
+                            createdAt: variant.createdAt || service.createdAt,
+                        }));
+                    }
+
+                    return [];
+                } catch (err) {
+                    console.error(`Lỗi lấy variant cho service ${service._id}:`, err);
+                    return [];
+                }
+            });
+
+            const results = await Promise.all(productPromises);
+            const flatProducts = results.flat();
+
+            setAllProducts(flatProducts);
+        } catch (err) {
+            console.error("Lỗi fetch products theo active category:", err);
+            setError("Không thể tải danh sách sản phẩm/dịch vụ.");
+            setRawServices([]);
+            setCategories([]);
+            setAllProducts([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchProductsByActiveCategory();
+
+        const handleStorageChange = () => {
+            fetchProductsByActiveCategory();
+        };
+
+        window.addEventListener("storage", handleStorageChange);
+        return () => window.removeEventListener("storage", handleStorageChange);
+    }, []);
+
+    // ==========================================
+    // XỬ LÝ ẢNH
+    // ==========================================
     const handleImageChange = (e) => {
         const files = Array.from(e.target.files);
         const totalImages = oldImageUrls.length + imageFiles.length + files.length;
+
         if (totalImages > 5) {
             return showToast("Chỉ được phép upload tối đa 5 ảnh!", "error");
         }
+
         const newPreviews = files.map((file) => URL.createObjectURL(file));
-        setImageFiles([...imageFiles, ...files]);
-        setImagePreviews([...imagePreviews, ...newPreviews]);
+        setImageFiles((prev) => [...prev, ...files]);
+        setImagePreviews((prev) => [...prev, ...newPreviews]);
         e.target.value = null;
     };
 
@@ -148,6 +224,32 @@ const Services = () => {
         setOldImageUrls(updatedOldImages);
     };
 
+    const getCategoryNameByServiceId = (serviceId) => {
+        const service = rawServices.find((s) => s._id === serviceId);
+        return service ? service.name : "";
+    };
+
+    // ==========================================
+    // MỞ MODAL THÊM
+    // ==========================================
+    const openAddModal = () => {
+        setIsEditMode(false);
+        setEditProductId(null);
+
+        setFormData({
+            ...initialForm,
+            serviceId: rawServices?.[0]?._id || "",
+        });
+
+        setImageFiles([]);
+        setImagePreviews([]);
+        setOldImageUrls([]);
+        setIsModalOpen(true);
+    };
+
+    // ==========================================
+    // THÊM MỚI
+    // ==========================================
     const handleCreateSubmit = async (e) => {
         e.preventDefault();
 
@@ -162,13 +264,17 @@ const Services = () => {
 
             Object.keys(formData).forEach((key) => {
                 if (key === "image" || key === "images") return;
-                if (formData[key] !== null && formData[key] !== undefined && formData[key] !== "") {
+                if (
+                    formData[key] !== null &&
+                    formData[key] !== undefined &&
+                    formData[key] !== ""
+                ) {
                     submitData.append(key, formData[key]);
                 }
             });
 
             if (imageFiles && imageFiles.length > 0) {
-                Array.from(imageFiles).forEach((file) => {
+                imageFiles.forEach((file) => {
                     submitData.append("image", file);
                 });
             }
@@ -176,54 +282,93 @@ const Services = () => {
             const response = await serviceApi.createVariant(submitData);
 
             if (response && response.success) {
-                await fetchAllProducts(true); // Đợi lấy data xong
                 showToast("Tạo sản phẩm thành công!");
+
+                const createdVariant = response.data?.variant || response.data;
+                const categoryName = getCategoryNameByServiceId(formData.serviceId);
+
+                const newProduct = {
+                    id: createdVariant?._id || Date.now().toString(),
+                    _id: createdVariant?._id || Date.now().toString(),
+                    name: createdVariant?.name || formData.name,
+                    price: createdVariant?.price || formData.price,
+                    unit: createdVariant?.unit || formData.unit,
+                    description: createdVariant?.description || formData.description,
+                    image:
+                        createdVariant?.imageUrls?.[0] ||
+                        imagePreviews?.[0] ||
+                        FALLBACK_IMAGE,
+                    category: categoryName,
+                    serviceId: formData.serviceId,
+                    manufacturer: createdVariant?.manufacturer || formData.manufacturer,
+                    warranty_period:
+                        createdVariant?.warranty_period || formData.warranty_period,
+                    hardness: createdVariant?.hardness || formData.hardness,
+                    transparency:
+                        createdVariant?.transparency || formData.transparency,
+                    imageUrls: createdVariant?.imageUrls || imagePreviews || [],
+                    createdAt: createdVariant?.createdAt || new Date().toISOString(),
+                };
+
+                setAllProducts((prev) => [newProduct, ...prev]);
+
                 setIsModalOpen(false);
-                setFormData(initialForm);
+                setFormData({
+                    ...initialForm,
+                    serviceId: rawServices?.[0]?._id || "",
+                });
                 setImageFiles([]);
                 setImagePreviews([]);
+                setOldImageUrls([]);
             } else {
                 showToast(response?.message || "Lỗi tạo sản phẩm", "error");
             }
         } catch (error) {
             console.error("Lỗi createVariant:", error);
-            const errorMsg = error.response?.data?.message || "Lỗi kết nối đến máy chủ";
+            const errorMsg =
+                error.response?.data?.message || "Lỗi kết nối đến máy chủ";
             showToast(errorMsg, "error");
         } finally {
             setIsSubmitting(false);
         }
     };
 
+    // ==========================================
+    // CẬP NHẬT
+    // ==========================================
     const handleUpdateSubmit = async (e) => {
         e.preventDefault();
+
         if (!formData.serviceId) {
             return showToast("Vui lòng chọn Danh mục dịch vụ!", "error");
         }
 
         setIsSubmitting(true);
+
         try {
             const submitData = new FormData();
 
             Object.keys(formData).forEach((key) => {
                 if (key === "image" || key === "images") return;
-                if (formData[key] !== null && formData[key] !== undefined && formData[key] !== "") {
+                if (
+                    formData[key] !== null &&
+                    formData[key] !== undefined &&
+                    formData[key] !== ""
+                ) {
                     submitData.append(key, formData[key]);
                 }
             });
 
-            // XỬ LÝ ẢNH CŨ VÀ XÓA ẢNH
             if (oldImageUrls.length === 0 && imageFiles.length === 0) {
-                // Nếu người dùng xóa sạch ảnh cũ và không tải lên ảnh mới
-                submitData.append("images", ""); 
+                submitData.append("images", "");
             } else if (oldImageUrls.length > 0) {
-                // Nếu vẫn còn ảnh cũ
                 oldImageUrls.forEach((url) => {
                     submitData.append("images", url);
                 });
             }
 
             if (imageFiles && imageFiles.length > 0) {
-                Array.from(imageFiles).forEach((file) => {
+                imageFiles.forEach((file) => {
                     submitData.append("image", file);
                 });
             }
@@ -231,9 +376,42 @@ const Services = () => {
             const response = await serviceApi.updateVariant(editProductId, submitData);
 
             if (response && response.success) {
-                await fetchAllProducts(true); // Chờ update giao diện xong mới đóng modal
-                
                 showToast("Cập nhật sản phẩm thành công!");
+
+                const categoryName = getCategoryNameByServiceId(formData.serviceId);
+                const serverVariant = response.data?.variant || response.data;
+                const updatedImageUrls =
+                    serverVariant?.imageUrls || [...oldImageUrls, ...imagePreviews];
+
+                setAllProducts((prev) =>
+                    prev.map((prod) => {
+                        if (prod.id === editProductId) {
+                            return {
+                                ...prod,
+                                name: serverVariant?.name || formData.name,
+                                price: serverVariant?.price || formData.price,
+                                unit: serverVariant?.unit || formData.unit,
+                                description:
+                                    serverVariant?.description || formData.description,
+                                image: updatedImageUrls?.[0] || FALLBACK_IMAGE,
+                                category: categoryName,
+                                serviceId: formData.serviceId,
+                                manufacturer:
+                                    serverVariant?.manufacturer || formData.manufacturer,
+                                warranty_period:
+                                    serverVariant?.warranty_period ||
+                                    formData.warranty_period,
+                                hardness: serverVariant?.hardness || formData.hardness,
+                                transparency:
+                                    serverVariant?.transparency ||
+                                    formData.transparency,
+                                imageUrls: updatedImageUrls,
+                            };
+                        }
+                        return prod;
+                    })
+                );
+
                 setIsModalOpen(false);
                 setFormData(initialForm);
                 setImageFiles([]);
@@ -246,13 +424,17 @@ const Services = () => {
             }
         } catch (error) {
             console.error("Lỗi updateVariant:", error);
-            const errorMsg = error.response?.data?.message || "Lỗi kết nối đến máy chủ";
+            const errorMsg =
+                error.response?.data?.message || "Lỗi kết nối đến máy chủ";
             showToast(errorMsg, "error");
         } finally {
             setIsSubmitting(false);
         }
     };
 
+    // ==========================================
+    // XÓA
+    // ==========================================
     const handleDeleteClick = (e, id, name) => {
         e.stopPropagation();
         setProductToDelete({ id, name });
@@ -265,10 +447,12 @@ const Services = () => {
         setIsSubmitting(true);
         try {
             const response = await serviceApi.deleteVariant(productToDelete.id);
+
             if (response && response.success) {
-                await fetchAllProducts(true);
-                
                 showToast("Xóa sản phẩm thành công!", "success");
+                setAllProducts((prev) =>
+                    prev.filter((prod) => prod.id !== productToDelete.id)
+                );
                 setIsDeleteModalOpen(false);
                 setProductToDelete(null);
             } else {
@@ -276,7 +460,8 @@ const Services = () => {
             }
         } catch (error) {
             console.error("Lỗi deleteVariant:", error);
-            const errorMsg = error.response?.data?.message || "Không thể xóa sản phẩm lúc này";
+            const errorMsg =
+                error.response?.data?.message || "Không thể xóa sản phẩm lúc này";
             showToast(errorMsg, "error");
         } finally {
             setIsSubmitting(false);
@@ -301,8 +486,8 @@ const Services = () => {
         });
 
         setImageFiles([]);
-        setImagePreviews([]); 
-        setOldImageUrls(item.imageUrls || []); 
+        setImagePreviews([]);
+        setOldImageUrls(item.imageUrls || []);
         setIsModalOpen(true);
     };
 
@@ -313,24 +498,32 @@ const Services = () => {
     const filteredProducts = allProducts
         .filter((product) => {
             const normalizedSearchTerm = removeVietnameseTones(searchTerm);
-            const normalizedProductName = removeVietnameseTones(product.name);
-            const normalizedCategoryName = removeVietnameseTones(product.category);
+            const normalizedProductName = removeVietnameseTones(product.name || "");
+            const normalizedCategoryName = removeVietnameseTones(product.category || "");
 
-            const matchesSearch = normalizedProductName.includes(normalizedSearchTerm) || normalizedCategoryName.includes(normalizedSearchTerm);
-            const matchesCategory = selectedCategory === "" || product.category === selectedCategory;
+            const matchesSearch =
+                normalizedProductName.includes(normalizedSearchTerm) ||
+                normalizedCategoryName.includes(normalizedSearchTerm);
+
+            const matchesCategory =
+                selectedCategory === "" || product.category === selectedCategory;
 
             return matchesSearch && matchesCategory;
         })
         .sort((a, b) => {
-            if (sortOrder === "asc") return a.price - b.price;
-            if (sortOrder === "desc") return b.price - a.price;
+            if (sortOrder === "newest") return new Date(b.createdAt) - new Date(a.createdAt);
+            if (sortOrder === "oldest") return new Date(a.createdAt) - new Date(b.createdAt);
+            if (sortOrder === "asc") return Number(a.price || 0) - Number(b.price || 0);
+            if (sortOrder === "desc") return Number(b.price || 0) - Number(a.price || 0);
             return 0;
         });
 
     const getSortLabel = () => {
+        if (sortOrder === "newest") return "Mới nhất";
+        if (sortOrder === "oldest") return "Cũ nhất";
         if (sortOrder === "asc") return "Giá: Thấp đến cao";
         if (sortOrder === "desc") return "Giá: Cao đến thấp";
-        return "Sắp xếp theo giá";
+        return "Mặc định";
     };
 
     if (isLoading) return <div className="state-message">Đang tải dữ liệu...</div>;
@@ -341,18 +534,28 @@ const Services = () => {
             {toast.show && (
                 <div className={`toast-message ${toast.type}`}>
                     <span>{toast.message}</span>
-                    <button className="toast-close" onClick={() => setToast({ ...toast, show: false })}>
+                    <button
+                        className="toast-close"
+                        onClick={() => setToast({ ...toast, show: false })}
+                    >
                         ×
                     </button>
                 </div>
             )}
 
             <div className="services-header-bar">
-                <h1 className="services-title">Quản lý Dịch vụ & Sản phẩm</h1>
+                <h1 className="services-title">
+                    Quản lý Sản phẩm / Biến thể: {activeParentCategory?.title || "N/A"}
+                </h1>
 
                 <div className="services-tools">
                     <div className="search-box">
-                        <input type="text" placeholder="Tìm kiếm dịch vụ..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm sản phẩm..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
 
                     <div className="filter-dropdown-container">
@@ -363,25 +566,32 @@ const Services = () => {
                                 setShowSortDropdown(false);
                             }}
                         >
-                            <span>{selectedCategory === "" ? "Tất cả danh mục" : selectedCategory}</span>
+                            <span>
+                                {selectedCategory === "" ? "Tất cả dịch vụ" : selectedCategory}
+                            </span>
                             <span className="dropdown-arrow">▼</span>
                         </button>
 
                         {showFilterDropdown && (
                             <div className="filter-dropdown-menu">
                                 <div
-                                    className={`filter-option ${selectedCategory === "" ? "active" : ""}`}
+                                    className={`filter-option ${
+                                        selectedCategory === "" ? "active" : ""
+                                    }`}
                                     onClick={() => {
                                         setSelectedCategory("");
                                         setShowFilterDropdown(false);
                                     }}
                                 >
-                                    Tất cả danh mục
+                                    Tất cả dịch vụ
                                 </div>
+
                                 {categories.map((cat, index) => (
                                     <div
                                         key={index}
-                                        className={`filter-option ${selectedCategory === cat ? "active" : ""}`}
+                                        className={`filter-option ${
+                                            selectedCategory === cat ? "active" : ""
+                                        }`}
                                         onClick={() => {
                                             setSelectedCategory(cat);
                                             setShowFilterDropdown(false);
@@ -410,16 +620,31 @@ const Services = () => {
                         {showSortDropdown && (
                             <div className="filter-dropdown-menu">
                                 <div
-                                    className={`filter-option ${sortOrder === "none" ? "active" : ""}`}
+                                    className={`filter-option ${
+                                        sortOrder === "newest" ? "active" : ""
+                                    }`}
                                     onClick={() => {
-                                        setSortOrder("none");
+                                        setSortOrder("newest");
                                         setShowSortDropdown(false);
                                     }}
                                 >
-                                    Mặc định
+                                    Mới nhất (Mặc định)
                                 </div>
                                 <div
-                                    className={`filter-option ${sortOrder === "asc" ? "active" : ""}`}
+                                    className={`filter-option ${
+                                        sortOrder === "oldest" ? "active" : ""
+                                    }`}
+                                    onClick={() => {
+                                        setSortOrder("oldest");
+                                        setShowSortDropdown(false);
+                                    }}
+                                >
+                                    Cũ nhất
+                                </div>
+                                <div
+                                    className={`filter-option ${
+                                        sortOrder === "asc" ? "active" : ""
+                                    }`}
                                     onClick={() => {
                                         setSortOrder("asc");
                                         setShowSortDropdown(false);
@@ -428,7 +653,9 @@ const Services = () => {
                                     Giá: Thấp đến cao
                                 </div>
                                 <div
-                                    className={`filter-option ${sortOrder === "desc" ? "active" : ""}`}
+                                    className={`filter-option ${
+                                        sortOrder === "desc" ? "active" : ""
+                                    }`}
                                     onClick={() => {
                                         setSortOrder("desc");
                                         setShowSortDropdown(false);
@@ -440,19 +667,19 @@ const Services = () => {
                         )}
                     </div>
 
-                    <button
-                        className="add-btn"
-                        onClick={() => {
-                            setIsEditMode(false);
-                            setEditProductId(null);
-                            setFormData(initialForm);
-                            setImageFiles([]);
-                            setImagePreviews([]);
-                            setOldImageUrls([]);
-                            setIsModalOpen(true);
-                        }}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus-icon lucide-plus" style={{ marginRight: "6px" }}>
+                    <button className="add-btn" onClick={openAddModal}>
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            style={{ marginRight: "6px" }}
+                        >
                             <path d="M5 12h14" />
                             <path d="M12 5v14" />
                         </svg>
@@ -468,7 +695,7 @@ const Services = () => {
                             <th>STT</th>
                             <th>Hình ảnh</th>
                             <th>Tên sản phẩm</th>
-                            <th>Danh mục</th>
+                            <th>Dịch vụ</th>
                             <th>Giá</th>
                             <th>Đơn vị</th>
                             <th>Thao tác</th>
@@ -476,15 +703,19 @@ const Services = () => {
                     </thead>
                     <tbody>
                         {filteredProducts.map((item, index) => (
-                            <tr key={item.id} onClick={() => handleRowClick(item.id)} className="clickable-row">
+                            <tr
+                                key={item.id}
+                                onClick={() => handleRowClick(item.id)}
+                                className="clickable-row"
+                            >
                                 <td>{index + 1}</td>
                                 <td className="td-image">
                                     <img
-                                        src={item.image}
+                                        src={item.image || FALLBACK_IMAGE}
                                         alt={item.name}
                                         className="product-image"
                                         onError={(e) => {
-                                            e.target.src = "https://via.placeholder.com/150";
+                                            e.target.src = FALLBACK_IMAGE;
                                         }}
                                     />
                                 </td>
@@ -498,17 +729,27 @@ const Services = () => {
                                     <span className="category-badge">{item.category}</span>
                                 </td>
                                 <td>
-                                    <span className="product-price">{item.price?.toLocaleString("vi-VN")} đ</span>
+                                    <span className="product-price">
+                                        {Number(item.price || 0).toLocaleString("vi-VN")} đ
+                                    </span>
                                 </td>
                                 <td>
                                     <span className="product-unit">{item.unit || "-"}</span>
                                 </td>
                                 <td>
                                     <div className="action-row">
-                                        <button className="action-btn btn-edit" onClick={(e) => handleEditClick(e, item)}>
+                                        <button
+                                            className="action-btn btn-edit"
+                                            onClick={(e) => handleEditClick(e, item)}
+                                        >
                                             Sửa
                                         </button>
-                                        <button className="action-btn btn-delete" onClick={(e) => handleDeleteClick(e, item.id, item.name)}>
+                                        <button
+                                            className="action-btn btn-delete"
+                                            onClick={(e) =>
+                                                handleDeleteClick(e, item.id, item.name)
+                                            }
+                                        >
                                             Xóa
                                         </button>
                                     </div>
@@ -518,28 +759,65 @@ const Services = () => {
                     </tbody>
                 </table>
 
-                {filteredProducts.length === 0 && <div className="state-message">Không tìm thấy sản phẩm nào phù hợp.</div>}
+                {filteredProducts.length === 0 && (
+                    <div className="state-message">
+                        Không có sản phẩm nào trong mục {activeParentCategory?.title || "này"}.
+                    </div>
+                )}
             </div>
 
             {isModalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
                         <div className="modal-header">
-                            <h2>{isEditMode ? "Cập nhật Sản phẩm/Dịch vụ" : "Thêm mới Sản phẩm/Dịch vụ"}</h2>
-                            <button className="close-modal-btn" onClick={() => setIsModalOpen(false)}>
+                            <h2>
+                                {isEditMode
+                                    ? "Cập nhật Sản phẩm/Dịch vụ"
+                                    : "Thêm mới Sản phẩm/Dịch vụ"}
+                            </h2>
+                            <button
+                                className="close-modal-btn"
+                                onClick={() => !isSubmitting && setIsModalOpen(false)}
+                            >
                                 ×
                             </button>
                         </div>
 
-                        <form className="modal-form" onSubmit={isEditMode ? handleUpdateSubmit : handleCreateSubmit}>
+                        <form
+                            className="modal-form"
+                            onSubmit={isEditMode ? handleUpdateSubmit : handleCreateSubmit}
+                        >
                             <div className="form-grid">
                                 <div className="form-column-left">
                                     <div className="form-group">
+                                        <label>Thuộc danh mục gốc (từ Navbar)</label>
+                                        <input
+                                            type="text"
+                                            value={activeParentCategory?.title || "N/A"}
+                                            disabled
+                                            style={{
+                                                backgroundColor: "#f3f4f6",
+                                                color: "#12915A",
+                                                fontWeight: "bold",
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
                                         <label>
-                                            Danh mục Dịch vụ <span className="required">*</span>
+                                            Dịch vụ <span className="required">*</span>
                                         </label>
-                                        <select required value={formData.serviceId} onChange={(e) => setFormData({ ...formData, serviceId: e.target.value })}>
-                                            <option value="">-- Chọn danh mục --</option>
+                                        <select
+                                            required
+                                            value={formData.serviceId}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    serviceId: e.target.value,
+                                                })
+                                            }
+                                        >
+                                            <option value="">-- Chọn dịch vụ --</option>
                                             {rawServices.map((srv) => (
                                                 <option key={srv._id} value={srv._id}>
                                                     {srv.name}
@@ -552,7 +830,18 @@ const Services = () => {
                                         <label>
                                             Tên sản phẩm <span className="required">*</span>
                                         </label>
-                                        <input type="text" required placeholder="VD: Implant Zygoma" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="VD: Implant Zygoma"
+                                            value={formData.name}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    name: e.target.value,
+                                                })
+                                            }
+                                        />
                                     </div>
 
                                     <div className="form-row-2">
@@ -560,17 +849,49 @@ const Services = () => {
                                             <label>
                                                 Giá (VNĐ) <span className="required">*</span>
                                             </label>
-                                            <input type="number" required min="0" placeholder="VD: 45000000" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} />
+                                            <input
+                                                type="number"
+                                                required
+                                                min="0"
+                                                placeholder="VD: 45000000"
+                                                value={formData.price}
+                                                onChange={(e) =>
+                                                    setFormData({
+                                                        ...formData,
+                                                        price: e.target.value,
+                                                    })
+                                                }
+                                            />
                                         </div>
                                         <div className="form-group">
                                             <label>Đơn vị</label>
-                                            <input type="text" placeholder="VD: cái, răng" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} />
+                                            <input
+                                                type="text"
+                                                placeholder="VD: cái, răng"
+                                                value={formData.unit}
+                                                onChange={(e) =>
+                                                    setFormData({
+                                                        ...formData,
+                                                        unit: e.target.value,
+                                                    })
+                                                }
+                                            />
                                         </div>
                                     </div>
 
                                     <div className="form-group">
                                         <label>Mô tả chi tiết</label>
-                                        <textarea rows="4" placeholder="Nhập mô tả sản phẩm..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })}></textarea>
+                                        <textarea
+                                            rows="4"
+                                            placeholder="Nhập mô tả sản phẩm..."
+                                            value={formData.description}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    description: e.target.value,
+                                                })
+                                            }
+                                        ></textarea>
                                     </div>
 
                                     <div className="form-group">
@@ -579,7 +900,11 @@ const Services = () => {
                                             {oldImageUrls.map((url, index) => (
                                                 <div key={`old-${index}`} className="image-preview-box">
                                                     <img src={url} alt={`old-preview-${index}`} />
-                                                    <button type="button" className="remove-img-btn" onClick={() => removeOldImage(index)}>
+                                                    <button
+                                                        type="button"
+                                                        className="remove-img-btn"
+                                                        onClick={() => removeOldImage(index)}
+                                                    >
                                                         ×
                                                     </button>
                                                 </div>
@@ -588,19 +913,34 @@ const Services = () => {
                                             {imagePreviews.map((src, index) => (
                                                 <div key={`new-${index}`} className="image-preview-box">
                                                     <img src={src} alt={`new-preview-${index}`} />
-                                                    <button type="button" className="remove-img-btn" onClick={() => removeNewImage(index)}>
+                                                    <button
+                                                        type="button"
+                                                        className="remove-img-btn"
+                                                        onClick={() => removeNewImage(index)}
+                                                    >
                                                         ×
                                                     </button>
                                                 </div>
                                             ))}
 
                                             {oldImageUrls.length + imagePreviews.length < 5 && (
-                                                <div className="image-upload-btn" onClick={() => fileInputRef.current.click()}>
+                                                <div
+                                                    className="image-upload-btn"
+                                                    onClick={() => fileInputRef.current.click()}
+                                                >
                                                     <span>+ Tải ảnh</span>
                                                 </div>
                                             )}
                                         </div>
-                                        <input type="file" multiple accept="image/*" ref={fileInputRef} style={{ display: "none" }} onChange={handleImageChange} />
+
+                                        <input
+                                            type="file"
+                                            multiple
+                                            accept="image/*"
+                                            ref={fileInputRef}
+                                            style={{ display: "none" }}
+                                            onChange={handleImageChange}
+                                        />
                                     </div>
                                 </div>
 
@@ -609,32 +949,85 @@ const Services = () => {
 
                                     <div className="form-group">
                                         <label>Xuất xứ / Hãng SX</label>
-                                        <input type="text" placeholder="VD: Đức, Mỹ" value={formData.manufacturer} onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })} />
+                                        <input
+                                            type="text"
+                                            placeholder="VD: Đức, Mỹ"
+                                            value={formData.manufacturer}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    manufacturer: e.target.value,
+                                                })
+                                            }
+                                        />
                                     </div>
 
                                     <div className="form-group">
                                         <label>Thời gian bảo hành</label>
-                                        <input type="text" placeholder="VD: 10 năm" value={formData.warranty_period} onChange={(e) => setFormData({ ...formData, warranty_period: e.target.value })} />
+                                        <input
+                                            type="text"
+                                            placeholder="VD: 10 năm"
+                                            value={formData.warranty_period}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    warranty_period: e.target.value,
+                                                })
+                                            }
+                                        />
                                     </div>
 
                                     <div className="form-group">
                                         <label>Độ cứng (Mpa)</label>
-                                        <input type="text" placeholder="VD: 500-530Mpa" value={formData.hardness} onChange={(e) => setFormData({ ...formData, hardness: e.target.value })} />
+                                        <input
+                                            type="text"
+                                            placeholder="VD: 500-530Mpa"
+                                            value={formData.hardness}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    hardness: e.target.value,
+                                                })
+                                            }
+                                        />
                                     </div>
 
                                     <div className="form-group">
                                         <label>Độ trong suốt</label>
-                                        <input type="text" placeholder="VD: Cao, tự nhiên" value={formData.transparency} onChange={(e) => setFormData({ ...formData, transparency: e.target.value })} />
+                                        <input
+                                            type="text"
+                                            placeholder="VD: Cao, tự nhiên"
+                                            value={formData.transparency}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    transparency: e.target.value,
+                                                })
+                                            }
+                                        />
                                     </div>
                                 </div>
                             </div>
 
                             <div className="modal-footer">
-                                <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}>
+                                <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    onClick={() => setIsModalOpen(false)}
+                                    disabled={isSubmitting}
+                                >
                                     Hủy bỏ
                                 </button>
-                                <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                                    {isSubmitting ? "Đang xử lý..." : isEditMode ? "Lưu thay đổi" : "Lưu sản phẩm"}
+                                <button
+                                    type="submit"
+                                    className="btn-primary"
+                                    disabled={isSubmitting}
+                                >
+                                    {isSubmitting
+                                        ? "Đang xử lý..."
+                                        : isEditMode
+                                        ? "Lưu thay đổi"
+                                        : "Lưu sản phẩm"}
                                 </button>
                             </div>
                         </form>
@@ -649,15 +1042,28 @@ const Services = () => {
 
                         <p className="delete-message">
                             Bạn có chắc chắn muốn xóa sản phẩm <br />
-                            <strong className="delete-product-name">"{productToDelete?.name}"</strong> không?
-                            <span className="delete-warning">Hành động này không thể hoàn tác!</span>
+                            <strong className="delete-product-name">
+                                "{productToDelete?.name}"
+                            </strong>{" "}
+                            không?
+                            <span className="delete-warning">
+                                Hành động này không thể hoàn tác!
+                            </span>
                         </p>
 
                         <div className="modal-footer-delete">
-                            <button className="btn-secondary" onClick={() => setIsDeleteModalOpen(false)} disabled={isSubmitting}>
+                            <button
+                                className="btn-secondary"
+                                onClick={() => setIsDeleteModalOpen(false)}
+                                disabled={isSubmitting}
+                            >
                                 Hủy bỏ
                             </button>
-                            <button className="btn-danger" onClick={confirmDelete} disabled={isSubmitting}>
+                            <button
+                                className="btn-danger"
+                                onClick={confirmDelete}
+                                disabled={isSubmitting}
+                            >
                                 {isSubmitting ? "Đang xóa..." : "Xác nhận xóa"}
                             </button>
                         </div>

@@ -1,0 +1,124 @@
+.modal-content-promotion {
+  background-color: #ffffff;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  width: 95%;
+   max-width: 1200px;
+    max-height: 80vh;
+    overflow-y: hidden;
+}
+
+/* =========================================
+   CSS CHO PHẦN CHECKBOX DỊCH VỤ
+========================================= */
+.checkbox-list-container {
+    max-height: 180px; /* Giới hạn chiều cao và hiển thị thanh cuộn */
+    overflow-y: auto;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 10px;
+    background-color: #f9fafb;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #374151;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.checkbox-item:hover {
+    background-color: #f3f4f6;
+}
+
+.checkbox-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--primary-color, #0284c7); /* Màu chủ đạo của bạn */
+}
+
+/* =========================================
+   CSS CHO PHẦN UPLOAD ẢNH
+========================================= */
+.image-upload-wrapper {
+    margin-top: 5px;
+}
+
+.upload-btn-wrapper {
+    position: relative;
+    overflow: hidden;
+    display: inline-block;
+}
+
+.btn-upload {
+    border: 1px dashed #9ca3af;
+    color: #4b5563;
+    background-color: #f9fafb;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    width: 100%;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.btn-upload:hover {
+    background-color: #f3f4f6;
+    border-color: #6b7280;
+}
+
+.upload-btn-wrapper input[type=file] {
+    font-size: 100px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0;
+    cursor: pointer;
+    height: 100%;
+}
+
+.image-preview-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    border: 1px solid #e5e7eb;
+    padding: 10px;
+    border-radius: 6px;
+    background-color: #f9fafb;
+}
+
+.image-preview {
+    max-width: 100%;
+    max-height: 150px;
+    object-fit: contain;
+    border-radius: 4px;
+    border: 1px solid #d1d5db;
+}
+
+.btn-remove-image {
+    background-color: #fee2e2;
+    color: #ef4444;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-remove-image:hover {
+    background-color: #fecaca;
+}
+

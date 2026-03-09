@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+// src/pages/Blogs/Blogs.jsx
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { postApi } from "../../api/axiosApi"; // Đảm bảo import đúng đường dẫn của bạn
-import "./Blogs.css"; // Dùng chung file CSS với Clinics
+import { postApi } from "../../api/axiosApi";
+import "./Blogs.css";
 
 const removeVietnameseTones = (str) => {
     if (!str) return "";
@@ -22,9 +23,9 @@ const Blogs = () => {
     const [error, setError] = useState(null);
 
     const [searchTerm, setSearchTerm] = useState("");
-    const [filterStatus, setFilterStatus] = useState("all"); 
+    const [filterStatus, setFilterStatus] = useState("all");
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-    const [sortOrder, setSortOrder] = useState("newest"); 
+    const [sortOrder, setSortOrder] = useState("newest");
     const [showSortDropdown, setShowSortDropdown] = useState(false);
 
     // ==========================================
@@ -35,13 +36,33 @@ const Blogs = () => {
     const [postToDelete, setPostToDelete] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // ==========================================
+    // STATE MỚI: MODAL THÊM BÀI VIẾT
+    // ==========================================
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const fileInputRef = useRef(null);
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+
+    const initialForm = {
+        title: "",
+        externalUrl: "",
+        description: "",
+        serviceType: "Nha khoa",
+        postType: "Bài SEO",
+        status: "ACTIVE",
+        isFeatured: false,
+        isPinned: false,
+        notes: "",
+    };
+    const [formData, setFormData] = useState(initialForm);
+
     const navigate = useNavigate();
 
     // FETCH DATA
     const fetchAllPosts = async () => {
         setIsLoading(true);
         try {
-            // Lấy limit cao để demo search/filter frontend giống trang Clinics
             const res = await postApi.getAllPosts({ limit: 100 });
             if (res && res.success) {
                 setPosts(res.data.posts || []);
@@ -67,7 +88,7 @@ const Blogs = () => {
     };
 
     // ==========================================
-    // XỬ LÝ XÓA BÀI VIẾT
+    // XỬ LÝ XÓA BÀI VIẾT (Optimistic Update)
     // ==========================================
     const handleDeleteClick = (e, id, title) => {
         e.stopPropagation();
@@ -77,15 +98,18 @@ const Blogs = () => {
 
     const confirmDelete = async () => {
         if (!postToDelete) return;
-
         setIsSubmitting(true);
         try {
             const response = await postApi.deletePost(postToDelete.id);
             if (response && response.success) {
                 showToast("Xóa bài viết thành công!", "success");
+                
+                // --- Optimistic Update ---
+                setPosts((prev) => prev.filter((post) => post._id !== postToDelete.id));
+                // -------------------------
+
                 setIsDeleteModalOpen(false);
                 setPostToDelete(null);
-                fetchAllPosts(); // Render lại danh sách
             } else {
                 showToast(response?.message || "Lỗi xóa bài viết", "error");
             }
@@ -98,9 +122,102 @@ const Blogs = () => {
         }
     };
 
+    // ==========================================
+    // XỬ LÝ THÊM MỚI BÀI VIẾT (MODAL - Optimistic Update)
+    // ==========================================
+    const handleAddClick = () => {
+        setFormData(initialForm);
+        setImageFile(null);
+        setImagePreview(null);
+        setIsAddModalOpen(true);
+    };
+
+    const handleInputChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData((prev) => ({
+            ...prev,
+            [name]: type === "checkbox" ? checked : value,
+        }));
+    };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
+        e.target.value = null; // Reset input file
+    };
+
+    const removeImage = () => {
+        setImageFile(null);
+        setImagePreview(null);
+    };
+
+    const handleAddSubmit = async (e) => {
+        e.preventDefault();
+        if (!formData.title || !formData.externalUrl) {
+            return showToast("Vui lòng nhập đủ Tiêu đề và Link URL!", "error");
+        }
+
+        setIsSubmitting(true);
+        try {
+            const submitData = new FormData();
+
+            // Append text data
+            Object.keys(formData).forEach((key) => {
+                if (key === "keywords") {
+                    submitData.append(key, JSON.stringify(formData[key]));
+                } else {
+                    submitData.append(key, formData[key]);
+                }
+            });
+
+            // Backend mặc định cần contentType cho post
+            submitData.append("contentType", "Post");
+
+            if (imageFile) {
+                submitData.append("image", imageFile);
+            }
+
+            const response = await postApi.createPost(submitData);
+
+            if (response && response.success) {
+                showToast("Thêm bài viết thành công!");
+                
+                // --- Optimistic Update ---
+                const newPost = response.data?.post || response.data || {
+                    _id: Date.now().toString(),
+                    title: formData.title,
+                    externalUrl: formData.externalUrl,
+                    description: formData.description,
+                    postType: formData.postType,
+                    status: formData.status,
+                    isFeatured: formData.isFeatured,
+                    isPinned: formData.isPinned,
+                    clickCount: 0,
+                    thumbnailUrl: imagePreview || "",
+                    createdAt: new Date().toISOString()
+                };
+                setPosts(prev => [newPost, ...prev]);
+                // -------------------------
+
+                setIsAddModalOpen(false);
+            } else {
+                showToast(response?.message || "Lỗi tạo bài viết", "error");
+            }
+        } catch (error) {
+            console.error("Lỗi createPost:", error);
+            const errorMsg = error.response?.data?.message || "Lỗi kết nối đến máy chủ";
+            showToast(errorMsg, "error");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     // CLICK VÀO HÀNG ĐỂ XEM CHI TIẾT
     const handleRowClick = (id) => {
-        navigate(`/blogs/${id}`); // Đường dẫn sang chi tiết bài viết
+        navigate(`/blogs/${id}`);
     };
 
     // LOGIC FILTER VÀ SORT
@@ -108,7 +225,7 @@ const Blogs = () => {
         .filter((post) => {
             const normalizedSearch = removeVietnameseTones(searchTerm);
             const normalizedTitle = removeVietnameseTones(post.title);
-            
+
             const matchesSearch = normalizedTitle.includes(normalizedSearch);
 
             let matchesStatus = true;
@@ -156,12 +273,7 @@ const Blogs = () => {
 
                 <div className="services-tools">
                     <div className="search-box">
-                        <input 
-                            type="text" 
-                            placeholder="Tìm tiêu đề bài viết..." 
-                            value={searchTerm} 
-                            onChange={(e) => setSearchTerm(e.target.value)} 
-                        />
+                        <input type="text" placeholder="Tìm tiêu đề bài viết..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
 
                     <div className="filter-dropdown-container">
@@ -175,16 +287,33 @@ const Blogs = () => {
                             <span>{getStatusLabel()}</span>
                             <span className="dropdown-arrow">▼</span>
                         </button>
-
                         {showFilterDropdown && (
                             <div className="filter-dropdown-menu">
-                                <div className={`filter-option ${filterStatus === "all" ? "active" : ""}`} onClick={() => { setFilterStatus("all"); setShowFilterDropdown(false); }}>
+                                <div
+                                    className={`filter-option ${filterStatus === "all" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("all");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
                                     Tất cả trạng thái
                                 </div>
-                                <div className={`filter-option ${filterStatus === "active" ? "active" : ""}`} onClick={() => { setFilterStatus("active"); setShowFilterDropdown(false); }}>
+                                <div
+                                    className={`filter-option ${filterStatus === "active" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("active");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
                                     Đang hoạt động
                                 </div>
-                                <div className={`filter-option ${filterStatus === "inactive" ? "active" : ""}`} onClick={() => { setFilterStatus("inactive"); setShowFilterDropdown(false); }}>
+                                <div
+                                    className={`filter-option ${filterStatus === "inactive" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("inactive");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
                                     Đang ẩn (Ngừng hoạt động)
                                 </div>
                             </div>
@@ -203,20 +332,32 @@ const Blogs = () => {
                             <span>{getSortLabel()}</span>
                             <span className="dropdown-arrow">▼</span>
                         </button>
-
                         {showSortDropdown && (
                             <div className="filter-dropdown-menu">
-                                <div className={`filter-option ${sortOrder === "newest" ? "active" : ""}`} onClick={() => { setSortOrder("newest"); setShowSortDropdown(false); }}>
+                                <div
+                                    className={`filter-option ${sortOrder === "newest" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setSortOrder("newest");
+                                        setShowSortDropdown(false);
+                                    }}
+                                >
                                     Ngày tạo: Mới nhất
                                 </div>
-                                <div className={`filter-option ${sortOrder === "oldest" ? "active" : ""}`} onClick={() => { setSortOrder("oldest"); setShowSortDropdown(false); }}>
+                                <div
+                                    className={`filter-option ${sortOrder === "oldest" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setSortOrder("oldest");
+                                        setShowSortDropdown(false);
+                                    }}
+                                >
                                     Ngày tạo: Cũ nhất
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    <button className="add-btn" onClick={() => navigate('/blogs/create')}>
+                    {/* NÚT THÊM MỚI */}
+                    <button className="add-btn" onClick={handleAddClick}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "6px" }}>
                             <path d="M5 12h14" />
                             <path d="M12 5v14" />
@@ -248,42 +389,46 @@ const Blogs = () => {
                                         src={post.thumbnailUrl || FALLBACK_IMG}
                                         alt={post.title}
                                         className="product-image"
-                                        onError={(e) => { e.target.src = FALLBACK_IMG; }}
+                                        onError={(e) => {
+                                            e.target.src = FALLBACK_IMG;
+                                        }}
                                     />
                                 </td>
                                 <td>
-                                    <div className="product-name" style={{ whiteSpace: 'normal', WebkitLineClamp: 2, display: '-webkit-box', WebkitBoxOrient: 'vertical' }}>
+                                    <div className="product-name" style={{ whiteSpace: "normal", WebkitLineClamp: 2, display: "-webkit-box", WebkitBoxOrient: "vertical" }}>
                                         {post.title}
                                     </div>
-                                    <div className="product-desc" style={{ color: '#3b82f6', fontSize: '12px' }} title={post.externalUrl}>
+                                    <div className="product-desc" style={{ color: "#3b82f6", fontSize: "12px" }} title={post.externalUrl}>
                                         {post.externalUrl}
                                     </div>
                                 </td>
                                 <td>
-                                    <span style={{ fontWeight: '500', color: '#4b5563' }}>{post.postType || 'Bài SEO'}</span>
-                                    {post.isFeatured && (
-                                        <span style={{ display: 'block', fontSize: '12px', color: '#f59e0b', marginTop: '4px' }}>
-                                            ★ Nổi bật
-                                        </span>
-                                    )}
+                                    <span style={{ fontWeight: "500", color: "#4b5563" }}>{post.postType || "Bài SEO"}</span>
+                                    {post.isFeatured && <span style={{ display: "block", fontSize: "12px", color: "#f59e0b", marginTop: "4px" }}>★ Nổi bật</span>}
                                 </td>
                                 <td>
-                                    <span style={{ fontWeight: '600', color: '#6366f1' }}>{post.clickCount || 0}</span>
+                                    <span style={{ fontWeight: "600", color: "#6366f1" }}>{post.clickCount || 0}</span>
                                 </td>
                                 <td>
-                                    {post.status === 'ACTIVE' ? (
-                                        <span className="category-badge" style={{ backgroundColor: '#dcfce7', color: '#059669', borderColor: '#059669' }}>
+                                    {post.status === "ACTIVE" ? (
+                                        <span className="category-badge" style={{ backgroundColor: "#dcfce7", color: "#059669", borderColor: "#059669" }}>
                                             Đang hoạt động
                                         </span>
                                     ) : (
-                                        <span className="category-badge" style={{ backgroundColor: '#fee2e2', color: '#dc2626', borderColor: '#dc2626' }}>
+                                        <span className="category-badge" style={{ backgroundColor: "#fee2e2", color: "#dc2626", borderColor: "#dc2626" }}>
                                             Đang ẩn
                                         </span>
                                     )}
                                 </td>
                                 <td>
                                     <div className="action-row">
-                                        <button className="action-btn btn-edit" onClick={(e) => { e.stopPropagation(); handleRowClick(post._id); }}>
+                                        <button
+                                            className="action-btn btn-edit"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleRowClick(post._id);
+                                            }}
+                                        >
                                             Xem chi tiết
                                         </button>
                                         <button className="action-btn btn-delete" onClick={(e) => handleDeleteClick(e, post._id, post.title)}>
@@ -300,6 +445,128 @@ const Blogs = () => {
             </div>
 
             {/* ==========================================
+                MODAL THÊM BÀI VIẾT (TẠO MỚI)
+                ========================================== */}
+            {isAddModalOpen && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: "850px" }}>
+                        <div className="modal-header">
+                            <h2>Thêm Bài Viết Mới</h2>
+                            <button className="close-modal-btn" onClick={() => !isSubmitting && setIsAddModalOpen(false)}>
+                                ×
+                            </button>
+                        </div>
+
+                        <form className="modal-form" onSubmit={handleAddSubmit}>
+                            <div className="form-grid-blog">
+                                {/* Cột trái */}
+                                <div className="form-column-left">
+                                    <div className="form-group">
+                                        <label>
+                                            Tiêu đề bài viết <span className="required">*</span>
+                                        </label>
+                                        <input type="text" name="title" required placeholder="Nhập tiêu đề..." value={formData.title} onChange={handleInputChange} disabled={isSubmitting} />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>
+                                            Đường dẫn bài viết (URL) <span className="required">*</span>
+                                        </label>
+                                        <input type="url" name="externalUrl" required placeholder="https://..." value={formData.externalUrl} onChange={handleInputChange} disabled={isSubmitting} />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Mô tả ngắn (SEO)</label>
+                                        <textarea name="description" rows="5" placeholder="Mô tả SEO..." value={formData.description} onChange={handleInputChange} disabled={isSubmitting}></textarea>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Hình ảnh (Thumbnail)</label>
+                                        <div className="image-upload-container">
+                                            {imagePreview ? (
+                                                <div className="image-preview-box blog-preview-box">
+                                                    <img src={imagePreview} alt="Preview" className="blog-preview-img" />
+                                                    <button type="button" className="remove-img-btn" onClick={removeImage}>
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="image-upload-btn blog-upload-btn" onClick={() => fileInputRef.current.click()}>
+                                                    <span>+ Tải ảnh</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <input type="file" accept="image/*" ref={fileInputRef} className="hidden-file-input" onChange={handleImageChange} />
+                                    </div>
+                                </div>
+
+                                {/* Cột phải */}
+                                <div className="form-column-right">
+                                    <h3 className="form-sub-title">Cài đặt & Phân loại</h3>
+
+                                    <div className="form-group">
+                                        <label>Loại Dịch Vụ (Service Type)</label>
+                                        <select name="serviceType" value={formData.serviceType} onChange={handleInputChange} disabled={isSubmitting}>
+                                            <option value="Nha khoa">Nha Khoa</option>
+                                            <option value="THẨM MỸ">Thẩm Mỹ</option>
+                                            <option value="SPA">Spa</option>
+                                            <option value="DA LIỄU">Da Liễu</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Loại Bài (Post Type)</label>
+                                        <select name="postType" value={formData.postType} onChange={handleInputChange} disabled={isSubmitting}>
+                                            <option value="Bài SEO">Bài SEO</option>
+                                            <option value="Tin tức">Tin tức</option>
+                                            <option value="Khuyến mãi">Khuyến mãi</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Trạng thái</label>
+                                        <select name="status" value={formData.status} onChange={handleInputChange} disabled={isSubmitting}>
+                                            <option value="ACTIVE">Hoạt động (ACTIVE)</option>
+                                            <option value="INACTIVE">Ẩn (INACTIVE)</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="blog-checkbox-row">
+                                        <div className="checkbox-item">
+                                            <input type="checkbox" id="isFeatured" name="isFeatured" checked={formData.isFeatured} onChange={handleInputChange} disabled={isSubmitting} className="blog-checkbox" />
+                                            <label htmlFor="isFeatured" className="blog-checkbox-label">
+                                                Bài nổi bật (⭐)
+                                            </label>
+                                        </div>
+                                        <div className="checkbox-item">
+                                            <input type="checkbox" id="isPinned" name="isPinned" checked={formData.isPinned} onChange={handleInputChange} disabled={isSubmitting} className="blog-checkbox" />
+                                            <label htmlFor="isPinned" className="blog-checkbox-label">
+                                                Ghim lên đầu (📌)
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group blog-notes-group">
+                                        <label>Ghi chú nội bộ</label>
+                                        <textarea name="notes" rows="4" placeholder="Chỉ Admin xem được..." value={formData.notes} onChange={handleInputChange} disabled={isSubmitting}></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="modal-footer">
+                                <button type="button" className="btn-secondary" onClick={() => setIsAddModalOpen(false)} disabled={isSubmitting}>
+                                    Hủy bỏ
+                                </button>
+                                <button type="submit" className="btn-primary" disabled={isSubmitting}>
+                                    {isSubmitting ? "Đang xử lý..." : "Lưu bài viết"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ==========================================
                 MODAL XÁC NHẬN XÓA 
                 ========================================== */}
             {isDeleteModalOpen && (
@@ -314,28 +581,20 @@ const Blogs = () => {
                                 <line x1="14" y1="11" x2="14" y2="17"></line>
                             </svg>
                         </div>
-                        
+
                         <h3 className="delete-header">Xác nhận xóa</h3>
-                        
+
                         <p className="delete-message">
-                            Bạn có chắc chắn muốn xóa bài viết <br/>
+                            Bạn có chắc chắn muốn xóa bài viết <br />
                             <strong className="delete-product-name">"{postToDelete?.title}"</strong> không?
                             <span className="delete-warning">Hành động này không thể hoàn tác!</span>
                         </p>
-                        
+
                         <div className="modal-footer-delete">
-                            <button 
-                                className="btn-secondary" 
-                                onClick={() => setIsDeleteModalOpen(false)}
-                                disabled={isSubmitting}
-                            >
+                            <button className="btn-secondary" onClick={() => setIsDeleteModalOpen(false)} disabled={isSubmitting}>
                                 Hủy bỏ
                             </button>
-                            <button 
-                                className="btn-danger" 
-                                onClick={confirmDelete}
-                                disabled={isSubmitting}
-                            >
+                            <button className="btn-danger" onClick={confirmDelete} disabled={isSubmitting}>
                                 {isSubmitting ? "Đang xóa..." : "Xác nhận xóa"}
                             </button>
                         </div>

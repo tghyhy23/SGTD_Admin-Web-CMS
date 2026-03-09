@@ -5,7 +5,6 @@
     background-color: var(--bg-color, #f9fafb);
     min-height: 100vh;
 }
-
 /* Toast Override */
 .fixed-toast {
     position: fixed;
@@ -275,13 +274,6 @@
 
 /* --- CSS SPECIFIC FOR BLOG EDIT MODAL --- */
 
-.form-grid-blog {
-    display: grid;
-    grid-template-columns: 2fr 1fr; 
-    gap: 24px; 
-    padding: 24px ;
-}
-
 .blog-preview-box {
     width: 150px;
     height: 100px;
@@ -347,8 +339,64 @@
     color: #12915A;
 }
 
-.blog-modal {
-    
+/* =========================================================
+   SỬA LỖI MODAL BỊ MẤT NÚT LƯU
+========================================================= */
+
+/* 1. Modal Container: Giới hạn chiều cao và biến thành Flexbox */
+.modal-content-blogs {
+    background: #ffffff;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 850px;
+    max-height: 90vh; /* Không bao giờ tràn quá màn hình */
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+/* 2. Header cố định trên cùng */
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0; /* Không bị bóp nhỏ */
+}
+
+/* 3. Form Flexbox: Ép form chiếm phần không gian còn lại */
+.modal-form {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Cắt phần thừa của form */
+    flex-grow: 1;     /* Chiếm toàn bộ khoảng trống giữa Header & Footer */
+}
+
+/* 4. Nội dung Form: Nơi hiển thị Thanh cuộn (Scrollbar) */
+.form-grid-blog {
+    display: grid;
+    grid-template-columns: 2fr 1fr; 
+    gap: 24px; 
+    padding: 24px;
+    overflow-y: auto; /* CHỈ CUỘN KHU VỰC NÀY KHI NỘI DUNG DÀI */
+}
+
+/* Làm đẹp thanh cuộn */
+.form-grid-blog::-webkit-scrollbar { width: 6px; }
+.form-grid-blog::-webkit-scrollbar-track { background: transparent; }
+.form-grid-blog::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+.form-grid-blog::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* 5. Footer cố định dưới cùng */
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-shrink: 0; /* Ép Footer ghim cứng ở đáy, không bao giờ bị bóp nhỏ */
 }
 
 /* Responsive cho modal khi màn hình nhỏ */
