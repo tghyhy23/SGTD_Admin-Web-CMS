@@ -1,72 +1,192 @@
 /* src/components/Sidebar/Sidebar.css */
+
 .sidebar {
   width: 260px;
-  margin-top: 20px;
   padding: 20px 10px;
-  background: #fff;
-  border-radius: var(--radius-ml);
-  box-shadow: 0 4px 10px 0 rgba(0, 0, 0, 0.10);
-  /* thêm shadow */       
   display: flex;
   flex-direction: column;
-  height: 100vh;
   z-index: 11;
+  transition: width 0.25s ease;
+  position: sticky; /* Đảm bảo sidebar dính vào lề trái khi trang chính cuộn */
+  top: 0;
+  /* background-color: #fff; Đảm bảo có màu nền để không bị đè */
 }
 
-.menu-label{
-  font-size: var(--fs-s);
-  font-weight: var(--fw-medium);
-  color: var(--text-main);
+.sidebar.collapsed {
+  width: 76px; 
+}
+
+.sidebar.collapsed .menu-label {
+  display: none;
+}
+
+.sidebar.collapsed .sidebar-menu a {
+  justify-content: center;
+  padding: 8px 0;
+}
+
+/* ================== LOGO ================== */
+.sidebar-logo-container {
+  padding: 0 30px;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.z-sidebar-logo-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* ================== MENU ================== */
+.menu-label {
+  font-size: var(--fs-s, 14px);
+  font-weight: var(--fw-medium, 500);
+  color: var(--text-main, #374151);
+  white-space: nowrap; 
 }
 
 .sidebar-menu {
+  flex: 1; 
   gap: 8px;
   display: flex;
   flex-direction: column;
-  list-style: none; /* Xóa dấu chấm của thẻ li */
-  overflow-y: auto; /* Cuộn nếu menu quá dài */
+  list-style: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  padding: 0;
+  border-bottom: 1px solid var(--border-color);
 }
 
-/* Scrollbar mỏng đẹp cho sidebar */
-.sidebar-menu::-webkit-scrollbar {
-  width: 6px;
-}
-.sidebar-menu::-webkit-scrollbar-thumb {
-  background-color: #d9d9d9;
-  border-radius: 4px;
-}
+.sidebar-menu::-webkit-scrollbar { width: 6px; }
+.sidebar-menu::-webkit-scrollbar-thumb { background-color: #d9d9d9; border-radius: 4px; }
 
 .sidebar-menu a {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 20px;
-  color: var(--text-main);
-  font-size: var(--fs-s);
+  padding: 10px 20px;
+  color: var(--text-main, #374151);
+  font-size: var(--fs-s, 14px);
   text-decoration: none;
+  transition: all 0.2s ease;
 }
+
 .menu-icon {
-  color: var(--text-main);
-  width: 16px;
-  height: 16px;
-}
-/* Hiệu ứng rê chuột */
-.sidebar-menu a:hover {
-  background-color: var(--primary-hover); /* Nền xanh rất nhạt */
-  color: var(--primary-color);
-  border-left: 4px solid var(--primary-color); 
-  border-radius: var(--radius-sm);
+  color: inherit;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Hiệu ứng khi đang ở trang đó (Active) */
-.sidebar-menu a.active-link  {
-  background-color: var(--primary-hover); /* Nền xanh rất nhạt */
-  color: var(--primary-color);
-  border-left: 4px solid var(--primary-color); 
-  font-weight: var(--fw-medium);
-  border-radius: var(--radius-sm);
+.sidebar-menu a:hover, .sidebar-menu a.active-link {
+  background-color: var(--primary-hover, #eff6ff);
+  color: var(--primary-color, #312e81);
+  border-left: 4px solid var(--primary-color, #312e81); 
+  border-radius: var(--radius-sm, 6px);
+}
+.sidebar-menu a.active-link { font-weight: var(--fw-medium, 600); }
+
+/* =========================================
+   PHẦN FOOTER VÀ USER PROFILE
+   ========================================= */
+.sidebar-footer {
+  /* margin-top: auto; Flexbox sẽ tự động đẩy cục Avatar này xuống sát đáy Sidebar */
+  padding: 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
 }
 
-.sidebar-menu a.active-link .menu-icon {
-  opacity: 1;
+.sidebar-footer:hover {
+  background: var(--base-primary);
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sidebar.collapsed .user-profile {
+  justify-content: center;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main, #333);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ================== DROPDOWN MENU ================== */
+.profile-dropdown-menu {
+  position: absolute;
+  bottom: calc(100% + 2px); 
+  left: 0;
+  width: 240px;
+  background-color: #ffffff;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1); 
+  z-index: 1000;
+  animation: dropUpFade 0.2s ease-out;
+  cursor: default;
+}
+
+.sidebar.collapsed .profile-dropdown-menu {
+  left: 70px;
+  bottom: 0px;
+}
+
+.dropdown-header { 
+  padding: 16px; 
+  border-bottom: 1px solid var(--border-color, #e5e7eb); 
+  background-color: #f9fafb; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 4px; 
+  border-radius: 8px 8px 0 0; 
+}
+.dropdown-role { font-size: 12px; font-weight: 600; color: var(--primary-color, #312e81); text-transform: uppercase; }
+.dropdown-email { font-size: 14px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.dropdown-account-section { padding: 8px 0; }
+
+.dropdown-list { padding: 0 10px; list-style: none; display: flex; flex-direction: column; gap: 4px; margin: 0; }
+.dropdown-item { 
+  display: flex; 
+  align-items: center; 
+  gap: 12px; 
+  border-radius: 4px; 
+  padding: 10px 16px; 
+  font-size: 14px; 
+  color: var(--text-main, #374151); 
+  transition: background-color 0.2s; 
+  cursor: pointer; 
+}
+
+.dropdown-item:hover { background-color: #f3f4f6; }
+
+.logout-btn { color: var(--error, #ef4444); }
+.logout-btn:hover { background-color: #fee2e2 !important; }
+
+@keyframes dropUpFade {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }

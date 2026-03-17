@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { categoryApi } from "../../api/axiosApi";
-import Modal from "../../components/Modal/Modal";
+import Modal from "../../ui/Modal/Modal";
 // import "./Categories.css"; 
 
 const removeVietnameseTones = (str) => {

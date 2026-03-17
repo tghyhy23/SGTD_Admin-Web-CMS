@@ -1,0 +1,54 @@
+.page-header-wrapper {
+  background-color: #ffffff;
+  border: 1px solid transparent; 
+  border-radius: 12px;       
+  padding: 20px;        
+  display: flex;
+  flex-direction: column;
+  gap: 12px;                 /* Khoảng cách đều giữa các phần tử bên trong */
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* Đổ bóng cực mỏng cho nổi khối */
+}
+
+/* --- Breadcrumb Styles --- */
+.page-header-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--gray500); /* Màu xám nhạt */
+}
+
+.crumb-link {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.crumb-link:hover {
+  color: #4b5563; /* Đậm màu hơn khi trỏ chuột vào */
+}
+
+.crumb-active {
+  color: var(--gray500); /* Giữ màu nhạt cho item cuối cùng (trang hiện tại) */
+}
+
+.crumb-separator {
+  color: var(--gray500);
+  font-size: 14px;
+}
+
+/* --- Title Styles --- */
+.page-header-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+  line-height: 1.2;
+}
+
+/* --- Description Styles --- */
+.page-header-description {
+  font-size: 14px;
+  color: var(--gray800);
+  margin: 0;
+  line-height: 1.5;
+}

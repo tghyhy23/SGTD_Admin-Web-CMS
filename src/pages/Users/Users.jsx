@@ -1,7 +1,7 @@
 // src/pages/Users/Users.jsx
 import React, { useEffect, useState } from "react";
 import { userApi } from "../../api/axiosApi";
-import Modal from "../../components/Modal/Modal";
+import Modal from "../../ui/Modal/Modal";
 import "../Services/Services.css";
 
 const removeVietnameseTones = (str) => {

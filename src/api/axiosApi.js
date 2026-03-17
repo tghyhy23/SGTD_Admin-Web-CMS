@@ -153,7 +153,7 @@ export const postApi = {
     }),
 
     // 5. Bật/Tắt trạng thái
-    toggleStatus: (id) => axiosApi.patch(`/post/manage/toggle-status/${id}`),
+    toggleStatus: (id) => axiosApi.patch(`/post/toggle-status/${id}`),
 
     // 6. Xóa bài viết
     deletePost: (id) => axiosApi.delete(`/post/${id}`),

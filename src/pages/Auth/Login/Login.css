@@ -1,16 +1,29 @@
 /* src/pages/Auth/Login/Login.css */
 
+.form-inner-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding-right: 30px;
+  max-width: 450px;
+}
+
+.form-header {
+  margin-bottom: 80px;
+  display: flex;
+  flex-direction: column;
+   gap: 8px;
+}
 .form-inner-content h2 {
-  font-size: 32px;
-  margin-bottom: 30px;
+  color: var(--text-main);
+  font-size: 40px;
   text-align: center;
-  font-weight: 500;
-  /* Gạch chân theo thiết kế */
-  border-bottom: 2px solid rgba(255,255,255,0.2);
-  display: inline-block;
-  padding-bottom: 8px;
-  margin-left: 50%;
-  transform: translateX(-50%);
+  font-weight: 700;
+}
+.line {
+  width: 100%;
+  height: 1.5px;
+  background: var(--gray300);
 }
 
 .error-message {
@@ -23,96 +36,83 @@
   font-size: 14px;
 }
 
-.form-login{
+.form-login {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+.input-container {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
+.input-icon-wrapper {
+    position: relative;
+}
 
+
+.input-icon {
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--gray500);
+}
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .input-group label {
+  color: var(--text-main);
   display: block;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
-  margin-bottom: 8px;
   opacity: 0.9;
 }
 
 .input-group input {
   width: 100%;
-  padding: 14px 20px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid transparent;
-  border-radius: 12px;
-  color: #ffffff;
+  padding: 16px 24px;
+  padding-left: 46px;
+  background-color: transparent;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  color: var(--text-main);
   font-size: 15px;
   outline: none;
   transition: all 0.3s ease;
 }
 
 .input-group input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--gray400);
 }
 
 .input-group input:focus {
-  background: rgba(0, 0, 0, 0.3);
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.05);
+  border-color: var(--primary-color)
 }
 
-.btn-submit-glass {
+.btn-submit {
   width: 100%;
-  background: white;
+  background: var(--primary-color);
   border: none;
-  border-radius: 12px;
-  color: #333;
+  border-radius: 16px;
+  color: #fff;
   padding: 16px;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: opacity 0.3s;
 }
 
-.btn-submit-glass:hover:not(:disabled) {
+.btn-submit:hover:not(:disabled) {
   opacity: 0.9;
 }
 
-.btn-submit-glass:disabled {
+.btn-submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
-
-.login-footer {
-  display: flex;
-  flex-direction: column;
-  text-align: right;
-  gap: 16px;
-}
-
-.forgot-link {
-  color: #ffffff;
-  opacity: 0.8;
-  font-size: 14px;
-  text-decoration: none;
-  transition: opacity 0.3s;
-}
-
-.forgot-link:hover {
-  opacity: 1;
-  text-decoration: underline;
-}
-
-.social-icons {
-  display: flex;
-  gap: 16px;
-}
-
-.social-icons .icon {
-  font-size: 18px;
-  cursor: pointer;
-  opacity: 0.8;
-  transition: opacity 0.3s;
-}
-.social-icons .icon:hover { opacity: 1; }
 
 /* =========================================
    PASSWORD TOGGLE CSS (Nút ẩn/hiện mật khẩu)
@@ -134,7 +134,7 @@
   right: 16px; /* Cách mép phải bằng với padding của ô input cho cân đối */
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.6); /* Màu trắng đục đồng bộ với màu placeholder */
+  color: var(--gray400); /* Màu trắng đục đồng bộ với màu placeholder */
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -144,7 +144,7 @@
 }
 
 .toggle-password-btn:hover {
-  color: rgba(255, 255, 255, 1); /* Sáng hẳn lên khi hover */
+  color: var(--gray500);
 }
 
 .toggle-password-btn:focus {

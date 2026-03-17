@@ -1,0 +1,93 @@
+/* ==========================================
+   BASE BUTTON STYLES
+========================================== */
+.z-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s ease-in-out;
+    font-family: inherit;
+    outline: none;
+}
+
+.z-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.z-btn-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ==========================================
+   VARIANTS (CÁC PHIÊN BẢN MÀU SẮC)
+========================================== */
+
+/* 1. Primary (Xanh dương đậm - Dùng cho Add, Submit chính) */
+.z-btn-primary {
+    background-color: var(--primary-color); /* Màu xanh đậm giống thiết kế trước của bạn */
+    color: #ffffff;
+}
+.z-btn-primary:hover:not(:disabled) {
+    background-color: var(--base-primary);
+    color: var(--primary-color);
+}
+
+/* 2. Success (Xanh lá - Dùng cho Save) */
+.z-btn-success {
+    background-color: var(--primary-color); /* Màu xanh đậm giống thiết kế trước của bạn */
+    color: #ffffff;
+}
+.z-btn-success:hover:not(:disabled) {
+    background-color: var(--base-primary);
+    color: var(--primary-color);
+}
+
+/* 3. Danger (Đỏ - Dùng cho Delete, Remove) */
+.z-btn-danger {
+    background-color: transparent;
+    color: var(--error);
+    border: 1px solid var(--error);
+}
+.z-btn-danger:hover:not(:disabled) {
+    background-color: var(--base-error);
+    color: var(--error);
+}
+
+/* 4. Secondary (Xám nhạt - Dùng cho Cancel, Close) */
+.z-btn-secondary {
+    background-color: transparent;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+.z-btn-secondary:hover:not(:disabled) {
+    background-color: var(--base-primary);
+}
+
+/* 5. Outline (Viền mỏng - Dùng cho Edit, các action phụ) */
+.z-btn-outline {
+    background-color: transparent;
+    color: var(--outline);
+    border: 1px solid var(--outline);
+}
+.z-btn-outline:hover:not(:disabled) {
+    background-color: var(--base-outline);
+}
+
+.z-btn-edit {
+    background-color: transparent;
+    color: var(--edit);
+    border: 1px solid var(--edit);
+}
+.z-btn-edit:hover:not(:disabled) {
+    background-color: var(--base-edit);
+}

@@ -1,15 +1,35 @@
 /* src/styles/base.css */
 :root {
   --primary-color: #12915A;
+  --base-primary: rgba(115, 210, 145, 0.2);
   --primary-hover: #e1fcf19d;
   --bg-color: #fff;
   --main-bg-color: #f0f2f5;
   --sidebar-bg: #fff;
   --sidebar-text: #12915A;
   --sidebar-hover: #334155;
-  --text-main: #333333;
+  --text-main: #424242;
   --white: #ffffff;
-  --border-color: #e2e8f0;
+  --border-color: #e5e7eb;
+  --error: #dd2c2c;
+  --base-error: rgba(221, 44, 44, 0.1);
+  --warning: #EDA145;
+  --base-warning: rgba(237, 161, 69, 0.2);
+  --edit: #357cfa;
+  --base-edit: rgb(53, 124, 250, 0.1);
+  --outline: #374151;
+  --base-outline: rgb(55, 65, 81, 0.1);
+  --inactive-bg: #f3f4f6;
+  --inactive-color: #4b5563;
+  --inactive-border: #d1d5db;
+  --gray100: #F2F2F7;
+  --gray200: #E5E5EA;
+  --gray300: #c8c8c8;
+  --gray400: #BDBDBD;
+  --gray500: #757575;
+  --gray800: #1C1C1E;
+  --overlay: rgba(28, 28, 30, 0.50);
+  --border: #BDBDBD;
   /* =========================================
      2. TYPOGRAPHY - SIZES (Kích thước chữ)
      (Ánh xạ từ config Typography.size)
@@ -21,6 +41,7 @@
   --fs-l: 20px;
   --fs-xl: 24px;
   --fs-xxl: 32px;
+  --fs-3xl: 40px;
   --fs-display: 48px;
 
   /* =========================================
@@ -47,7 +68,7 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: "Google Sans Flex", sans-serif; /* Hoặc font bạn chọn */
+  font-family: "Quicksand", sans-serif; /* Hoặc font bạn chọn */
 }
 
 body {

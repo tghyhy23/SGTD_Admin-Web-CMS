@@ -7,17 +7,21 @@
 }
 
 .layout-body {
-  background: var(--main-bg-color);
+  
   display: flex; /* Xếp theo chiều ngang: Sidebar trái, Content phải */
   flex: 1;
   overflow: hidden; /* Để content bên trong tự cuộn */
 }
 
 .main-content {
-  background: var(--bg-color);
-  border-radius: var(--radius-sm);
-  margin: 20px;
+  margin-top: 10px;
+  margin-right: 10px;
+  background: var(--main-bg-color);
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
   flex: 1;
+  gap: 20px;
   overflow-y: auto;
-  padding: 20px;
+  padding:  10px 20px 20px 20px;
 }

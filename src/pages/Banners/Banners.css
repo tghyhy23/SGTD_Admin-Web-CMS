@@ -1,40 +1,422 @@
-/* Style cho nút Ẩn (khi banner đang Active) */
-.x-btn {
+/* Container chính */
+.z-banner-container {
+    padding: 20px;
+    background: var(--bg-color);
+    border-radius: 12px;
+}
+
+/* Các trạng thái Loading / Error */
+.z-banner-state {
+    text-align: center;
+    padding: 40px;
+    color: #6b7280;
+    font-size: 16px;
+}
+.z-banner-error {
+    color: #ef4444;
+}
+
+/* Header Bar */
+.z-banner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.z-banner-title {
+    padding-bottom: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #111827;
+    margin: 0;
+}
+
+/* Tools Bar (Search + Filters + Add Btn) */
+.z-banner-tools {
+    margin-bottom: 12px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.z-banner-search input {
+    padding: 8px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    outline: none;
+    font-size: 14px;
+    width: 250px;
+}
+
+.z-banner-search input:focus {
+    border-color: var(--primary-color);
+}
+
+/* Filters */
+.z-banner-filter {
+    position: relative;
+}
+
+.z-banner-btn-filter {
+    padding: 8px 14px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    color: #374151;
+}
+
+.z-banner-dropdown-menu {
     position: absolute;
-    top: 0px;
-    right: 0px;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    min-width: 250px;
+    overflow: hidden;
+}
+
+.z-banner-dropdown-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-main);
+}
+
+.z-banner-dropdown-item:hover,
+.z-banner-dropdown-item.active {
+    border-radius: 8px;
+    background: var(--base-primary);
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+/* Toast */
+.z-banner-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 6px;
+    color: white;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+.z-banner-toast.success {
+    background-color: #10b981;
+}
+.z-banner-toast.error {
+    background-color: #ef4444;
+}
+.z-banner-toast-close {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+/* Table Wrapper */
+.z-banner-table-wrapper {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+}
+
+.z-banner-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.z-banner-table th,
+.z-banner-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    font-size: 14px;
+}
+
+.z-banner-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+}
+
+/* Cột dữ liệu Table */
+.z-banner-img-preview {
+    width: 120px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+}
+
+.z-banner-text-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: #111827;
+}
+
+.z-banner-badge-gray {
+    background: #f3f4f6;
+    color: #4b5563;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.z-banner-badge-blue {
+    background: var(--base-edit);
+    color: var(--edit);
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--edit);
+    font-weight: bold;
+}
+
+.z-banner-status-badge {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+.z-banner-status-badge.published {
+    background: var(--base-primary);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+.z-banner-status-badge.draft {
+    background: var(--inactive-bg);
+    color: var(--inactive-color);
+    border-color: var(--inactive-border);
+}
+
+/* Table Actions - Adjusted for the reusable buttons */
+.z-banner-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center; /* Đảm bảo các nút căn giữa theo chiều dọc */
+}
+
+/* ================= MODAL FORMS ================= */
+.z-banner-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.z-banner-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.z-banner-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.z-banner-form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.z-banner-required {
+    color: var(--error);
+}
+
+.z-banner-input,
+.z-banner-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 14px;
+    color: var(--text-main);
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: all 0.2s ease-in-out;
+}
+
+.z-banner-input:focus,
+.z-banner-textarea:focus {
+    border-color: var(--primary-color);
+}
+
+.z-banner-upload-wrapper {
+    margin-top: 4px;
+}
+
+.z-banner-image-upload-btn {
+    width: 200px;
+    height: 100px;
+    border-radius: 8px;
+    border: 1px dashed #d1d5db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #6b7280;
+    background: #f9fafb;
+}
+
+.z-banner-image-preview-box {
+    position: relative;
+    width: 200px;
+    height: 100px;
+    border-radius: 8px;
+    padding: 4px;
+    border: 1px dashed #d1d5db;
+}
+
+.z-banner-image-preview-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.z-banner-remove-img-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
     background: #ef4444;
     color: white;
     border: none;
     border-radius: 50%;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     cursor: pointer;
+    font-size: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+/* Modal Xóa */
+.z-banner-delete-content {
+    text-align: center;
+    padding: 10px 0;
+}
+.z-banner-delete-content h3 {
+    margin: 16px 0 8px 0;
+    color: #111827;
+}
+.z-banner-delete-content p {
+    color: #4b5563;
+    line-height: 1.5;
+}
+
+.z-banner-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.z-banner-tab-item {
+    padding: 10px 20px;
+    border: none;
+    background: none;
+    cursor: pointer;
     font-size: 14px;
-    line-height: 1;
-}
-.btn-toggle-hide {
-    background-color: #ffffff;
-    color: #333333b1;
-    border: 1px solid #333333b1;
-    transition: all 0.2s ease-in-out;
+    font-weight: 500;
+    color: #6b7280;
+    white-space: nowrap;
 }
 
-.btn-toggle-hide:hover {
-    background-color: #e1e1e1;
+.z-banner-tab-item.active {
+    font-weight: 600;
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
+}
+/* Container của menu 3 chấm */
+.z-banner-dropdown-actions {
+    position: relative;
+    display: inline-block;
 }
 
-/* Style cho nút Hiện (khi banner đang Inactive) */
-.btn-toggle-show {
-    background-color: #ffffff;
-    color: #333333b1;
-    border: 1px solid #333333b1;
-    transition: all 0.2s ease-in-out;
+/* Nút 3 chấm dọc */
+.z-banner-more-btn {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
 }
 
-.btn-toggle-show:hover {
-    background-color: #e1e1e1;
+.z-banner-more-btn:hover {
+    background-color: #f3f4f6;
+}
+
+/* Menu chứa 3 option */
+.z-banner-action-menu {
+    position: absolute;
+    right: 0;
+    top: 0; /* Hoặc điều chỉnh tùy ý */
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    /* Ẩn mặc định */
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.2s ease;
+}
+
+/* Hover vào container thì hiện menu */
+.z-banner-dropdown-actions:hover .z-banner-action-menu {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Tùy chỉnh các nút bên trong menu cho đồng bộ */
+.z-banner-action-menu button {
+    width: 100%;
+    white-space: nowrap;
+}
+
+/* Để menu không bị cắt bởi overflow của table-wrapper */
+.z-banner-table-wrapper {
+    overflow: visible;
 }

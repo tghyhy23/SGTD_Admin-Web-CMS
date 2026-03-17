@@ -1,0 +1,282 @@
+.z-blog-container {
+    padding: 20px;
+    background: var(--bg-color);
+    border-radius: 12px;
+}
+
+.z-blog-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.z-blog-title {
+    padding-bottom: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #111827;
+}
+
+.z-blog-tools {
+    margin-bottom: 16px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.z-blog-search input {
+    padding: 8px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    width: 280px;
+}
+
+/* Filter */
+.z-blog-filter {
+    position: relative;
+}
+.z-blog-btn-filter {
+    padding: 8px 14px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.z-blog-dropdown-menu {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    top: 100%;
+    padding: 4px;
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    z-index: 10;
+    min-width: 180px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+.z-blog-dropdown-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 8px;
+}
+.z-blog-dropdown-item:hover,
+.z-blog-dropdown-item.active {
+    background: var(--base-primary);
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+/* Table */
+.z-blog-table-wrapper {
+    background: #fff;
+    border-radius: 8px;
+    overflow: visible; /* Cho phép dropdown hiển thị */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.z-blog-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.z-blog-table th,
+.z-blog-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+}
+.z-blog-clickable-row {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.z-blog-clickable-row:hover {
+    background-color: #f8fafc;
+}
+
+.z-blog-img-preview {
+    width: 80px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+.z-blog-status-badge {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+.z-blog-status-badge.active {
+    background: var(--base-primary);
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+.z-blog-status-badge.inactive {
+    background: var(--inactive-bg);
+    color: var(--inactive-color);
+    border-color: var(--inactive-border)
+}
+
+/* Kebab Menu (3 chấm) */
+.z-blog-actions-cell {
+    position: relative;
+    text-align: center;
+}
+.z-blog-kebab-menu {
+    position: relative;
+    display: inline-block;
+}
+.z-blog-kebab-btn {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.z-blog-kebab-btn:hover {
+    background-color: #f1f5f9;
+}
+
+.z-blog-action-dropdown {
+    position: absolute;
+    right: 0;
+    top: 0;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.2s;
+}
+.z-blog-kebab-menu:hover .z-blog-action-dropdown {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+}
+.z-blog-action-dropdown button {
+    width: 100%;
+    white-space: nowrap;
+}
+
+/* Form & Upload Area (Đồng bộ Banner) */
+.z-blog-form-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 20px;
+}
+.z-blog-form-group {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.z-blog-form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+.z-blog-input,
+.z-blog-textarea {
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+.z-blog-checkbox-group {
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+}
+.z-blog-required {
+    color: var(--error);
+}
+
+.z-blog-upload-wrapper {
+    margin-top: 4px;
+}
+.z-blog-image-upload-btn {
+    width: 160px;
+    height: 100px;
+    border-radius: 8px;
+    border: 1px dashed #d1d5db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #6b7280;
+    background: #f9fafb;
+}
+.z-blog-image-preview-box {
+    position: relative;
+    width: 160px;
+    height: 100px;
+    border-radius: 8px;
+    padding: 4px;
+    border: 1px dashed #d1d5db;
+    background: #fff;
+}
+.z-blog-image-preview-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+}
+.z-blog-remove-img-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.z-blog-delete-confirm {
+    text-align: center;
+    padding: 10px;
+}
+.z-blog-warning-text {
+    color: var(--error);
+    font-size: 12px;
+    margin-top: 10px;
+}
+
+/* Toast */
+.z-blog-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 6px;
+    color: white;
+    z-index: 9999;
+}
+.z-blog-toast.success {
+    background: var(--primary-color);
+}
+.z-blog-toast.error {
+    background: var(--error);
+}

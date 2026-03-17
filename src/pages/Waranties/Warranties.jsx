@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { warrantyApi, serviceApi, clinicApi } from "../../api/axiosApi";
-import Modal from "../../components/Modal/Modal";
+import Modal from "../../ui/Modal/Modal";
 // import "./Warranties.css"; // Tái sử dụng CSS chung
 
 const Warranties = () => {
