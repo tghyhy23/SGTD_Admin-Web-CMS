@@ -25,12 +25,23 @@
     align-items: center;
     flex-wrap: wrap;
 }
-
+.z-blog-search input::placeholder {
+    font-size: 14px;
+}
 .z-blog-search input {
     padding: 8px 14px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
     width: 280px;
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: all 0.2s ease-in-out;
+}
+
+.z-blog-search input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(49, 46, 129, 0.1);
 }
 
 /* Filter */
@@ -39,6 +50,7 @@
 }
 .z-blog-btn-filter {
     padding: 8px 14px;
+    font-size: 14px;
     background: #fff;
     border: 1px solid #d1d5db;
     border-radius: 6px;
@@ -86,11 +98,28 @@
     width: 100%;
     border-collapse: collapse;
 }
-.z-blog-table th,
-.z-blog-table td {
+.z-blog-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
     padding: 12px 16px;
     border-bottom: 1px solid #e5e7eb;
     text-align: left;
+    font-size: 14px;
+}
+.z-blog-table td {
+    padding: 18px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+}
+.z-blog-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--gray500);
+    font-size: 16px;
+}
+.z-blog-error {
+    color: var(--error);
 }
 .z-blog-clickable-row {
     cursor: pointer;
@@ -116,12 +145,12 @@
 .z-blog-status-badge.active {
     background: var(--base-primary);
     color: var(--primary-color);
-    border: 1px solid var(--primary-color);
+    /* border: 1px solid var(--primary-color); */
 }
 .z-blog-status-badge.inactive {
     background: var(--inactive-bg);
     color: var(--inactive-color);
-    border-color: var(--inactive-border)
+    /* border-color: var(--inactive-border) */
 }
 
 /* Kebab Menu (3 chấm) */
@@ -197,6 +226,16 @@
     padding: 10px;
     border: 1px solid var(--border-color);
     border-radius: 6px;
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: all 0.2s ease-in-out;
+}
+
+.z-blog-input:focus,
+.z-blog-textarea:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(49, 46, 129, 0.1);
 }
 .z-blog-checkbox-group {
     display: flex;
@@ -264,19 +303,3 @@
     margin-top: 10px;
 }
 
-/* Toast */
-.z-blog-toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 12px 20px;
-    border-radius: 6px;
-    color: white;
-    z-index: 9999;
-}
-.z-blog-toast.success {
-    background: var(--primary-color);
-}
-.z-blog-toast.error {
-    background: var(--error);
-}

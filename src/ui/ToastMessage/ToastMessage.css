@@ -1,0 +1,98 @@
+.z-toast-item {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  min-width: 300px;
+  max-width: 450px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 10001;
+  overflow: hidden;
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Các loại màu sắc */
+.z-toast-item.success { border-left: 4px solid var(--primary-color); }
+.z-toast-item.success .z-toast-icon { color: var(--primary-color); }
+
+.z-toast-item.error { border-left: 4px solid var(--error); }
+.z-toast-item.error .z-toast-icon { color: var(--error); }
+
+.z-toast-item.warning { border-left: 4px solid var(--warning); }
+.z-toast-item.warning .z-toast-icon { color: var(--warning); }
+
+.z-toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.z-toast-content {
+  flex: 1;
+}
+
+.z-toast-message {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.z-toast-close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.z-toast-close:hover {
+  color: #4b5563;
+}
+
+/* Thanh Progress chạy bên dưới (Tùy chọn) */
+.z-toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.z-toast-progress::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background: inherit;
+  animation: progress 3s linear forwards;
+}
+
+.success .z-toast-progress::after { background: var(--primary-color); opacity: 0.3; }
+.error .z-toast-progress::after { background: var(--error); opacity: 0.3; }
+.warning .z-toast-progress::after { background: var(--warning); opacity: 0.3; }
+
+@keyframes progress {
+  from { width: 100%; }
+  to { width: 0%; }
+}

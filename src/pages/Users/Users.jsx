@@ -1,8 +1,11 @@
-// src/pages/Users/Users.jsx
 import React, { useEffect, useState } from "react";
 import { userApi } from "../../api/axiosApi";
 import Modal from "../../ui/Modal/Modal";
-import "../Services/Services.css";
+import { Button, EditButton, DeleteButton } from "../../ui/Button/Button";
+import { Select } from "../../ui/Select/Select";
+import PageHeader from "../../ui/PageHeader/PageHeader";
+import ToastMessage from "../../ui/ToastMessage/ToastMessage";
+import "./Users.css";
 
 const removeVietnameseTones = (str) => {
     if (!str) return "";
@@ -17,53 +20,60 @@ const removeVietnameseTones = (str) => {
 
 const FALLBACK_AVATAR = "https://via.placeholder.com/150/e0e6ed/7f8c8d?text=User";
 
+const roleOptions = [
+    { value: "all", label: "Tất cả vai trò" },
+    { value: "USER", label: "Khách hàng (USER)" },
+    { value: "ADMIN", label: "Quản trị viên (ADMIN)" },
+];
+
 const Users = () => {
+    const [selectedUserIds, setSelectedUserIds] = useState([]);
     const [users, setUsers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
-
-    // Filter & Search
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 15;
     const [searchTerm, setSearchTerm] = useState("");
     const [filterRole, setFilterRole] = useState("all");
     const [showRoleDropdown, setShowRoleDropdown] = useState(false);
     const [sortOrder, setSortOrder] = useState("newest");
-    const [showSortDropdown, setShowSortDropdown] = useState(false);
-
     const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
-    // ==========================================
-    // STATE CHO MODAL XÓA
-    // ==========================================
+    // Modals state
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState(null);
     const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
-
-    // ==========================================
-    // STATE CHO MODAL SỬA ROLE (PHÂN QUYỀN)
-    // ==========================================
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [userToEdit, setUserToEdit] = useState(null);
     const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
-    const [userToEdit, setUserToEdit] = useState(null); // Lưu thông tin user đang sửa
-
-    // Form data chỉ chứa role
     const [formData, setFormData] = useState({ role: "USER" });
 
-    // ==========================================
-    // LẤY DỮ LIỆU
-    // ==========================================
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            // Lấy tất cả ID của danh sách thỏa điều kiện lọc (không chỉ trang hiện tại)
+            const allIds = allFilteredUsers.map((user) => user.userId);
+            setSelectedUserIds(allIds);
+        } else {
+            // Bỏ chọn tất cả
+            setSelectedUserIds([]);
+        }
+    };
+
+    // Hàm xử lý khi click checkbox từng dòng
+    const handleSelectRow = (userId) => {
+        setSelectedUserIds((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]));
+    };
+    useEffect(() => {
+        setSelectedUserIds([]);
+    }, [searchTerm, filterRole, sortOrder]);
+
     const fetchAllUsers = async () => {
         setIsLoading(true);
         try {
             const res = await userApi.getAllUsers({ limit: 100 });
-            if (res && res.users) {
-                setUsers(res.users);
-            } else if (res && res.data && res.data.users) {
-                setUsers(res.data.users);
-            } else {
-                setError("Không thể tải danh sách người dùng.");
-            }
+            const userData = res.users || res.data?.users || [];
+            setUsers(userData);
         } catch (err) {
-            console.error("Lỗi lấy danh sách users:", err);
             setError("Lỗi kết nối đến máy chủ.");
         } finally {
             setIsLoading(false);
@@ -73,23 +83,11 @@ const Users = () => {
     useEffect(() => {
         fetchAllUsers();
     }, []);
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterRole, sortOrder]);
 
-    const showToast = (message, type = "success") => {
-        setToast({ show: true, message, type });
-        setTimeout(() => setToast((prev) => ({ ...prev, show: false })), 3000);
-    };
-
-    const getUserRole = (user) => {
-        return user?.account?.role || user?.role || "USER";
-    };
-
-    // ==========================================
-    // XỬ LÝ XÓA USER (KHÓA)
-    // ==========================================
-    const handleDeleteClick = (user) => {
-        setUserToDelete(user);
-        setIsDeleteModalOpen(true);
-    };
+    const getUserRole = (user) => user?.account?.role || user?.role || "USER";
 
     const confirmDelete = async () => {
         if (!userToDelete) return;
@@ -97,384 +95,249 @@ const Users = () => {
         try {
             const response = await userApi.deleteUserByAdmin(userToDelete.userId);
             if (response && response.success) {
-                showToast("Khóa/Xóa tài khoản thành công!", "success");
+                setToast({ show: true, message: "Khóa tài khoản thành công!", type: "success" });
                 setIsDeleteModalOpen(false);
-                setUserToDelete(null);
                 fetchAllUsers();
-            } else {
-                showToast(response?.message || "Lỗi khi xóa người dùng", "error");
             }
-        } catch (error) {
-            console.error("Lỗi deleteUser:", error);
-            showToast(error.response?.data?.message || "Không thể thao tác lúc này", "error");
         } finally {
             setIsSubmittingDelete(false);
         }
     };
 
-    // ==========================================
-    // XỬ LÝ PHÂN QUYỀN (SỬA ROLE)
-    // ==========================================
     const handleEditClick = (user) => {
         setUserToEdit(user);
-        setFormData({
-            role: getUserRole(user),
-        });
+        setFormData({ role: getUserRole(user) });
         setIsEditModalOpen(true);
     };
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
-    };
-
-    const handleEditSubmit = async (e) => {
-        e.preventDefault();
+    const handleEditSubmit = async () => {
         setIsSubmittingEdit(true);
-
         try {
-            // Đóng gói data bằng FormData theo đúng file axiosApi.js của bạn
             const submitData = new FormData();
             submitData.append("role", formData.role);
-
-            // Ghi chú: Nếu Backend cấu hình nhận nested object như account.role,
-            // bạn có thể đổi key thành "account.role" ở đây.
-            // submitData.append("account.role", formData.role);
-
             const response = await userApi.updateUserByAdmin(userToEdit.userId, submitData);
-
             if (response && response.success !== false) {
-                // Giả định thành công
-                showToast("Cấp quyền thành công!", "success");
+                setToast({ show: true, message: "Cập nhật quyền thành công!", type: "success" });
                 setIsEditModalOpen(false);
                 fetchAllUsers();
-            } else {
-                showToast(response?.message || "Lỗi khi cấp quyền", "error");
             }
-        } catch (error) {
-            console.error("Lỗi updateUser:", error);
-            showToast(error.response?.data?.message || "Lỗi kết nối đến máy chủ", "error");
         } finally {
             setIsSubmittingEdit(false);
         }
     };
 
-    // ==========================================
-    // FILTER & SORT
-    // ==========================================
-    const filteredUsers = users
+    const allFilteredUsers = users
         .filter((user) => {
             const normalizedSearch = removeVietnameseTones(searchTerm);
-            const normalizedName = removeVietnameseTones(user.fullName || user.username || "");
-            const normalizedEmail = removeVietnameseTones(user.email || "");
-            const phone = user.phoneNumber || "";
-
-            const matchesSearch = normalizedName.includes(normalizedSearch) || normalizedEmail.includes(normalizedSearch) || phone.includes(searchTerm);
-
-            let matchesRole = true;
+            const name = removeVietnameseTones(user.fullName || user.username || "");
+            const email = removeVietnameseTones(user.email || "");
+            const matchesSearch = name.includes(normalizedSearch) || email.includes(normalizedSearch) || (user.phoneNumber || "").includes(searchTerm);
             const role = getUserRole(user);
-            if (filterRole !== "all") {
-                if (filterRole === "ADMIN") {
-                    matchesRole = role === "ADMIN" || role === "SUPERADMIN";
-                } else {
-                    matchesRole = role.toUpperCase() === filterRole.toUpperCase();
-                }
-            }
-
+            const matchesRole = filterRole === "all" || role === filterRole;
             return matchesSearch && matchesRole;
         })
         .sort((a, b) => {
-            const dateA = a.joinedAt ? new Date(a.joinedAt) : new Date(0);
-            const dateB = b.joinedAt ? new Date(b.joinedAt) : new Date(0);
-
-            if (sortOrder === "newest") return dateB - dateA;
-            if (sortOrder === "oldest") return dateA - dateB;
-            return 0;
+            const dateA = new Date(a.joinedAt || 0);
+            const dateB = new Date(b.joinedAt || 0);
+            return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
         });
 
-    const getRoleLabel = () => {
-        if (filterRole === "all") return "Tất cả vai trò";
-        if (filterRole === "ADMIN") return "Admin";
-        if (filterRole === "USER") return "Khách hàng (User)";
-        return filterRole;
-    };
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = allFilteredUsers.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(allFilteredUsers.length / itemsPerPage);
 
-    const getSortLabel = () => {
-        if (sortOrder === "newest") return "Tài khoản mới nhất";
-        if (sortOrder === "oldest") return "Tài khoản cũ nhất";
-        return "Mặc định";
-    };
-
-    // Render UI
-    if (isLoading) return <div className="state-message">Đang tải dữ liệu người dùng...</div>;
-    if (error) return <div className="state-message error-message">{error}</div>;
+    if (isLoading) return <div className="z-user-state">Đang tải dữ liệu...</div>;
 
     return (
-        <div className="services-container">
-            {/* THÔNG BÁO TOAST */}
-            {toast.show && (
-                <div className={`toast-message ${toast.type}`}>
-                    <span>{toast.message}</span>
-                    <button className="toast-close" onClick={() => setToast({ ...toast, show: false })}>
-                        ×
+        <>
+            <PageHeader breadcrumbs={[{ label: "Quản lý Tài Khoản" }]} title="Quản lý Tài Khoản Người Dùng" description="Phân quyền và quản lý thông tin khách hàng trên hệ thống." />
+
+            <div className="z-user-container">
+                <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
+
+                <div className="z-user-header">
+                    <h1 className="z-user-title">Danh sách người dùng</h1>
+                </div>
+
+                <div className="z-user-tabs">
+                    <button className={`z-user-tab-item ${sortOrder === "newest" ? "active" : ""}`} onClick={() => setSortOrder("newest")}>
+                        Mới nhất
+                    </button>
+                    <button className={`z-user-tab-item ${sortOrder === "oldest" ? "active" : ""}`} onClick={() => setSortOrder("oldest")}>
+                        Cũ nhất
                     </button>
                 </div>
-            )}
 
-            <div className="services-header-bar">
-                <h1 className="services-title">Quản lý Tài Khoản (Users)</h1>
-
-                <div className="services-tools">
-                    <div className="search-box">
+                <div className="z-user-tools">
+                    <div className="z-user-search">
                         <input type="text" placeholder="Tìm tên, email, sđt..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
 
-                    {/* Lọc theo Role */}
-                    <div className="filter-dropdown-container">
-                        <button
-                            className="btn-filter"
-                            onClick={() => {
-                                setShowRoleDropdown(!showRoleDropdown);
-                                setShowSortDropdown(false);
-                            }}
-                        >
-                            <span>{getRoleLabel()}</span>
-                            <span className="dropdown-arrow">▼</span>
+                    <div className="z-user-filter">
+                        <button className="z-user-btn-filter" onClick={() => setShowRoleDropdown(!showRoleDropdown)}>
+                            <span>{roleOptions.find((r) => r.value === filterRole)?.label}</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151">
+                                <path d="M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z" />
+                            </svg>
                         </button>
                         {showRoleDropdown && (
-                            <div className="filter-dropdown-menu">
-                                <div
-                                    className={`filter-option ${filterRole === "all" ? "active" : ""}`}
-                                    onClick={() => {
-                                        setFilterRole("all");
-                                        setShowRoleDropdown(false);
-                                    }}
-                                >
-                                    Tất cả vai trò
-                                </div>
-                                <div
-                                    className={`filter-option ${filterRole === "ADMIN" ? "active" : ""}`}
-                                    onClick={() => {
-                                        setFilterRole("ADMIN");
-                                        setShowRoleDropdown(false);
-                                    }}
-                                >
-                                    Admin
-                                </div>
-                                <div
-                                    className={`filter-option ${filterRole === "USER" ? "active" : ""}`}
-                                    onClick={() => {
-                                        setFilterRole("USER");
-                                        setShowRoleDropdown(false);
-                                    }}
-                                >
-                                    Khách hàng (User)
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Sắp xếp */}
-                    <div className="filter-dropdown-container">
-                        <button
-                            className="btn-filter"
-                            style={{ minWidth: "190px" }}
-                            onClick={() => {
-                                setShowSortDropdown(!showSortDropdown);
-                                setShowRoleDropdown(false);
-                            }}
-                        >
-                            <span>{getSortLabel()}</span>
-                            <span className="dropdown-arrow">▼</span>
-                        </button>
-                        {showSortDropdown && (
-                            <div className="filter-dropdown-menu">
-                                <div
-                                    className={`filter-option ${sortOrder === "newest" ? "active" : ""}`}
-                                    onClick={() => {
-                                        setSortOrder("newest");
-                                        setShowSortDropdown(false);
-                                    }}
-                                >
-                                    Mới nhất (Mặc định)
-                                </div>
-                                <div
-                                    className={`filter-option ${sortOrder === "oldest" ? "active" : ""}`}
-                                    onClick={() => {
-                                        setSortOrder("oldest");
-                                        setShowSortDropdown(false);
-                                    }}
-                                >
-                                    Cũ nhất
-                                </div>
+                            <div className="z-user-dropdown-menu">
+                                {roleOptions.map((opt) => (
+                                    <div
+                                        key={opt.value}
+                                        className={`z-user-dropdown-item ${filterRole === opt.value ? "active" : ""}`}
+                                        onClick={() => {
+                                            setFilterRole(opt.value);
+                                            setShowRoleDropdown(false);
+                                        }}
+                                    >
+                                        {opt.label}
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
                 </div>
-            </div>
 
-            {/* BẢNG DỮ LIỆU */}
-            <div className="table-wrapper">
-                <table className="services-table">
-                    <thead>
-                        <tr>
-                            <th>STT</th>
-                            <th>Tài khoản</th>
-                            <th>Thông tin liên hệ</th>
-                            <th>Quyền (Role)</th>
-                            <th>Trạng thái</th>
-                            <th>Ngày tham gia</th>
-                            <th>Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredUsers.map((user, index) => {
-                            const userRole = getUserRole(user);
-                            return (
-                                <tr key={user.userId || index} className="clickable-row">
-                                    <td style={{ fontWeight: "bold" }}>{index + 1}</td>
-
-                                    {/* Cột Tài khoản (Avatar + Tên) */}
-                                    <td>
-                                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                                            <div className="td-image" style={{ width: "40px", height: "40px", padding: 0 }}>
-                                                <img
-                                                    src={user.avatarUrl || FALLBACK_AVATAR}
-                                                    alt={user.fullName || "User"}
-                                                    style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover", border: "1px solid #e5e7eb" }}
-                                                    onError={(e) => {
-                                                        e.target.src = FALLBACK_AVATAR;
-                                                    }}
-                                                />
-                                            </div>
-                                            <div>
-                                                <div className="product-name" style={{ fontSize: "14px", color: "#111827" }}>
-                                                    {user.fullName || user.username || "Chưa cập nhật"}
+                <div className="z-user-table-wrapper">
+                    <table className="z-user-table">
+                        <thead>
+                            <tr>
+                                <th style={{ width: "80px" }}>
+                                    <input
+                                        type="checkbox"
+                                        className="z-user-checkbox"
+                                        onChange={handleSelectAll}
+                                        // Tích xanh nếu số lượng đã chọn bằng tổng số lượng tìm thấy
+                                        checked={allFilteredUsers.length > 0 && selectedUserIds.length === allFilteredUsers.length}
+                                    />
+                                </th>
+                                <th>Tên người dùng</th>
+                                <th>Ngày sinh</th>
+                                <th>Vai trò</th>
+                                <th>Trạng thái</th>
+                                <th>Tham gia</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {currentItems.map((user, index) => {
+                                const role = getUserRole(user);
+                                const isInactive = user?.account?.status === "INACTIVE";
+                                return (
+                                    <tr key={user.userId || index}>
+                                        <td>
+                                            <input type="checkbox" className="z-user-checkbox" checked={selectedUserIds.includes(user.userId)} onChange={() => handleSelectRow(user.userId)} onClick={(e) => e.stopPropagation()} />
+                                        </td>
+                                        <td>
+                                            <div className="z-user-info-cell">
+                                                <img src={user.avatarUrl || FALLBACK_AVATAR} alt="" className="z-user-avatar" />
+                                                <div className="z-user-name-wrapper">
+                                                    <div className="z-user-name" title={user.fullName || user.username}>
+                                                        {user.fullName || user.username || "N/A"}
+                                                    </div>
+                                                    {/* Thêm title để hover xem email đầy đủ */}
+                                                    <div className="z-user-sub-email" title={user.email}>
+                                                        {user.email || "---"}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </td>
-
-                                    {/* Cột Liên hệ (Email & Phone) */}
-                                    <td>
-                                        <div style={{ color: "#4b5563", fontSize: "13px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                                            <span title="Email">✉️ {user.email || "Trống"}</span>
-                                            <span title="Phone">📞 {user.phoneNumber || "Trống"}</span>
-                                        </div>
-                                    </td>
-
-                                    {/* Cột Phân quyền */}
-                                    <td>
-                                        <span
-                                            className="category-badge"
-                                            style={{
-                                                backgroundColor: userRole === "ADMIN" || userRole === "SUPERADMIN" ? "#fef2f2" : "#f0fdf4",
-                                                color: userRole === "ADMIN" || userRole === "SUPERADMIN" ? "#dc2626" : "#16a34a",
-                                                borderColor: userRole === "ADMIN" || userRole === "SUPERADMIN" ? "#fecaca" : "#bbf7d0",
-                                                fontSize: "11px",
-                                                padding: "2px 8px",
-                                            }}
-                                        >
-                                            {userRole}
-                                        </span>
-                                    </td>
-
-                                    {/* Cột Trạng thái */}
-                                    <td>{user?.account?.status === "INACTIVE" ? <span style={{ color: "#ef4444", fontWeight: "500", fontSize: "13px" }}>Đã khóa</span> : <span style={{ color: "#10b981", fontWeight: "500", fontSize: "13px" }}>Đang hoạt động</span>}</td>
-
-                                    {/* Ngày tham gia */}
-                                    <td>
-                                        <span style={{ color: "#6b7280", fontSize: "13px" }}>{user.joinedAt ? new Date(user.joinedAt).toLocaleDateString("vi-VN") : "N/A"}</span>
-                                    </td>
-
-                                    {/* Cột Thao tác */}
-                                    <td>
-                                        <div className="action-row">
-                                            {userRole !== "SUPERADMIN" ? (
-                                                <button className="action-btn btn-delete" onClick={() => handleDeleteClick(user)}>
-                                                    Khóa
+                                        </td>
+                                        <td>
+                                            <span className="z-user-birthday">{user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString("vi-VN") : "---"}</span>
+                                        </td>
+                                        <td>
+                                            <span className={`z-user-role-badge ${role.toLowerCase()}`}>{role}</span>
+                                        </td>
+                                        <td>
+                                            <span className={`z-user-status-badge ${isInactive ? "inactive" : "active"}`}>{isInactive ? "Đã khóa" : "Hoạt động"}</span>
+                                        </td>
+                                        <td>{user.joinedAt ? new Date(user.joinedAt).toLocaleDateString("vi-VN") : "---"}</td>
+                                        <td>
+                                            <div className="z-user-dropdown-actions">
+                                                <button className="z-user-more-btn">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
+                                                        <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
+                                                    </svg>
                                                 </button>
-                                            ) : (
-                                                <span style={{ fontSize: "12px", color: "#9ca3af", fontStyle: "italic" }}>Quyền cao nhất</span>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-                {filteredUsers.length === 0 && <div className="state-message">Không tìm thấy người dùng nào phù hợp.</div>}
-            </div>
+                                                <div className="z-user-action-menu">
+                                                    <EditButton onClick={() => handleEditClick(user)} />
+                                                    {role !== "SUPERADMIN" && (
+                                                        <DeleteButton
+                                                            onClick={() => {
+                                                                setUserToDelete(user);
+                                                                setIsDeleteModalOpen(true);
+                                                            }}
+                                                            label="Khóa"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
 
-            {/* ==========================================
-                MODAL FORM: CẤP QUYỀN (EDIT ROLE)
-            ========================================== */}
-            <Modal isOpen={isEditModalOpen} onClose={() => !isSubmittingEdit && setIsEditModalOpen(false)} title="Cấp quyền Người Dùng" maxWidth="500px">
-                <form onSubmit={handleEditSubmit} className="custom-form">
-                    {/* Hiển thị thông tin (Readonly) */}
-                    <div className="form-group">
-                        <label>Tài khoản</label>
-                        <input type="text" value={userToEdit?.fullName || "Chưa cập nhật"} disabled className="form-input" style={{ backgroundColor: "#f3f4f6", cursor: "not-allowed", color: "#4b5563" }} />
-                    </div>
-
-                    <div className="form-group">
-                        <label>Email</label>
-                        <input type="text" value={userToEdit?.email || "Trống"} disabled className="form-input" style={{ backgroundColor: "#f3f4f6", cursor: "not-allowed", color: "#4b5563" }} />
-                    </div>
-
-                    {/* Chỉ cho phép đổi phần này */}
-                    <div className="form-group">
-                        <label>
-                            Quyền hạn (Role) <span style={{ color: "red" }}>*</span>
-                        </label>
-                        <select name="role" value={formData.role} onChange={handleInputChange} disabled={isSubmittingEdit} className="form-input">
-                            <option value="USER">Khách hàng (USER)</option>
-                            <option value="ADMIN">Quản trị viên (ADMIN)</option>
-                        </select>
-                    </div>
-
-                    <div className="modal-footer-actions" style={{ marginTop: "24px" }}>
-                        <button type="button" className="btn-secondary" onClick={() => setIsEditModalOpen(false)} disabled={isSubmittingEdit}>
-                            Hủy bỏ
+                {/* PAGINATION UI */}
+                {totalPages > 1 && (
+                    <div className="z-user-pagination">
+                        <button className="z-pagination-btn" disabled={currentPage === 1} onClick={() => setCurrentPage((prev) => prev - 1)}>
+                            Trước
                         </button>
-                        <button type="submit" className="btn-primary" disabled={isSubmittingEdit}>
-                            {isSubmittingEdit ? "Đang lưu..." : "Lưu thay đổi"}
+                        <div className="z-pagination-numbers">
+                            {[...Array(totalPages)].map((_, i) => (
+                                <button key={i + 1} className={`z-pagination-number ${currentPage === i + 1 ? "active" : ""}`} onClick={() => setCurrentPage(i + 1)}>
+                                    {i + 1}
+                                </button>
+                            ))}
+                        </div>
+                        <button className="z-pagination-btn" disabled={currentPage === totalPages} onClick={() => setCurrentPage((prev) => prev + 1)}>
+                            Sau
                         </button>
                     </div>
-                </form>
-            </Modal>
+                )}
 
-            {/* ==========================================
-                MODAL XÁC NHẬN XÓA (KHÓA ACCOUNT)
-            ========================================== */}
-            <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmittingDelete && setIsDeleteModalOpen(false)} title="Cảnh báo: Khóa Tài Khoản" maxWidth="400px">
-                <div style={{ textAlign: "center", padding: "10px 0" }}>
-                    <div style={{ marginBottom: "15px" }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto" }}>
+                {/* MODALS */}
+                <Modal isOpen={isEditModalOpen} onClose={() => !isSubmittingEdit && setIsEditModalOpen(false)} title="Cấp quyền Người Dùng" size="md" onSave={handleEditSubmit} saveText={isSubmittingEdit ? "Đang lưu..." : "Lưu thay đổi"}>
+                    <div className="z-user-form">
+                        <div className="z-user-form-group">
+                            <label>Họ và tên</label>
+                            <input type="text" value={userToEdit?.fullName || ""} disabled className="z-user-input readonly" />
+                        </div>
+                        <div className="z-user-form-group">
+                            <label>Vai trò hệ thống</label>
+                            <Select
+                                name="role"
+                                options={[
+                                    { value: "USER", label: "Khách hàng (USER)" },
+                                    { value: "ADMIN", label: "Quản trị viên (ADMIN)" },
+                                ]}
+                                value={formData.role}
+                                onChange={(e) => setFormData({ role: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                </Modal>
+
+                <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmittingDelete && setIsDeleteModalOpen(false)} title="Xác nhận khóa" size="sm" onSave={confirmDelete} saveText={isSubmittingDelete ? "Đang xử lý..." : "Khóa tài khoản"}>
+                    <div className="z-user-delete-content">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M3 6h18"></path>
                             <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
                             <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
                         </svg>
+                        <h3>Khóa tài khoản?</h3>
+                        <p>
+                            Tài khoản <strong>{userToDelete?.fullName}</strong> sẽ bị vô hiệu hóa.
+                        </p>
                     </div>
-                    <h3 className="delete-header">Xác nhận Khóa User</h3>
-                    <p className="delete-message">
-                        Hành động này sẽ khóa vĩnh viễn (Inactive) tài khoản của người dùng: <br />
-                        <strong className="delete-product-name" style={{ display: "block", marginTop: "8px" }}>
-                            {userToDelete?.fullName} ({userToDelete?.email})
-                        </strong>
-                    </p>
-                    <div className="modal-footer-delete" style={{ marginTop: "24px" }}>
-                        <button className="btn-secondary" onClick={() => setIsDeleteModalOpen(false)} disabled={isSubmittingDelete}>
-                            Hủy bỏ
-                        </button>
-                        <button className="btn-danger" onClick={confirmDelete} disabled={isSubmittingDelete}>
-                            {isSubmittingDelete ? "Đang xử lý..." : "Khóa tài khoản"}
-                        </button>
-                    </div>
-                </div>
-            </Modal>
-        </div>
+                </Modal>
+            </div>
+        </>
     );
 };
 

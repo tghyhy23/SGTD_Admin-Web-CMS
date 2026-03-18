@@ -5,7 +5,9 @@ import Modal from "../../ui/Modal/Modal";
 import { Button, AddButton, EditButton, DeleteButton } from "../../ui/Button/Button";
 import { Select } from "../../ui/Select/Select";
 import PageHeader from "../../ui/PageHeader/PageHeader";
+
 import "./Blogs.css";
+import ToastMessage from "../../ui/ToastMessage/ToastMessage";
 
 const removeVietnameseTones = (str) => {
     if (!str) return "";
@@ -40,6 +42,8 @@ const Blogs = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState("all");
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+    
+    // State Toast
     const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -82,11 +86,93 @@ const Blogs = () => {
 
     useEffect(() => { fetchAllPosts(); }, []);
 
-    const showToast = (message, type = "success") => {
-        setToast({ show: true, message, type });
-        setTimeout(() => setToast((prev) => ({ ...prev, show: false })), 3000);
+    // XỬ LÝ LƯU BÀI VIẾT
+    const handleSavePost = async () => {
+        if (!formData.title || !formData.externalUrl) {
+            return setToast({ show: true, message: "Vui lòng nhập đủ Tiêu đề và Link URL!", type: "error" });
+        }
+        setIsSubmitting(true);
+        try {
+            const submitData = new FormData();
+            Object.keys(formData).forEach((key) => submitData.append(key, formData[key]));
+            if (imageFile) submitData.append("image", imageFile);
+
+            let response;
+            if (isEditMode) {
+                response = await postApi.updatePost(editPostId, submitData);
+            } else {
+                submitData.append("contentType", "Post");
+                response = await postApi.createPost(submitData);
+            }
+
+            if (response && response.success) {
+                setToast({ 
+                    show: true, 
+                    message: isEditMode ? "Cập nhật bài viết thành công!" : "Thêm mới bài viết thành công!", 
+                    type: "success" 
+                });
+                
+                // Cập nhật state trực tiếp
+                if (isEditMode) {
+                    setPosts((prev) => prev.map((p) => p._id === editPostId ? { 
+                        ...p, 
+                        ...formData, 
+                        thumbnailUrl: imagePreview || p.thumbnailUrl 
+                    } : p));
+                } else {
+                    fetchAllPosts(); // Refresh để lấy data chuẩn từ server
+                }
+                setIsFormModalOpen(false);
+            } else {
+                setToast({ show: true, message: response?.message || "Thao tác thất bại", type: "error" });
+            }
+        } catch (error) {
+            setToast({ show: true, message: "Lỗi hệ thống, vui lòng thử lại", type: "error" });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
+    // XỬ LÝ ĐỔI TRẠNG THÁI (ẨN/HIỆN)
+    const handleToggleStatus = async (e, id) => {
+        e.stopPropagation();
+        const originalPosts = [...posts];
+        setPosts((prev) => prev.map((p) => (p._id === id ? { ...p, status: p.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" } : p)));
+        
+        try {
+            const res = await postApi.toggleStatus(id);
+            if (!res || !res.success) {
+                setPosts(originalPosts);
+                setToast({ show: true, message: "Lỗi khi thay đổi trạng thái", type: "error" });
+            } else {
+                setToast({ show: true, message: "Cập nhật trạng thái thành công", type: "success" });
+            }
+        } catch (err) {
+            setPosts(originalPosts);
+            setToast({ show: true, message: "Lỗi kết nối máy chủ", type: "error" });
+        }
+    };
+
+    // XỬ LÝ XÓA
+    const confirmDelete = async () => {
+        setIsSubmitting(true);
+        try {
+            const res = await postApi.deletePost(postToDelete.id);
+            if (res.success) {
+                setToast({ show: true, message: "Xóa bài viết thành công", type: "success" });
+                setPosts((prev) => prev.filter((p) => p._id !== postToDelete.id));
+                setIsDeleteModalOpen(false);
+            } else {
+                setToast({ show: true, message: res.message || "Không thể xóa bài viết", type: "error" });
+            }
+        } catch (err) {
+            setToast({ show: true, message: "Lỗi kết nối máy chủ", type: "error" });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // Các hàm helper Modal
     const openAddModal = () => {
         setIsEditMode(false);
         setEditPostId(null);
@@ -134,84 +220,6 @@ const Blogs = () => {
         setImagePreview(null);
     };
 
-    const handleSavePost = async () => {
-        if (!formData.title || !formData.externalUrl) {
-            return showToast("Vui lòng nhập đủ Tiêu đề và Link URL!", "error");
-        }
-        setIsSubmitting(true);
-        try {
-            const submitData = new FormData();
-            Object.keys(formData).forEach((key) => submitData.append(key, formData[key]));
-            if (imageFile) submitData.append("image", imageFile);
-
-            let response;
-            if (isEditMode) {
-                response = await postApi.updatePost(editPostId, submitData);
-            } else {
-                submitData.append("contentType", "Post");
-                response = await postApi.createPost(submitData);
-            }
-
-            if (response && response.success) {
-                showToast(isEditMode ? "Cập nhật thành công!" : "Thêm mới thành công!");
-                
-                // CẬP NHẬT STATE TRỰC TIẾP GIỐNG BANNER (KHÔNG GỌI fetchAllPosts)
-                if (isEditMode) {
-                    setPosts((prev) => prev.map((p) => p._id === editPostId ? { 
-                        ...p, 
-                        ...formData, 
-                        thumbnailUrl: imagePreview || p.thumbnailUrl 
-                    } : p));
-                } else {
-                    const newPost = response.data?.post || response.data || { _id: Date.now().toString(), ...formData, thumbnailUrl: imagePreview };
-                    setPosts((prev) => [newPost, ...prev]);
-                }
-                setIsFormModalOpen(false);
-            }
-        } catch (error) {
-            showToast("Lỗi hệ thống, vui lòng thử lại", "error");
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const handleToggleStatus = async (e, id) => {
-        e.stopPropagation();
-        const originalPosts = [...posts];
-        // Optimistic Update: Cập nhật UI trước
-        setPosts((prev) => prev.map((p) => (p._id === id ? { ...p, status: p.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" } : p)));
-        
-        try {
-            const res = await postApi.toggleStatus(id);
-            if (!res || !res.success) {
-                setPosts(originalPosts);
-                showToast("Lỗi khi thay đổi trạng thái", "error");
-            } else {
-                showToast("Cập nhật trạng thái thành công");
-            }
-        } catch (err) {
-            setPosts(originalPosts);
-            showToast("Lỗi kết nối", "error");
-        }
-    };
-
-    const confirmDelete = async () => {
-        setIsSubmitting(true);
-        try {
-            const res = await postApi.deletePost(postToDelete.id);
-            if (res.success) {
-                showToast("Xóa bài viết thành công");
-                // CẬP NHẬT STATE TRỰC TIẾP
-                setPosts((prev) => prev.filter((p) => p._id !== postToDelete.id));
-                setIsDeleteModalOpen(false);
-            }
-        } catch (err) {
-            showToast("Không thể xóa bài viết", "error");
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
     const filteredPosts = posts.filter((post) => {
         const matchesSearch = removeVietnameseTones(post.title).includes(removeVietnameseTones(searchTerm));
         const matchesStatus = filterStatus === "all" || post.status === filterStatus.toUpperCase();
@@ -222,17 +230,21 @@ const Blogs = () => {
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý bài viết Blogs" }]} title="Quản lý bài viết Blogs" description="Quản lý các bài viết tin tức, bài SEO và khuyến mãi." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý bài viết tin tức" }]} title="Quản lý bài viết tin tức" description="Quản lý các bài viết tin tức theo loại hình SEO, thiết lập đường dẫn nội dung tin tức." />
+            
             <div className="z-blog-container">
-                {toast.show && (
-                    <div className={`z-blog-toast ${toast.type}`}>
-                        <span>{toast.message}</span>
-                        <button onClick={() => setToast({ ...toast, show: false })}>×</button>
-                    </div>
-                )}
+                {/* TÍCH HỢP TOAST MESSAGE COMPONENT */}
+                <ToastMessage 
+                    show={toast.show} 
+                    message={toast.message} 
+                    type={toast.type} 
+                    onClose={() => setToast({ ...toast, show: false })} 
+                />
+
                 <div className="z-blog-header">
                     <h1 className="z-blog-title">Danh sách bài viết</h1>
                 </div>
+
                 <div className="z-blog-tools">
                     <div className="z-blog-search">
                         <input type="text" placeholder="Tìm tiêu đề bài viết..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
@@ -252,6 +264,7 @@ const Blogs = () => {
                     </div>
                     <AddButton onClick={openAddModal}>Thêm bài viết</AddButton>
                 </div>
+
                 <div className="z-blog-table-wrapper">
                     <table className="z-blog-table">
                         <thead>
@@ -277,7 +290,7 @@ const Blogs = () => {
                                         <span className="z-blog-badge-gray">{post.postType}</span>
                                         {post.isFeatured && <div className="z-blog-featured-tag">★ Nổi bật</div>}
                                     </td>
-                                    <td><span className={`z-blog-status-badge ${post.status === "ACTIVE" ? "active" : "inactive"}`}>{post.status === "ACTIVE" ? "Hoạt động" : "Đang ẩn"}</span></td>
+                                    <td><span className={`z-blog-status-badge ${post.status === "ACTIVE" ? "active" : "inactive"}`}>{post.status === "ACTIVE" ? "Đang hoạt động" : "Đang ẩn"}</span></td>
                                     <td>
                                         <div className="z-blog-actions-cell" onClick={(e) => e.stopPropagation()}>
                                             <div className="z-blog-kebab-menu">
@@ -296,9 +309,11 @@ const Blogs = () => {
                             ))}
                         </tbody>
                     </table>
+                    {filteredPosts.length === 0 && <div className="z-blog-state">Không tìm thấy bài viết nào phù hợp.</div>}
                 </div>
 
-                <Modal isOpen={isFormModalOpen} onClose={() => !isSubmitting && setIsFormModalOpen(false)} title={isEditMode ? "Cập nhật bài viết" : "Thêm bài viết mới"} size="lg" onSave={handleSavePost} saveText={isSubmitting ? "Đang xử lý..." : isEditMode ? "Lưu thay đổi" : "Lưu bài viết"}>
+                {/* MODAL FORM */}
+                <Modal isOpen={isFormModalOpen} onClose={() => !isSubmitting && setIsFormModalOpen(false)} title={isEditMode ? "Cập nhật bài viết" : "Thêm bài viết mới"} size="lg" onSave={handleSavePost} saveText={isSubmitting ? "Đang xử lý..." : "Lưu thay đổi"}>
                     <div className="z-blog-form">
                         <div className="z-blog-form-grid">
                             <div className="z-blog-form-column">
@@ -342,6 +357,7 @@ const Blogs = () => {
                     </div>
                 </Modal>
 
+                {/* MODAL DELETE */}
                 <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmitting && setIsDeleteModalOpen(false)} title="Xác nhận xóa" size="sm" onSave={confirmDelete} saveText={isSubmitting ? "Đang xóa..." : "Xác nhận xóa"}>
                     <div className="z-blog-delete-confirm">
                         <p>Bạn có chắc chắn muốn xóa bài viết:</p>

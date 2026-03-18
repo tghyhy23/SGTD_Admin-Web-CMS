@@ -48,7 +48,7 @@ const Navbar = ({ toggleSidebar }) => {
   };
 
   // Xác định xem trang hiện tại có cần ẩn Tabs không (Có thể thêm các trang khác vào mảng này)
-  const hideTabsPages = ['/banners', '/blogs', '/settings'];
+  const hideTabsPages = ['/banners', '/blogs', '/users'];
   const isHideTabs = hideTabsPages.includes(location.pathname);
 
   return (
