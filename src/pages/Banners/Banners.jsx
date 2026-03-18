@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from "react";
 import { bannerApi } from "../../api/axiosApi";
 import Modal from "../../ui/Modal/Modal";
-// Import đầy đủ các nút từ thư viện UI chung
+
 import { Button, AddButton, EditButton, DeleteButton } from "../../ui/Button/Button";
 // Import Component Select mới tạo
 import { Select } from "../../ui/Select/Select";
 import "./Banners.css";
 import PageHeader from "../../ui/PageHeader/PageHeader";
+import ToastMessage from "../../ui/ToastMessage/ToastMessage";
 
 const removeVietnameseTones = (str) => {
     if (!str) return "";
@@ -42,6 +43,8 @@ const statusOptions = [
 
 const Banners = () => {
     const [banners, setBanners] = useState([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 15;
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -101,10 +104,9 @@ const Banners = () => {
         fetchAllBanners();
     }, []);
 
-    const showToast = (message, type = "success") => {
-        setToast({ show: true, message, type });
-        setTimeout(() => setToast((prev) => ({ ...prev, show: false })), 3000);
-    };
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterStatus, filterPosition]);
 
     // XỬ LÝ XÓA
     const handleDeleteClick = (e, id, title) => {
@@ -119,16 +121,24 @@ const Banners = () => {
         try {
             const response = await bannerApi.deleteBanner(bannerToDelete.id);
             if (response && response.success) {
-                showToast("Xóa banner thành công!", "success");
+                setToast({ show: true, message: "Xóa banner thành công!", type: "success" });
                 setIsDeleteModalOpen(false);
                 setBanners((prev) => prev.filter((b) => b._id !== bannerToDelete.id));
                 setBannerToDelete(null);
             } else {
-                showToast(response?.message || "Lỗi xóa banner", "error");
+                setToast({
+                    show: true,
+                    message: response?.message || "Lỗi xóa banner",
+                    type: "error",
+                });
             }
         } catch (error) {
             console.error("Lỗi deleteBanner:", error);
-            showToast(error.response?.data?.message || "Không thể xóa banner lúc này", "error");
+            setToast({
+                show: true,
+                message: error.response?.data?.message || "Không thể xóa banner lúc này",
+                type: "error",
+            });
         } finally {
             setIsSubmittingDelete(false);
         }
@@ -187,7 +197,7 @@ const Banners = () => {
     // LƯU FORM
     const handleSaveBanner = async () => {
         if (!formData.title) {
-            return showToast("Vui lòng nhập tiêu đề banner!", "error");
+            return setToast({ show: true, message: isEditMode ? "Cập nhật thành công!" : "Thêm mới thành công!", type: "success" });
         }
 
         setIsSubmittingForm(true);
@@ -203,9 +213,12 @@ const Banners = () => {
             if (imageFile) {
                 submitData.append("image", imageFile);
             } else if (!isEditMode) {
-                showToast("Vui lòng chọn hình ảnh cho Banner!", "error");
                 setIsSubmittingForm(false);
-                return;
+                return setToast({
+                    show: true,
+                    message: "Vui lòng chọn hình ảnh cho Banner!",
+                    type: "error",
+                });
             }
 
             let response;
@@ -216,7 +229,11 @@ const Banners = () => {
             }
 
             if (response && response.success) {
-                showToast(isEditMode ? "Cập nhật thành công!" : "Thêm mới thành công!", "success");
+                setToast({
+                    show: true,
+                    message: isEditMode ? "Cập nhật thành công!" : "Thêm mới thành công!",
+                    type: "success",
+                });
 
                 // CẬP NHẬT UI TRỰC TIẾP
                 if (isEditMode) {
@@ -247,11 +264,19 @@ const Banners = () => {
 
                 setIsFormModalOpen(false);
             } else {
-                showToast(response?.message || "Có lỗi xảy ra", "error");
+                setToast({
+                    show: true,
+                    message: response?.message || "Có lỗi xảy ra",
+                    type: "error",
+                });
             }
         } catch (error) {
             console.error("Lỗi submit form:", error);
-            showToast(error.response?.data?.message || "Lỗi kết nối", "error");
+            setToast({
+                show: true,
+                message: error.response?.data?.message || "Lỗi kết nối đến máy chủ",
+                type: "error",
+            });
         } finally {
             setIsSubmittingForm(false);
         }
@@ -270,43 +295,49 @@ const Banners = () => {
             submitData.append("status", newStatus);
             const response = await bannerApi.updateBanner(banner._id, submitData);
             if (response && response.success) {
-                showToast(`Đã chuyển sang: ${newStatus === "PUBLISHED" ? "Đang hoạt động" : "Đang ẩn"}`, "success");
+                setToast({
+                    show: true,
+                    message: `Đã chuyển sang: ${newStatus === "PUBLISHED" ? "Đang hoạt động" : "Đang ẩn"}`,
+                    type: "success",
+                });
             } else {
                 setBanners(previousBanners);
-                showToast("Lỗi khi cập nhật trạng thái", "error");
+                setToast({
+                    show: true,
+                    message: response?.message || "Lỗi khi cập nhật trạng thái",
+                    type: "error",
+                });
             }
         } catch (error) {
             setBanners(previousBanners);
-            showToast("Lỗi kết nối", "error");
+            setToast({
+                show: true,
+                message: "Lỗi kết nối đến máy chủ",
+                type: "error",
+            });
         }
     };
 
     // LỌC DỮ LIỆU
-    const filteredBanners = banners
+    const allFilteredBanners = banners
         .filter((banner) => {
             const normalizedSearch = removeVietnameseTones(searchTerm);
             const normalizedTitle = removeVietnameseTones(banner.title);
-            const normalizedSubtitle = removeVietnameseTones(banner.subtitle || "");
-
-            const matchesSearch = normalizedTitle.includes(normalizedSearch) || normalizedSubtitle.includes(normalizedSearch);
+            const matchesSearch = normalizedTitle.includes(normalizedSearch);
             let matchesStatus = true;
             if (filterStatus === "published") matchesStatus = banner.status === "PUBLISHED";
             if (filterStatus === "draft") matchesStatus = banner.status === "DRAFT";
-
             let matchesPosition = true;
             if (filterPosition !== "all") matchesPosition = banner.position === filterPosition;
-
             return matchesSearch && matchesStatus && matchesPosition;
         })
-        .sort((a, b) => {
-            const orderA = a.displayOrder || 0;
-            const orderB = b.displayOrder || 0;
-            if (orderA !== orderB) return orderA - orderB;
+        .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
 
-            const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-            const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-            return dateB - dateA;
-        });
+    // Tính toán dữ liệu hiển thị cho trang hiện tại
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = allFilteredBanners.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(allFilteredBanners.length / itemsPerPage);
 
     const getStatusLabel = () => {
         if (filterStatus === "published") return "Đang hoạt động";
@@ -324,16 +355,9 @@ const Banners = () => {
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lí Banners các trang" }]} title="Quản lí Banners các trang" description="Quản lí danh sách banners, thiết lập vị trí và thứ tự hiển thị của banners trên hệ thống di động ." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý Banners các trang" }]} title="Quản lý Banners các trang" description="Quản lý danh sách banners, thiết lập vị trí và thứ tự hiển thị của banners trên hệ thống di động ." />
             <div className="z-banner-container">
-                {toast.show && (
-                    <div className={`z-banner-toast ${toast.type}`}>
-                        <span>{toast.message}</span>
-                        <button className="z-banner-toast-close" onClick={() => setToast({ ...toast, show: false })}>
-                            ×
-                        </button>
-                    </div>
-                )}
+                <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
 
                 <div className="z-banner-header">
                     <h1 className="z-banner-title">Danh sách Banners các trang</h1>
@@ -461,7 +485,7 @@ const Banners = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredBanners.map((banner, index) => (
+                            {allFilteredBanners.map((banner, index) => (
                                 <tr key={banner._id}>
                                     <td>{index + 1}</td>
                                     <td>
@@ -511,8 +535,26 @@ const Banners = () => {
                             ))}
                         </tbody>
                     </table>
-                    {filteredBanners.length === 0 && <div className="z-banner-state">Không tìm thấy banner nào phù hợp.</div>}
+                    {allFilteredBanners.length === 0 && <div className="z-banner-state">Không tìm thấy banner nào phù hợp.</div>}
                 </div>
+
+                {totalPages > 1 && (
+                    <div className="z-banner-pagination">
+                        <button className="z-pagination-btn" disabled={currentPage === 1} onClick={() => setCurrentPage((prev) => prev - 1)}>
+                            Trước
+                        </button>
+                        <div className="z-pagination-numbers">
+                            {[...Array(totalPages)].map((_, i) => (
+                                <button key={i + 1} className={`z-pagination-number ${currentPage === i + 1 ? "active" : ""}`} onClick={() => setCurrentPage(i + 1)}>
+                                    {i + 1}
+                                </button>
+                            ))}
+                        </div>
+                        <button className="z-pagination-btn" disabled={currentPage === totalPages} onClick={() => setCurrentPage((prev) => prev + 1)}>
+                            Sau
+                        </button>
+                    </div>
+                )}
 
                 {/* ================= MODAL FORM: THÊM & SỬA ================= */}
                 <Modal
