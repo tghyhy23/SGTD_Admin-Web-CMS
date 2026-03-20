@@ -262,7 +262,7 @@ const Blogs = () => {
                             </div>
                         )}
                     </div>
-                    <AddButton onClick={openAddModal}>Thêm bài viết</AddButton>
+                    <AddButton style={{ marginLeft: "auto" }} onClick={openAddModal}>Thêm bài viết</AddButton>
                 </div>
 
                 <div className="z-blog-table-wrapper">
@@ -279,7 +279,7 @@ const Blogs = () => {
                         </thead>
                         <tbody>
                             {filteredPosts.map((post, index) => (
-                                <tr key={post._id} className="z-blog-clickable-row" onClick={() => navigate(`/blog-detail/${post._id}`)}>
+                                <tr key={post._id} className="z-blog-clickable-row" onClick={(e) => openEditModal(e, post)} >
                                     <td>{index + 1}</td>
                                     <td><img src={post.thumbnailUrl || FALLBACK_IMG} alt="" className="z-blog-img-preview" /></td>
                                     <td>

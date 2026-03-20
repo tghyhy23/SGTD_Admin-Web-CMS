@@ -468,7 +468,7 @@ const Banners = () => {
                     </div>
 
                     {/* SỬ DỤNG ADD BUTTON TẠI ĐÂY */}
-                    <AddButton onClick={openAddModal}>Thêm banner</AddButton>
+                    <AddButton style={{ marginLeft: "auto" }} onClick={openAddModal}>Thêm banner</AddButton>
                 </div>
 
                 <div className="z-banner-table-wrapper">

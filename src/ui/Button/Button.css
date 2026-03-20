@@ -52,6 +52,16 @@
     color: var(--primary-color);
 }
 
+.z-btn-complete {
+    background-color: transparent; ; /* Màu xanh đậm giống thiết kế trước của bạn */
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+.z-btn-complete:hover:not(:disabled) {
+    background-color: var(--base-primary);
+    color: var(--primary-color);
+}
+
 /* 3. Danger (Đỏ - Dùng cho Delete, Remove) */
 .z-btn-danger {
     background-color: transparent;
