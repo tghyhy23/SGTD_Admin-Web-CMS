@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { locationApi } from "../../api/axiosApi";
 import Modal from "../../ui/Modal/Modal";
 import { Button, EditButton, DeleteButton, AddButton } from "../../ui/Button/Button";
-import { Select } from "../../ui/Select/Select";
 import PageHeader from "../../ui/PageHeader/PageHeader";
 import ToastMessage from "../../ui/ToastMessage/ToastMessage";
+import Select from "react-select";
 import "./Location.css";
 
 const removeVietnameseTones = (str) => {
@@ -44,11 +44,8 @@ const Location = () => {
     const [filterRegion, setFilterRegion] = useState("ALL");
     const [filterProvinceForDistrict, setFilterProvinceForDistrict] = useState("ALL");
 
-    // UI Dropdown State
-    const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+    // Toast & Modals State
     const [toast, setToast] = useState({ show: false, message: "", type: "success" });
-
-    // Modals State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
     const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
@@ -83,26 +80,30 @@ const Location = () => {
     // Reset Pagination khi đổi tab hoặc filter
     useEffect(() => {
         setCurrentPage(1);
-        setShowFilterDropdown(false);
     }, [activeTab, searchTerm, filterRegion, filterProvinceForDistrict]);
+
+    // ✅ SẮP XẾP TỈNH THÀNH THEO BẢNG CHỮ CÁI TIẾNG VIỆT
+    const sortedProvinces = useMemo(() => {
+        return [...provinces].sort((a, b) => a.name.localeCompare(b.name, "vi"));
+    }, [provinces]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const getRegionLabel = (region) => REGION_OPTIONS.find((r) => r.value === region)?.label || region;
-
-    const getSelectedProvinceName = () => {
-        if (filterProvinceForDistrict === "ALL") return "Tất cả Tỉnh/Thành";
-        return provinces.find((p) => p._id === filterProvinceForDistrict)?.name || "Tất cả Tỉnh/Thành";
+    const handleReactSelectChange = (selectedOption, actionMeta) => {
+        setFormData((prev) => ({
+            ...prev,
+            [actionMeta.name]: selectedOption ? selectedOption.value : "",
+        }));
     };
 
     // ================= XỬ LÝ FORM (THÊM / SỬA) =================
     const openAddModal = () => {
         setIsEditMode(false);
         setEditId(null);
-        setFormData(activeTab === "provinces" ? initialProvinceForm : { ...initialDistrictForm, provinceId: provinces[0]?._id || "" });
+        setFormData(activeTab === "provinces" ? initialProvinceForm : { ...initialDistrictForm, provinceId: sortedProvinces[0]?._id || "" });
         setIsModalOpen(true);
     };
 
@@ -118,7 +119,7 @@ const Location = () => {
     };
 
     const handleSubmit = async () => {
-        if (!formData.name || !formData.code) {
+        if (!formData.name || !formData.code || (activeTab === "districts" && !formData.provinceId)) {
             return setToast({ show: true, message: "Vui lòng nhập đủ thông tin bắt buộc!", type: "error" });
         }
 
@@ -201,8 +202,40 @@ const Location = () => {
     const currentItems = allFilteredData.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(allFilteredData.length / itemsPerPage);
 
+    // ================= OPTIONS CHO REACT-SELECT =================
+    // 1. Cho bộ lọc bên ngoài màn hình chính (Có tùy chọn "Tất cả")
+    const filterRegionOptions = REGION_OPTIONS;
+    const filterProvinceOptions = [{ value: "ALL", label: "Tất cả Tỉnh/Thành" }, ...sortedProvinces.map((p) => ({ value: p._id, label: p.name }))];
+
+    // 2. Cho Form Modal (Không có tùy chọn "Tất cả")
+    const formRegionOptions = REGION_OPTIONS.filter((o) => o.value !== "ALL");
+    const formProvinceOptions = sortedProvinces.map((p) => ({ value: p._id, label: p.name }));
+
+    // Styles dùng chung
+    const customSelectStyles = {
+        control: (provided, state) => ({
+            ...provided,
+            minHeight: "42px",
+            borderRadius: "8px",
+            fontSize: "14px",
+            borderColor: state.isFocused ? "var(--primary-color)" : "#e5e7eb",
+            boxShadow: "none",
+            "&:hover": { borderColor: "var(--primary-color)" },
+            backgroundColor: "#fff",
+        }),
+        input: (provided) => ({ ...provided, margin: 0, padding: 0, fontSize: "14px" }),
+        option: (provided, state) => ({ ...provided, backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white", color: state.isSelected ? "var(--primary-color)" : "#374151", cursor: "pointer", margin: "4px", borderRadius: "6px", fontSize: "14px", width: "96%"}),
+        menu: (provided) => ({ ...provided, zIndex: 9999 }),
+        menuList: (provided) => ({
+            ...provided,
+            overflowX: "hidden", 
+        }),
+    };
+
     if (isLoading) return <div className="z-location-state">Đang tải dữ liệu...</div>;
     if (error) return <div className="z-location-state z-location-error">{error}</div>;
+
+    const getRegionLabel = (region) => REGION_OPTIONS.find((r) => r.value === region)?.label || region;
 
     return (
         <>
@@ -229,38 +262,12 @@ const Location = () => {
                         <input type="text" placeholder={`Tìm mã hoặc tên ${activeTab === "provinces" ? "Tỉnh/Thành" : "Phường/Xã"}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
 
-                    <div className="z-location-filter">
-                        <button className="z-location-btn-filter" onClick={() => setShowFilterDropdown(!showFilterDropdown)}>
-                            <span>{activeTab === "provinces" ? getRegionLabel(filterRegion) : getSelectedProvinceName()}</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151">
-                                <path d="M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z" />
-                            </svg>
-                        </button>
-                        {showFilterDropdown && (
-                            <div className="z-location-dropdown-menu">
-                                {activeTab === "provinces" ? (
-                                    REGION_OPTIONS.map((opt) => (
-                                        <div key={opt.value} className={`z-location-dropdown-item ${filterRegion === opt.value ? "active" : ""}`} onClick={() => setFilterRegion(opt.value)}>
-                                            {opt.label}
-                                        </div>
-                                    ))
-                                ) : (
-                                    <>
-                                        <div className={`z-location-dropdown-item ${filterProvinceForDistrict === "ALL" ? "active" : ""}`} onClick={() => setFilterProvinceForDistrict("ALL")}>
-                                            Tất cả Tỉnh/Thành
-                                        </div>
-                                        {provinces.map((p) => (
-                                            <div key={p._id} className={`z-location-dropdown-item ${filterProvinceForDistrict === p._id ? "active" : ""}`} onClick={() => setFilterProvinceForDistrict(p._id)}>
-                                                {p.name}
-                                            </div>
-                                        ))}
-                                    </>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                    {/* ✅ THAY THẾ BỘ LỌC CŨ BẰNG REACT-SELECT BÊN NGOÀI MÀN HÌNH CHÍNH */}
+                    <div style={{ minWidth: "250px", zIndex: 10, }}>{activeTab === "provinces" ? <Select options={filterRegionOptions} value={filterRegionOptions.find((opt) => opt.value === filterRegion)} onChange={(selected) => setFilterRegion(selected.value)} styles={customSelectStyles} isSearchable={false} placeholder="Chọn Vùng miền..." /> : <Select options={filterProvinceOptions} value={filterProvinceOptions.find((opt) => opt.value === filterProvinceForDistrict)} onChange={(selected) => setFilterProvinceForDistrict(selected.value)} styles={customSelectStyles} isSearchable={true} placeholder="Tìm Tỉnh/Thành phố..." noOptionsMessage={() => "Không tìm thấy kết quả"} />}</div>
 
-                    <AddButton style={{ marginLeft: "auto" }} onClick={openAddModal}>Thêm mới {activeTab === "provinces" ? "Tỉnh" : "Phường"}</AddButton>
+                    <AddButton style={{ marginLeft: "auto" }} onClick={openAddModal}>
+                        Thêm mới {activeTab === "provinces" ? "Tỉnh" : "Phường"}
+                    </AddButton>
                 </div>
 
                 <div className="z-location-table-wrapper">
@@ -354,14 +361,14 @@ const Location = () => {
                                 <label>
                                     Vùng miền <span className="z-location-required">*</span>
                                 </label>
-                                <Select name="region" options={REGION_OPTIONS.filter((o) => o.value !== "ALL")} value={formData.region} onChange={handleInputChange} disabled={isSubmitting} />
+                                <Select name="region" options={formRegionOptions} value={formRegionOptions.find((opt) => opt.value === formData.region) || null} onChange={handleReactSelectChange} isDisabled={isSubmitting} styles={customSelectStyles} placeholder="Chọn vùng miền" isSearchable={false} />
                             </div>
                         ) : (
                             <div className="z-location-form-group">
                                 <label>
                                     Thuộc Tỉnh/Thành phố <span className="z-location-required">*</span>
                                 </label>
-                                <Select name="provinceId" options={provinces.map((p) => ({ value: p._id, label: p.name }))} value={formData.provinceId} onChange={handleInputChange} disabled={isSubmitting} />
+                                <Select name="provinceId" options={formProvinceOptions} value={formProvinceOptions.find((opt) => opt.value === formData.provinceId) || null} onChange={handleReactSelectChange} isDisabled={isSubmitting} styles={customSelectStyles} placeholder="Gõ để tìm Tỉnh/Thành phố..." isSearchable={true} noOptionsMessage={() => "Không tìm thấy Tỉnh/Thành nào"} />
                             </div>
                         )}
                     </div>

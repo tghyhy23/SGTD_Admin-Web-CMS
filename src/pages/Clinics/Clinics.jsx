@@ -22,6 +22,22 @@ const removeVietnameseTones = (str) => {
         .trim();
 };
 
+const mapCategoryToEnum = (title) => {
+    if (!title) return "PHONG_KHAM"; // Giá trị mặc định an toàn
+
+    // Loại bỏ dấu tiếng Việt, chuyển thành chữ hoa
+    const normalized = removeVietnameseTones(title).toUpperCase();
+
+    // So khớp dựa trên từ khóa
+    if (normalized.includes("NHA KHOA")) return "NHA_KHOA";
+    if (normalized.includes("BENH VIEN")) return "BENH_VIEN";
+    if (normalized.includes("THAM MY")) return "THAM_MY_VIEN";
+    if (normalized.includes("PHONG KHAM")) return "PHONG_KHAM";
+
+    // Fallback: Tự động đổi dấu cách thành gạch dưới nếu không khớp các case trên
+    return normalized.replace(/\s+/g, "_");
+};
+
 const FALLBACK_IMG = "https://via.placeholder.com/150?text=No+Image";
 
 const Clinics = () => {
@@ -74,6 +90,18 @@ const Clinics = () => {
     const [imagePreviews, setImagePreviews] = useState([]);
     const [oldImageUrls, setOldImageUrls] = useState([]);
 
+    const generateTimeOptions = () => {
+        const times = [];
+        for (let h = 6; h <= 23; h++) {
+            const hour = h.toString().padStart(2, "0");
+            times.push({ value: `${hour}:00`, label: `${hour}:00` });
+            times.push({ value: `${hour}:30`, label: `${hour}:30` });
+        }
+        return times;
+    };
+
+    const TIME_OPTIONS = generateTimeOptions();
+
     const navigate = useNavigate();
 
     // ==========================================
@@ -104,10 +132,20 @@ const Clinics = () => {
             setActiveParentCategory(savedCategory);
             const parentId = savedCategory?._id || null;
 
-            const [clinicsRes, distRes] = await Promise.all([clinicApi.getAllClinics({ limit: 100 }), locationApi.getAllDistricts()]);
+            // 1. CHUẨN BỊ PARAMS CHO API GỌI XUỐNG BACKEND
+            const apiParams = { limit: 100 };
+
+            // Nếu có chọn Tab (Không phải tab "Tất cả") -> Thêm category vào params
+            if (savedCategory && savedCategory.title) {
+                apiParams.category = mapCategoryToEnum(savedCategory.title);
+            }
+
+            // 2. GỌI API (Lúc này axios sẽ tự nối thành /branch?category=BENH_VIEN&limit=100)
+            const [clinicsRes, distRes] = await Promise.all([clinicApi.getAllClinics(apiParams), locationApi.getAllDistricts()]);
 
             if (distRes?.success) setDistricts(distRes.data.districts || []);
 
+            // 3. LẤY DANH SÁCH DỊCH VỤ (Để dùng cho các checkbox)
             let filteredServices = [];
             if (parentId) {
                 const serviceRes = await categoryApi.getAllCategories({ limit: 100, categoryId: parentId });
@@ -118,20 +156,13 @@ const Clinics = () => {
             }
             setServices(filteredServices);
 
+            // 4. LƯU DỮ LIỆU PHÒNG KHÁM
+            // Không cần dùng .filter() của Javascript nữa vì Backend đã trả về đúng danh sách ta cần!
             if (clinicsRes?.success) {
-                const allClinics = clinicsRes.data.branches || [];
-                if (!parentId) {
-                    setClinics(allClinics);
-                } else {
-                    const allowedServiceIds = new Set(filteredServices.map((s) => String(s._id)));
-                    const filteredClinics = allClinics.filter((clinic) => {
-                        const clinicServiceIds = clinic.availableServiceIds?.map((s) => String(s._id || s)) || [];
-                        return clinicServiceIds.some((id) => allowedServiceIds.has(id));
-                    });
-                    setClinics(filteredClinics);
-                }
+                setClinics(clinicsRes.data.branches || []);
             }
         } catch (err) {
+            console.error("Lỗi fetch data:", err);
             setError("Lỗi kết nối đến máy chủ.");
         } finally {
             if (showLoadingOverlay) setIsLoading(false);
@@ -150,7 +181,7 @@ const Clinics = () => {
         setEditClinicId(null);
         setFormData({
             ...initialForm,
-            category: activeParentCategory?._id,
+            category: mapCategoryToEnum(activeParentCategory?.title),
         });
         setImageFiles([]);
         setImagePreviews([]);
@@ -186,7 +217,7 @@ const Clinics = () => {
             openTime: clinic.openingHours?.openTime || "07:30",
             closeTime: clinic.openingHours?.closeTime || "19:30",
             availableServiceIds: clinicServiceIds,
-            category: clinic.category?._id || clinic.category || activeParentCategory?._id || "",
+            category: clinic.category || mapCategoryToEnum(activeParentCategory?.title) || "",
         });
 
         setImageFiles([]);
@@ -212,6 +243,17 @@ const Clinics = () => {
                 availableServiceIds: isSelected ? prev.availableServiceIds.filter((id) => id !== serviceId) : [...prev.availableServiceIds, serviceId],
             };
         });
+    };
+
+    const isAllServicesSelected = services.length > 0 && formData.availableServiceIds.length === services.length;
+
+    // Hàm xử lý khi click vào ô "Chọn tất cả"
+    const handleSelectAllServices = () => {
+        setFormData((prev) => ({
+            ...prev,
+            // Nếu đang chọn full -> Bỏ chọn hết ([]). Nếu chưa full -> Chọn tất cả ID của services
+            availableServiceIds: isAllServicesSelected ? [] : services.map((s) => s._id),
+        }));
     };
 
     const handleAddImageClick = () => {
@@ -278,7 +320,6 @@ const Clinics = () => {
                 submitData.append("imageUrls", JSON.stringify(oldImageUrls.length === 0 && imageFiles.length === 0 ? [] : oldImageUrls));
             }
 
-            imageFiles.forEach((file) => submitData.append("images", file));
             console.log("--- DEBUG PAYLOAD ---");
             for (let pair of submitData.entries()) {
                 console.log(pair[0] + ": " + pair[1]);
@@ -329,7 +370,7 @@ const Clinics = () => {
                 setIsFormModalOpen(false); // Đóng form
 
                 // Gọi fetch ngầm (false) để làm mới data chuẩn mà không hiện Loading
-                fetchAllData(false);
+                // fetchAllData(false);
             } else {
                 showToast(response?.message || "Có lỗi xảy ra", "error");
             }
@@ -410,9 +451,9 @@ const Clinics = () => {
     }));
 
     const customSelectStyles = {
-        control: (provided, state) => ({ ...provided, minHeight: "42px", borderRadius: "8px", borderColor: state.isFocused ? "var(--primary-color)" : "#e5e7eb", boxShadow: "none", "&:hover": { borderColor: "var(--primary-color)" } }),
-        input: (provided) => ({ ...provided, margin: 0, padding: 0 }),
-        option: (provided, state) => ({ ...provided, backgroundColor: state.isSelected ? "var(--primary-color)" : state.isFocused ? "#eef2ff" : "white", color: state.isSelected ? "white" : "#374151", cursor: "pointer" }),
+        control: (provided, state) => ({ ...provided, minHeight: "42px", borderRadius: "8px", borderColor: state.isFocused ? "var(--primary-color)" : "#e5e7eb", boxShadow: "none", "&:hover": { borderColor: "var(--primary-color)" }, fontSize: '14px' }),
+        input: (provided) => ({ ...provided, margin: 0, padding: 0, fontSize: '14px' }),
+        option: (provided, state) => ({ ...provided, backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white", color: state.isSelected ? "var(--primary-color)" : "#374151", cursor: "pointer", margin: "4px", borderRadius: "6px", fontSize: '14px' }),
     };
 
     if (isLoading) return <div className="z-clinic-state">Đang tải dữ liệu...</div>;
@@ -420,7 +461,7 @@ const Clinics = () => {
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý Chi nhánh" }]} title={`Chi nhánh: ${activeParentCategory?.title || "Tất cả"}`} description="Quản lý thông tin, dịch vụ và định vị của các phòng khám." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý Chi nhánh" }]} title={`Chi nhánh ${activeParentCategory?.title || "Tất cả"}`} description="Quản lý thông tin, dịch vụ và định vị của các phòng khám." />
 
             <div className="z-clinic-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
@@ -517,7 +558,7 @@ const Clinics = () => {
                         )}
                     </div>
 
-                    <AddButton onClick={openAddModal} className="z-clinic-add-btn-pull-right">
+                    <AddButton onClick={openAddModal} className="z-clinic-add-btn-pull-right" style={{ marginLeft: "auto" }}>
                         Thêm Phòng Khám
                     </AddButton>
                 </div>
@@ -605,12 +646,13 @@ const Clinics = () => {
                                     <label>Danh mục hệ thống</label>
                                     <input
                                         type="text"
-                                        // Hiển thị chữ "NHA KHOA" từ activeParentCategory
+                                        // Luôn hiển thị title đẹp lấy từ tab Navbar
                                         value={activeParentCategory?.title || "Chưa xác định"}
                                         disabled
                                         className="z-clinic-input readonly z-clinic-input-highlight"
                                     />
-                                    <small style={{ color: "gray" }}>Mã danh mục: {formData.category}</small>
+                                    {/* Hiển thị nhỏ mã Enum thực tế sẽ gửi đi để dễ debug */}
+                                    <small style={{ color: "gray" }}>Mã hệ thống: {formData.category}</small>
                                 </div>
 
                                 <div className="z-clinic-form-group">
@@ -676,17 +718,33 @@ const Clinics = () => {
                                 <div className="z-clinic-form-row">
                                     <div className="z-clinic-form-group z-clinic-flex-1">
                                         <label>Giờ mở cửa</label>
-                                        <input type="time" name="openTime" className="z-clinic-input" required value={formData.openTime} onChange={handleInputChange} disabled={isSubmitting} />
+                                        <Select
+                                            options={TIME_OPTIONS}
+                                            value={TIME_OPTIONS.find((opt) => opt.value === formData.openTime) || null}
+                                            onChange={(selected) => setFormData((prev) => ({ ...prev, openTime: selected ? selected.value : "" }))}
+                                            isDisabled={isSubmitting}
+                                            placeholder="Chọn giờ"
+                                            styles={customSelectStyles} // Dùng lại style đẹp bạn đã tạo
+                                        />
                                     </div>
                                     <div className="z-clinic-form-group z-clinic-flex-1">
                                         <label>Giờ đóng cửa</label>
-                                        <input type="time" name="closeTime" className="z-clinic-input" required value={formData.closeTime} onChange={handleInputChange} disabled={isSubmitting} />
+                                        <Select options={TIME_OPTIONS} value={TIME_OPTIONS.find((opt) => opt.value === formData.closeTime) || null} onChange={(selected) => setFormData((prev) => ({ ...prev, closeTime: selected ? selected.value : "" }))} isDisabled={isSubmitting} placeholder="Chọn giờ" styles={customSelectStyles} />
                                     </div>
                                 </div>
 
                                 <div className="z-clinic-form-group">
                                     <label>Dịch vụ cung cấp</label>
                                     <div className="z-clinic-services-list">
+                                        {/* ✅ NÚT CHỌN TẤT CẢ NẰM LÊN ĐẦU */}
+                                        {services.length > 0 && (
+                                            <label className="z-clinic-service-item" style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: "8px", marginBottom: "8px" }}>
+                                                <input type="checkbox" checked={isAllServicesSelected} onChange={handleSelectAllServices} disabled={isSubmitting} />
+                                                <span style={{ fontWeight: "bold", color: "var(--primary-color, #1d4ed8)" }}>Chọn tất cả ({services.length} dịch vụ)</span>
+                                            </label>
+                                        )}
+
+                                        {/* Danh sách các dịch vụ lẻ */}
                                         {services.map((srv) => (
                                             <label key={srv._id} className="z-clinic-service-item">
                                                 <input type="checkbox" checked={formData.availableServiceIds.includes(srv._id)} onChange={() => handleServiceCheckbox(srv._id)} disabled={isSubmitting} />
