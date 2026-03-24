@@ -1,7 +1,7 @@
 // src/pages/Auth/ResetPassword/ResetPassword.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './ResetPassword.css';
+// import './ResetPassword.css';
 
 const ResetPassword = () => {
   const [showPopup, setShowPopup] = useState(false);

@@ -19,12 +19,10 @@ import ServiceDetail from './pages/Services/ServiceDetail';
 import Clinics from './pages/Clinics/Clinics';
 import ClinicDetail from './pages/Clinics/ClinicDetail';
 import Blogs from './pages/Blogs/Blogs';
-import BlogDetail from './pages/Blogs/BlogDetail';
 import Banners from './pages/Banners/Banners';
 import Categories from './pages/Categories/Categories';
 import Promotions from './pages/Promotions/Promotions';
 import Users from './pages/Users/Users';
-import PromotionDetail from './pages/Promotions/PromotionDetail';
 import Location from './pages/Location/Location';
 import Notifications from './pages/Notifications/Notifications';
 import Warranties from './pages/Waranties/Warranties';
@@ -64,7 +62,6 @@ function App() {
 
             {/* 2. KHAI BÁO CÁC ROUTE CỦA BLOGS Ở ĐÂY */}
             <Route path="/blogs" element={<Blogs />} />
-            <Route path="/blogs/:id" element={<BlogDetail />} />
 
             {/* Banner */}
             <Route path="/banners" element={<Banners />} />
@@ -83,7 +80,6 @@ function App() {
 
             {/* Promotions */}
             <Route path="/promotions" element={<Promotions />} />
-            <Route path="/promotion/:id" element={<PromotionDetail />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

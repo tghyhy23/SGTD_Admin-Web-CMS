@@ -82,5 +82,14 @@ export const CancelButton = ({ children = "Hủy bỏ", ...props }) => (
     </Button>
 );
 
+export const CompleteButton = ({ children = "Thêm mới", ...props }) => (
+    <Button 
+        variant="complete" 
+        {...props}
+    >
+        {children}
+    </Button>
+);
+
 // Export mặc định là Base Button cho các trường hợp custom khác
 export default Button;

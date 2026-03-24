@@ -1,7 +1,9 @@
 /* Tùy chỉnh Checkbox */
 .z-user-checkbox {
-    width: 18px;
-    height: 18px;
+    margin-left: 40px;
+    margin-top: 8px;
+    width: 20px;
+    height: 20px;
     cursor: pointer;
     accent-color: var(--primary-color);
 }
@@ -63,7 +65,7 @@
 .z-user-tabs {
     display: flex;
     gap: 8px;
-    margin-bottom: 10px;
+    margin-bottom: 16px;
     border-bottom: 1px solid #e5e7eb;
 }
 .z-user-tab-item {
@@ -176,8 +178,8 @@
 }
 .z-user-table th:nth-child(2), 
 .z-user-table td:nth-child(2) {
-    width: 500px; /* Thiết lập độ rộng cố định bạn mong muốn */
-    max-width: 600px;
+    width: 400px; /* Thiết lập độ rộng cố định bạn mong muốn */
+    max-width: 400px;
     min-width: 250px;
 }
 .z-user-info-cell {
@@ -295,4 +297,70 @@
     background-color: var(--primary-color);
     color: white;
     border-color: var(--primary-color);
+}
+/* ================= MODAL FORMS ================= */
+.z-user-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* Khoảng cách rộng rãi chuẩn như Banners */
+    min-height: 250px;
+}
+
+.z-user-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Khoảng cách giữa label và input */
+}
+
+.z-user-form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151; /* Màu chữ tiêu chuẩn */
+    margin: 0;
+}
+
+.z-user-input {
+    width: 100%;
+    padding: 12px 14px; /* Form control to hơn, click dễ hơn */
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px; /* Bo góc 8px chuẩn UI */
+    font-size: 14px;
+    color: #111827;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.2s ease-in-out;
+}
+
+.z-user-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(18, 145, 90, 0.1); /* Hiệu ứng focus xanh đồng bộ */
+}
+
+/* Style riêng cho input bị disable (Họ và tên) */
+.z-user-input.readonly,
+.z-user-input:disabled {
+    background-color: #f3f4f6;
+    color: #6b7280;
+    cursor: not-allowed;
+    border-color: #e5e7eb;
+}
+
+/* ================= MODAL DELETE ================= */
+.z-user-delete-content {
+    text-align: center;
+    padding: 10px 0;
+}
+
+.z-user-delete-content h3 { 
+    margin: 16px 0 8px 0; 
+    color: #111827; 
+    font-size: 18px;
+}
+
+.z-user-delete-content p {
+    color: #4b5563;
+    line-height: 1.5;
+    font-size: 14px;
+    margin: 0;
 }

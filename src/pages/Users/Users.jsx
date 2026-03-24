@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { userApi } from "../../api/axiosApi";
 import Modal from "../../ui/Modal/Modal";
-import { Button, EditButton, DeleteButton } from "../../ui/Button/Button";
+import { Button, EditButton, DeleteButton, AddButton } from "../../ui/Button/Button";
 import { Select } from "../../ui/Select/Select";
 import PageHeader from "../../ui/PageHeader/PageHeader";
 import ToastMessage from "../../ui/ToastMessage/ToastMessage";
@@ -27,46 +27,47 @@ const roleOptions = [
 ];
 
 const Users = () => {
-    const [selectedUserIds, setSelectedUserIds] = useState([]);
     const [users, setUsers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 15;
+
+    // Filters & Search
     const [searchTerm, setSearchTerm] = useState("");
     const [filterRole, setFilterRole] = useState("all");
     const [showRoleDropdown, setShowRoleDropdown] = useState(false);
     const [sortOrder, setSortOrder] = useState("newest");
     const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
-    // Modals state
+    // ==========================================
+    // MODALS STATE
+    // ==========================================
+    // 1. Delete Modal
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState(null);
     const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
+
+    // 2. Edit Role Modal
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [userToEdit, setUserToEdit] = useState(null);
     const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
     const [formData, setFormData] = useState({ role: "USER" });
 
-    const handleSelectAll = (e) => {
-        if (e.target.checked) {
-            // Lấy tất cả ID của danh sách thỏa điều kiện lọc (không chỉ trang hiện tại)
-            const allIds = allFilteredUsers.map((user) => user.userId);
-            setSelectedUserIds(allIds);
-        } else {
-            // Bỏ chọn tất cả
-            setSelectedUserIds([]);
-        }
-    };
+    // 3. Create User Modal (THÊM MỚI)
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
+    const [createFormData, setCreateFormData] = useState({
+        fullName: "",
+        email: "",
+        phoneNumber: "",
+        password: "",
+        role: "USER",
+    });
 
-    // Hàm xử lý khi click checkbox từng dòng
-    const handleSelectRow = (userId) => {
-        setSelectedUserIds((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]));
-    };
-    useEffect(() => {
-        setSelectedUserIds([]);
-    }, [searchTerm, filterRole, sortOrder]);
-
+    // ==========================================
+    // FETCH DATA
+    // ==========================================
     const fetchAllUsers = async () => {
         setIsLoading(true);
         try {
@@ -83,12 +84,16 @@ const Users = () => {
     useEffect(() => {
         fetchAllUsers();
     }, []);
+
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, filterRole, sortOrder]);
 
     const getUserRole = (user) => user?.account?.role || user?.role || "USER";
 
+    // ==========================================
+    // HANDLERS
+    // ==========================================
     const confirmDelete = async () => {
         if (!userToDelete) return;
         setIsSubmittingDelete(true);
@@ -126,6 +131,44 @@ const Users = () => {
         }
     };
 
+    // Hàm Mở form tạo User mới
+    const handleOpenCreateForm = () => {
+        setCreateFormData({ fullName: "", email: "", phoneNumber: "", password: "", role: "USER" });
+        setIsCreateModalOpen(true);
+    };
+
+    // Hàm xử lý lưu User mới
+    const handleCreateSubmit = async () => {
+        if (!createFormData.fullName || !createFormData.email || !createFormData.password) {
+            setToast({ show: true, message: "Vui lòng nhập các thông tin bắt buộc!", type: "error" });
+            return;
+        }
+
+        setIsSubmittingCreate(true);
+        try {
+            // TẠI ĐÂY BẠN CẦN GỌI API TẠO USER TỪ BACKEND
+            // const res = await userApi.createUser(createFormData);
+
+            // Fake API Call để test UI:
+            setTimeout(() => {
+                setToast({ show: true, message: "Tính năng tạo tài khoản đang phát triển!", type: "success" });
+                setIsCreateModalOpen(false);
+                setIsSubmittingCreate(false);
+            }, 1000);
+        } catch (error) {
+            setToast({ show: true, message: "Lỗi kết nối hệ thống", type: "error" });
+            setIsSubmittingCreate(false);
+        }
+    };
+
+    const handleCreateInputChange = (e) => {
+        const { name, value } = e.target;
+        setCreateFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    // ==========================================
+    // FILTER & PAGINATION
+    // ==========================================
     const allFilteredUsers = users
         .filter((user) => {
             const normalizedSearch = removeVietnameseTones(searchTerm);
@@ -198,21 +241,18 @@ const Users = () => {
                             </div>
                         )}
                     </div>
+
+                    {/* NÚT THÊM MỚI Ở ĐÂY */}
+                    <AddButton onClick={handleOpenCreateForm} style={{ marginLeft: "auto" }}>
+                        Thêm tài khoản
+                    </AddButton>
                 </div>
 
                 <div className="z-user-table-wrapper">
                     <table className="z-user-table">
                         <thead>
                             <tr>
-                                <th style={{ width: "80px" }}>
-                                    <input
-                                        type="checkbox"
-                                        className="z-user-checkbox"
-                                        onChange={handleSelectAll}
-                                        // Tích xanh nếu số lượng đã chọn bằng tổng số lượng tìm thấy
-                                        checked={allFilteredUsers.length > 0 && selectedUserIds.length === allFilteredUsers.length}
-                                    />
-                                </th>
+                                <th style={{ width: "150px", textAlign: "center" }}>STT</th>
                                 <th>Tên người dùng</th>
                                 <th>Ngày sinh</th>
                                 <th>Vai trò</th>
@@ -227,17 +267,15 @@ const Users = () => {
                                 const isInactive = user?.account?.status === "INACTIVE";
                                 return (
                                     <tr key={user.userId || index}>
-                                        <td>
-                                            <input type="checkbox" className="z-user-checkbox" checked={selectedUserIds.includes(user.userId)} onChange={() => handleSelectRow(user.userId)} onClick={(e) => e.stopPropagation()} />
+                                        <td style={{ textAlign: "center" }}>
+                                            <strong>{indexOfFirstItem + index + 1}</strong>
                                         </td>
                                         <td>
                                             <div className="z-user-info-cell">
-                                                <img src={user.avatarUrl || FALLBACK_AVATAR} alt="" className="z-user-avatar" />
                                                 <div className="z-user-name-wrapper">
                                                     <div className="z-user-name" title={user.fullName || user.username}>
                                                         {user.fullName || user.username || "N/A"}
                                                     </div>
-                                                    {/* Thêm title để hover xem email đầy đủ */}
                                                     <div className="z-user-sub-email" title={user.email}>
                                                         {user.email || "---"}
                                                     </div>
@@ -262,14 +300,14 @@ const Users = () => {
                                                     </svg>
                                                 </button>
                                                 <div className="z-user-action-menu">
-                                                    <EditButton onClick={() => handleEditClick(user)} />
+                                                    <EditButton onClick={() => handleEditClick(user)} label="Cấp quyền" />
                                                     {role !== "SUPERADMIN" && (
                                                         <DeleteButton
                                                             onClick={() => {
                                                                 setUserToDelete(user);
                                                                 setIsDeleteModalOpen(true);
                                                             }}
-                                                            label="Khóa"
+                                                            label="Khóa tài khoản"
                                                         />
                                                     )}
                                                 </div>
@@ -301,8 +339,10 @@ const Users = () => {
                     </div>
                 )}
 
-                {/* MODALS */}
-                <Modal isOpen={isEditModalOpen} onClose={() => !isSubmittingEdit && setIsEditModalOpen(false)} title="Cấp quyền Người Dùng" size="md" onSave={handleEditSubmit} saveText={isSubmittingEdit ? "Đang lưu..." : "Lưu thay đổi"}>
+                {/* ================= MODALS ================= */}
+
+                {/* MODAL 1: CẤP QUYỀN (EDIT) */}
+                <Modal isOpen={isEditModalOpen} onClose={() => !isSubmittingEdit && setIsEditModalOpen(false)} title="Cấp quyền Người Dùng" maxWidth="550px" onSave={handleEditSubmit} saveText={isSubmittingEdit ? "Đang lưu..." : "Lưu thay đổi"}>
                     <div className="z-user-form">
                         <div className="z-user-form-group">
                             <label>Họ và tên</label>
@@ -323,7 +363,62 @@ const Users = () => {
                     </div>
                 </Modal>
 
-                <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmittingDelete && setIsDeleteModalOpen(false)} title="Xác nhận khóa" size="sm" onSave={confirmDelete} saveText={isSubmittingDelete ? "Đang xử lý..." : "Khóa tài khoản"}>
+                {/* MODAL 2: TẠO TÀI KHOẢN (CREATE) */}
+                <Modal
+                    isOpen={isCreateModalOpen}
+                    onClose={() => {
+                        if (!isSubmittingCreate) {
+                            setIsCreateModalOpen(false);
+                            // Xóa trắng state ngay khi đóng form
+                            setCreateFormData({ fullName: "", email: "", phoneNumber: "", password: "", role: "USER" });
+                        }
+                    }}
+                    title="Tạo tài khoản mới"
+                    maxWidth="500px"
+                    onSave={handleCreateSubmit}
+                    saveText={isSubmittingCreate ? "Đang tạo..." : "Xác nhận tạo"}
+                >
+                    <div className="z-user-form">
+                        <div className="z-user-form-group">
+                            <label>
+                                Họ và tên <span style={{ color: "red" }}>*</span>
+                            </label>
+                            <input type="text" name="fullName" value={createFormData.fullName} onChange={handleCreateInputChange} placeholder="Nhập họ và tên..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="off"/>
+                        </div>
+                        <div className="z-user-form-group">
+                            <label>
+                                Email <span style={{ color: "red" }}>*</span>
+                            </label>
+                            <input type="email" name="email" value={createFormData.email} onChange={handleCreateInputChange} placeholder="Nhập địa chỉ email..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="off"/>
+                        </div>
+                        <div className="z-user-form-group">
+                            <label>Số điện thoại</label>
+                            <input type="text" name="phoneNumber" value={createFormData.phoneNumber} onChange={handleCreateInputChange} placeholder="Nhập số điện thoại..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="off"/>
+                        </div>
+                        <div className="z-user-form-group">
+                            <label>
+                                Mật khẩu <span style={{ color: "red" }}>*</span>
+                            </label>
+                            <input type="password" name="password" value={createFormData.password} onChange={handleCreateInputChange} placeholder="Tạo mật khẩu..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="new-password"/>
+                        </div>
+                        <div className="z-user-form-group">
+                            <label>Vai trò</label>
+                            <Select
+                                name="role"
+                                options={[
+                                    { value: "USER", label: "Khách hàng (USER)" },
+                                    { value: "ADMIN", label: "Quản trị viên (ADMIN)" },
+                                ]}
+                                value={createFormData.role}
+                                onChange={handleCreateInputChange}
+                                disabled={isSubmittingCreate}
+                            />
+                        </div>
+                    </div>
+                </Modal>
+
+                {/* MODAL 3: XÓA/KHÓA TÀI KHOẢN */}
+                <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmittingDelete && setIsDeleteModalOpen(false)} title="Xác nhận khóa" maxWidth="400px" onSave={confirmDelete} saveText={isSubmittingDelete ? "Đang xử lý..." : "Khóa tài khoản"}>
                     <div className="z-user-delete-content">
                         <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M3 6h18"></path>
@@ -332,7 +427,7 @@ const Users = () => {
                         </svg>
                         <h3>Khóa tài khoản?</h3>
                         <p>
-                            Tài khoản <strong>{userToDelete?.fullName}</strong> sẽ bị vô hiệu hóa.
+                            Tài khoản <strong>{userToDelete?.fullName}</strong> sẽ bị vô hiệu hóa và không thể đăng nhập.
                         </p>
                     </div>
                 </Modal>

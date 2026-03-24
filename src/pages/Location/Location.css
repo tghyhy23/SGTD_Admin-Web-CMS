@@ -1,124 +1,352 @@
-/* =================================================================
-   TABS CHUYỂN ĐỔI (TỈNH / QUẬN)
-   ================================================================= */
-.location-tabs {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
-    border-bottom: 2px solid #e5e7eb;
-    padding-bottom: 0px;
+/* Container chính */
+.z-location-container {
+    padding: 20px;
+    background: var(--bg-color);
+    border-radius: 12px;
 }
 
-.tab-btn {
-    background: transparent;
-    border: none;
-    padding: 10px 20px;
-    font-size: 1rem;
-    font-weight: 600;
+/* Header Bar */
+.z-location-header {
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.z-location-title {
+    padding-bottom: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #111827;
+    margin: 0;
+}
+
+.z-location-state {
+    text-align: center;
+    padding: 40px;
     color: #6b7280;
+    font-size: 16px;
+}
+
+.z-location-error {
+    color: var(--error);
+}
+
+/* Tabs */
+.z-location-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.z-location-tab-item {
+    padding: 10px 20px;
+    border: none;
+    background: none;
     cursor: pointer;
-    position: relative;
-    transition: color 0.2s;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+    white-space: nowrap;
 }
 
-.tab-btn:hover {
-    color: #3b82f6;
+.z-location-tab-item.active {
+    font-weight: 600;
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
 }
 
-.tab-btn.active {
-    color: #12915A; /* Màu xanh chủ đạo của app bạn */
-}
-
-.tab-btn.active::after {
-    content: '';
-    position: absolute;
-    bottom: -2px; /* Đè lên border của thẻ cha */
-    left: 0;
-    width: 100%;
-    height: 3px;
-    background-color: #12915A;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
-}
-
-/* =================================================================
-   MODAL CONTENT CHO LOCATION
-   ================================================================= */
-.modal-content-location {
-    background: #ffffff;
-    border-radius: 6px;
-    width: 100%;
-    max-width: 800px; /* Modal này nhỏ gọn hơn Blog */
-    max-height: 90vh;
+/* Tools Bar */
+.z-location-tools {
+    margin-bottom: 16px;
     display: flex;
-    flex-direction: column;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    overflow: hidden;
-    animation: modalSlideUp 0.3s ease forwards;
-}
-.modal-form-location {
-    padding: 24px 0px 0px 0px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-.modal-content-location {
-    padding: 20px 24px;
-    border-bottom: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: space-between;
-   
-}
-
-.modal-header-location {
-    padding: 16px 0 12px 0;
-    border-bottom: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-}
-
-.modal-content-location .modal-form {
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.modal-content-location .form-group {
-    margin-bottom: 0; /* Ghi đè margin mặc định vì đã dùng gap */
-}
-
-.modal-content-location  {
-    padding: 16px 24px;
-    border-top: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: flex-end;
     gap: 12px;
-}
-.modal-footer-location {
-        padding: 16px 0px 0px 24px;
-        border-top: 1px solid #e5e7eb;
-        display: flex;
-        justify-content: flex-end;
-        gap: 12px;
-}
-/* =================================================================
-   TÁI SỬ DỤNG MỘT SỐ CLASS TỪ SERVICES/BLOGS NẾU BỊ THIẾU
-   ================================================================= */
-.fixed-toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 9999;
+    align-items: center;
+    flex-wrap: wrap;
 }
 
-.category-badge {
+.z-location-search input {
+    padding: 8px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    outline: none;
+    font-size: 14px;
+    width: 250px;
+    transition: all 0.2s ease-in-out;
+}
+
+.z-location-search input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(49, 46, 129, 0.1);
+}
+
+/* Filters */
+.z-location-filter {
+    position: relative;
+    display: inline-block;
+}
+
+.z-location-btn-filter {
+    padding: 8px 14px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #374151;
+}
+
+.z-location-dropdown-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: absolute;
+    top: calc(100% + 5px);
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    z-index: 1000;
+    min-width: 200px;
+    padding: 6px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.z-location-dropdown-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 6px;
+    color: var(--text-main);
+    transition: all 0.2s ease;
+}
+
+.z-location-dropdown-item:hover,
+.z-location-dropdown-item.active {
+    background: var(--base-primary);
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+/* Table */
+.z-location-table-wrapper {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: visible;
+    min-height: 300px;
+}
+
+.z-location-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.z-location-table th,
+.z-location-table td {
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    font-size: 14px;
+}
+
+.z-location-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+}
+
+.z-location-text-bold {
+    font-weight: 500;
+    color: #111827;
+}
+
+/* Badges */
+.z-location-badge-gray {
+    background: #f3f4f6;
+    color: #374151;
     padding: 4px 10px;
     border-radius: 4px;
     font-size: 12px;
     font-weight: 600;
-    border: 1px solid transparent;
 }
 
+.z-location-badge-blue {
+    background: var(--base-edit);
+    color: var(--edit);
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--edit);
+    font-weight: bold;
+}
+
+/* Kebab Menu (3 dots) */
+.z-location-dropdown-actions {
+    position: relative;
+    display: inline-block;
+}
+
+.z-location-more-btn {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    transition: background 0.2s;
+}
+
+.z-location-more-btn:hover {
+    background-color: #f3f4f6;
+}
+
+.z-location-action-menu {
+    position: absolute;
+    right: 0;
+    top: 0;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    z-index: 110;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.2s ease;
+}
+
+.z-location-dropdown-actions:hover .z-location-action-menu {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.z-location-action-menu button {
+    width: 100%;
+    white-space: nowrap;
+}
+
+/* Pagination */
+.z-location-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 25px;
+    padding-bottom: 20px;
+}
+
+.z-pagination-btn {
+    padding: 6px 14px;
+    border: 1px solid #d1d5db;
+    background-color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.z-pagination-btn:disabled {
+    background-color: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.z-pagination-btn:not(:disabled):hover {
+    background-color: var(--base-primary);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.z-pagination-numbers {
+    display: flex;
+    gap: 5px;
+}
+
+.z-pagination-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background-color: white;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.z-pagination-number.active {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.z-pagination-number:hover:not(.active) {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+/* Modals */
+.z-location-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-height: 380px;
+}
+
+.z-location-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.z-location-form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.z-location-required {
+    color: var(--error);
+}
+
+.z-location-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.2s ease-in-out;
+}
+
+.z-location-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(49, 46, 129, 0.1);
+}
+
+.z-location-delete-content {
+    text-align: center;
+    padding: 10px 0;
+}
+
+.z-location-delete-content h3 {
+    margin: 16px 0 8px 0;
+    color: #111827;
+}
+
+.z-location-delete-content p {
+    color: #4b5563;
+    line-height: 1.5;
+}
