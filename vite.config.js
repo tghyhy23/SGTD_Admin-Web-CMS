@@ -9,9 +9,13 @@ export default defineConfig({
   },
   server: {
     port: 5174,
+    host: true,
+    allowedHosts: [
+      'admin-sgtd.eonsr.com'
+    ],
     proxy: {
       '/api/v1': {
-        target: 'https://api-sgtd.congtyeon.com',
+        target: 'https://api-sgtd.eonsr.com',
         changeOrigin: true,
         secure: false,
       }
