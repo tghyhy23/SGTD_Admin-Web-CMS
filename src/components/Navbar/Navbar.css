@@ -70,7 +70,11 @@
   border: 1px solid var(--primary-color, #312e81);
   font-weight: 600;
 }
-
+.nav-fixed-title {
+  color: var(--primary-color);
+  font-weight: 600;
+  font-size: 16px;
+}
 /* Các css Toast cũ của bạn giữ nguyên bên dưới */
 .navbar-toast {
   position: fixed;
