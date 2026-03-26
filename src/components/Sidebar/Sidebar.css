@@ -113,6 +113,29 @@
   gap: 12px;
 }
 
+.sidebar-user-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 20px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.sidebar-user-role {
+    background-color: var(--primary-color);
+    color: #fff;
+    padding: 6px 8%;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0; /* Bắt buộc: Ngăn không cho thẻ Role bị bóp méo khi tên quá dài */
+}
+
 .sidebar.collapsed .user-profile {
   justify-content: center;
 }

@@ -2,7 +2,10 @@ import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { categoryApi } from "../../api/axiosApi";
 import Modal from "../../ui/Modal/Modal";
-// import "./Categories.css"; 
+import PageHeader from "../../ui/PageHeader/PageHeader";
+import ToastMessage from "../../ui/ToastMessage/ToastMessage";
+import { AddButton, EditButton, DeleteButton, Button } from "../../ui/Button/Button";
+import "./Categories.css";
 
 const removeVietnameseTones = (str) => {
     if (!str) return "";
@@ -15,13 +18,13 @@ const removeVietnameseTones = (str) => {
         .trim();
 };
 
-const FALLBACK_ICON = "https://via.placeholder.com/60?text=Icon";
+const FALLBACK_IMAGE = "https://via.placeholder.com/150";
 
 const Categories = () => {
     // ==========================================
     // 1. STATE QUẢN LÝ DỮ LIỆU
     // ==========================================
-    const [categories, setCategories] = useState([]); // Đây thực chất là các Services thuộc Category mẹ
+    const [categories, setCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -32,50 +35,52 @@ const Categories = () => {
     const [toast, setToast] = useState({ show: false, message: "", type: "success" });
     const navigate = useNavigate();
 
-    // Lưu thông tin Category mẹ đang được chọn từ Navbar
     const [activeParentCategory, setActiveParentCategory] = useState(null);
 
     // Modal Xóa
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [categoryToDelete, setCategoryToDelete] = useState(null);
-    const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
 
     // Modal Form
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editCategoryId, setEditCategoryId] = useState(null);
-    const [isSubmittingForm, setIsSubmittingForm] = useState(false);
-    
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     // State Form Data
     const initialForm = { name: "", description: "", categoryId: "" };
     const [formData, setFormData] = useState(initialForm);
-    
+
     // ====== XỬ LÝ ẢNH ======
-    const [imageFile, setImageFile] = useState(null); 
-    const [imagePreview, setImagePreview] = useState(null); 
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
     const fileInputRef = useRef(null);
 
     // ==========================================
-    // 2. FETCH DATA (Dựa trên Category đang chọn từ Navbar)
+    // 2. FETCH DATA
     // ==========================================
     const fetchServicesByCategory = async () => {
         setIsLoading(true);
+        setError(null);
         try {
-            // Lấy Category đang chọn từ LocalStorage (do Navbar set)
-            const savedCategory = localStorage.getItem('activeCategory');
+            const savedCategory = localStorage.getItem("activeCategory");
             let parentId = null;
-            
+
             if (savedCategory) {
                 const parsed = JSON.parse(savedCategory);
                 setActiveParentCategory(parsed);
                 parentId = parsed._id;
             }
 
-            // Gọi API lấy danh sách Service, truyền kèm categoryId để lọc
-            // Backend của bạn cần nhận params { categoryId }
-            const res = await categoryApi.getAllCategories({ 
-                limit: 100, 
-                categoryId: parentId 
+            if (!parentId) {
+                setCategories([]);
+                setIsLoading(false);
+                return;
+            }
+
+            const res = await categoryApi.getAllCategories({
+                limit: 100,
+                categoryId: parentId,
             });
 
             if (res && res.success) {
@@ -84,7 +89,6 @@ const Categories = () => {
                 setError("Không thể tải danh sách dịch vụ.");
             }
         } catch (err) {
-            console.error("Lỗi lấy danh sách:", err);
             setError("Lỗi kết nối đến máy chủ.");
         } finally {
             setIsLoading(false);
@@ -92,12 +96,17 @@ const Categories = () => {
     };
 
     useEffect(() => {
+        // Tải lần đầu khi vào trang
         fetchServicesByCategory();
 
-        // Lắng nghe sự kiện storage nếu user đổi category ở tab khác (tùy chọn)
-        const handleStorageChange = () => fetchServicesByCategory();
-        window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
+        // 🟢 Hàm xử lý khi có tín hiệu đổi Category
+        const handleCategoryChange = () => fetchServicesByCategory();
+
+        // 🟢 Lắng nghe sự kiện mình vừa tạo ở Navbar
+        window.addEventListener("activeCategoryChanged", handleCategoryChange);
+
+        // Dọn dẹp bộ nhớ khi rời khỏi trang
+        return () => window.removeEventListener("activeCategoryChanged", handleCategoryChange);
     }, []);
 
     const showToast = (message, type = "success") => {
@@ -108,21 +117,21 @@ const Categories = () => {
     // ==========================================
     // 3. XỬ LÝ XÓA
     // ==========================================
-    const handleDeleteClick = (e, id, title) => {
+    const handleDeleteClick = (e, id, name) => {
         e.stopPropagation();
-        setCategoryToDelete({ id, title });
+        setCategoryToDelete({ id, name });
         setIsDeleteModalOpen(true);
     };
 
     const confirmDelete = async () => {
         if (!categoryToDelete) return;
-        setIsSubmittingDelete(true);
+        setIsSubmitting(true);
         try {
             const response = await categoryApi.deleteCategory(categoryToDelete.id);
             if (response && response.success) {
                 showToast("Xóa thành công!", "success");
-                setIsDeleteModalOpen(false);
                 setCategories((prev) => prev.filter((cat) => cat._id !== categoryToDelete.id));
+                setIsDeleteModalOpen(false);
                 setCategoryToDelete(null);
             } else {
                 showToast(response?.message || "Lỗi xóa", "error");
@@ -130,21 +139,20 @@ const Categories = () => {
         } catch (error) {
             showToast(error.response?.data?.message || "Không thể xóa lúc này", "error");
         } finally {
-            setIsSubmittingDelete(false);
+            setIsSubmitting(false);
         }
     };
 
     // ==========================================
-    // 4. MỞ FORM THÊM / SỬA (Tự động gán categoryId)
+    // 4. MỞ FORM THÊM / SỬA
     // ==========================================
     const openAddModal = () => {
         setIsEditMode(false);
         setEditCategoryId(null);
-        // Tự động lấy ID từ activeParentCategory đang chọn trên Navbar
-        setFormData({ 
-            name: "", 
-            description: "", 
-            categoryId: activeParentCategory?._id || "" 
+        setFormData({
+            name: "",
+            description: "",
+            categoryId: activeParentCategory?._id || "",
         });
         setImageFile(null);
         setImagePreview(null);
@@ -155,30 +163,26 @@ const Categories = () => {
         e.stopPropagation();
         setIsEditMode(true);
         setEditCategoryId(cat._id);
-        
-        setFormData({ 
-            name: cat.name || "", 
+
+        setFormData({
+            name: cat.name || "",
             description: cat.description || "",
-            categoryId: activeParentCategory?._id || cat.categoryId?._id || cat.categoryId
+            categoryId: activeParentCategory?._id || cat.categoryId?._id || cat.categoryId,
         });
-        
+
         setImageFile(null);
-        setImagePreview(cat.thumbnailUrl || null); 
+        setImagePreview(cat.thumbnailUrl || null);
         setIsFormModalOpen(true);
     };
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
-    };
-
+    // Xử lý Input Form
     const handleImageChange = (e) => {
-        const file = e.target.files[0]; 
+        const file = e.target.files[0];
         if (file) {
             setImageFile(file);
             setImagePreview(URL.createObjectURL(file));
         }
-        e.target.value = null; 
+        e.target.value = null;
     };
 
     const removeImage = () => {
@@ -191,18 +195,18 @@ const Categories = () => {
     // ==========================================
     const handleSubmitForm = async (e) => {
         e.preventDefault();
-        
-        if (!formData.name) return showToast("Vui lòng nhập tên!", "error");
+        if (!formData.name) return showToast("Vui lòng nhập tên dịch vụ!", "error");
         if (!formData.categoryId) return showToast("Không tìm thấy Danh mục gốc từ Navbar!", "error");
 
-        setIsSubmittingForm(true);
+        setIsSubmitting(true);
         try {
             let response;
             if (isEditMode) {
-                // Backend của bạn dùng JSON cho update
+                // Update
                 response = await categoryApi.updateCategory(editCategoryId, formData);
+                // Giả định API cho update hình ảnh sau (nếu có)
             } else {
-                // Backend của bạn dùng FormData cho create
+                // Create
                 const submitData = new FormData();
                 submitData.append("categoryId", formData.categoryId);
                 submitData.append("name", formData.name);
@@ -216,37 +220,28 @@ const Categories = () => {
                 showToast(isEditMode ? "Cập nhật thành công!" : "Thêm mới thành công!", "success");
 
                 if (isEditMode) {
-                    setCategories((prev) => 
-                        prev.map((cat) => 
-                            cat._id === editCategoryId 
-                                ? { ...cat, name: formData.name, description: formData.description } 
-                                : cat
-                        )
-                    );
+                    setCategories((prev) => prev.map((cat) => (cat._id === editCategoryId ? { ...cat, name: formData.name, description: formData.description, thumbnailUrl: imagePreview || cat.thumbnailUrl } : cat)));
                 } else {
                     const newCategory = response.data?.service || response.data;
+                    if (imagePreview) newCategory.thumbnailUrl = imagePreview;
                     setCategories((prev) => [newCategory, ...prev]);
                 }
 
                 setIsFormModalOpen(false);
-                setImageFile(null);
-                setImagePreview(null);
             } else {
                 showToast(response?.message || "Có lỗi xảy ra", "error");
             }
         } catch (error) {
-            showToast(error.response?.data?.message || "Lỗi kết nối", "error");
+            showToast(error.response?.data?.message || "Lỗi kết nối máy chủ", "error");
         } finally {
-            setIsSubmittingForm(false);
+            setIsSubmitting(false);
         }
     };
 
     const handleToggleStatus = async (e, id) => {
         e.stopPropagation();
         const originalCategories = [...categories];
-        setCategories((prev) => 
-            prev.map((cat) => cat._id === id ? { ...cat, isActive: !cat.isActive } : cat)
-        );
+        setCategories((prev) => prev.map((cat) => (cat._id === id ? { ...cat, isActive: !cat.isActive } : cat)));
 
         try {
             const response = await categoryApi.toggleStatus(id);
@@ -261,180 +256,227 @@ const Categories = () => {
     };
 
     // ==========================================
-    // 6. FILTER LOGIC
+    // 6. LỌC DỮ LIỆU & UI OPTIONS
     // ==========================================
-    const filteredCategories = categories.filter((cat) => {
-        const normalizedSearch = removeVietnameseTones(searchTerm);
-        const normalizedTitle = removeVietnameseTones(cat.name || "");
-        const matchesSearch = normalizedTitle.includes(normalizedSearch);
+    const filteredCategories = categories
+        .filter((cat) => {
+            const normalizedSearch = removeVietnameseTones(searchTerm);
+            const normalizedTitle = removeVietnameseTones(cat.name || "");
+            const matchesSearch = normalizedTitle.includes(normalizedSearch);
 
-        let matchesStatus = true;
-        if (filterStatus === "active") matchesStatus = cat.isActive === true;
-        if (filterStatus === "inactive") matchesStatus = cat.isActive === false;
+            let matchesStatus = true;
+            if (filterStatus === "active") matchesStatus = cat.isActive === true;
+            if (filterStatus === "inactive") matchesStatus = cat.isActive === false;
 
-        return matchesSearch && matchesStatus;
-    }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            return matchesSearch && matchesStatus;
+        })
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    if (isLoading) return <div className="state-message">Đang tải dữ liệu...</div>;
+    const getFilterLabel = () => {
+        if (filterStatus === "active") return "Đang hoạt động";
+        if (filterStatus === "inactive") return "Đang ẩn";
+        return "Tất cả trạng thái";
+    };
+
+    if (isLoading) return <div className="z-category-state">Đang tải dữ liệu...</div>;
+    if (error) return <div className="z-category-state z-category-error">{error}</div>;
 
     return (
-        <div className="services-container">
-            {toast.show && (
-                <div className={`toast-message ${toast.type}`}>
-                    <span>{toast.message}</span>
-                    <button className="toast-close" onClick={() => setToast({ ...toast, show: false })}>×</button>
+        <>
+            <PageHeader breadcrumbs={[{ label: "Quản lý Dịch vụ" }]} title={`Quản lí danh mục`} description="Quản lý danh sách các danh mục, loại dịch vụ của các sản phẩm." />
+
+            <div className="z-category-container">
+                <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
+
+                <div className="z-category-header">
+                    <h1 className="z-category-title">Danh sách Dịch vụ</h1>
                 </div>
-            )}
 
-            <div className="services-header-bar">
-                <h1 className="services-title">Quản lý Dịch vụ: {activeParentCategory?.title || "N/A"}</h1>
-
-                <div className="services-tools">
-                    <div className="search-box">
-                        <input type="text" placeholder="Tìm tên..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <div className="z-category-tools">
+                    <div className="z-category-search">
+                        <input type="text" placeholder="Tìm tên dịch vụ..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
 
-                    <div className="filter-dropdown-container">
-                        <button className="btn-filter" onClick={() => setShowFilterDropdown(!showFilterDropdown)}>
-                            <span>{filterStatus === "active" ? "Đang hoạt động" : filterStatus === "inactive" ? "Đang ẩn" : "Tất cả trạng thái"}</span>
-                            <span className="dropdown-arrow">▼</span>
+                    <div className="z-category-filter">
+                        <button className="z-category-btn-filter" onClick={() => setShowFilterDropdown(!showFilterDropdown)}>
+                            <span>{getFilterLabel()}</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151">
+                                <path d="M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z" />
+                            </svg>
                         </button>
                         {showFilterDropdown && (
-                            <div className="filter-dropdown-menu">
-                                <div className={`filter-option ${filterStatus === "all" ? "active" : ""}`} onClick={() => { setFilterStatus("all"); setShowFilterDropdown(false); }}>Tất cả trạng thái</div>
-                                <div className={`filter-option ${filterStatus === "active" ? "active" : ""}`} onClick={() => { setFilterStatus("active"); setShowFilterDropdown(false); }}>Đang hoạt động</div>
-                                <div className={`filter-option ${filterStatus === "inactive" ? "active" : ""}`} onClick={() => { setFilterStatus("inactive"); setShowFilterDropdown(false); }}>Đang ẩn</div>
+                            <div className="z-category-dropdown-menu">
+                                <div
+                                    className={`z-category-dropdown-item ${filterStatus === "all" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("all");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
+                                    Tất cả trạng thái
+                                </div>
+                                <div
+                                    className={`z-category-dropdown-item ${filterStatus === "active" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("active");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
+                                    Đang hoạt động
+                                </div>
+                                <div
+                                    className={`z-category-dropdown-item ${filterStatus === "inactive" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("inactive");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
+                                    Đang ẩn
+                                </div>
                             </div>
                         )}
                     </div>
 
-                    <button className="add-btn" onClick={openAddModal}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "6px" }}>
-                            <path d="M5 12h14" /><path d="M12 5v14" />
-                        </svg>
-                        <span>Thêm mới</span>
-                    </button>
+                    <AddButton onClick={openAddModal} style={{ marginLeft: "auto" }}>
+                        Thêm mới
+                    </AddButton>
                 </div>
-            </div>
 
-            <div className="table-wrapper">
-                <table className="services-table">
-                    <thead>
-                        <tr>
-                            <th>STT</th>
-                            <th>Hình đại diện</th>
-                            <th>Tên Dịch Vụ</th>
-                            <th>Mô tả ngắn</th>
-                            <th>Trạng thái</th>
-                            <th>Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredCategories.map((cat, index) => (
-                            <tr key={cat._id} onClick={(e) => openEditModal(e, cat)} className="clickable-row">
-                                <td style={{ fontWeight: "bold" }}>{index + 1}</td>
-                                <td className="td-image">
-                                    <img
-                                        src={cat.thumbnailUrl || FALLBACK_ICON}
-                                        alt={cat.name}
-                                        style={{ width: "60px", height: "60px", objectFit: "cover", borderRadius: "8px", border: "1px solid #e5e7eb" }}
-                                        onError={(e) => { e.target.src = FALLBACK_ICON; }}
-                                    />
-                                </td>
-                                <td>
-                                    <div className="product-name" style={{ color: "#111827" }}>{cat.name}</div>
-                                    <div className="product-desc" style={{ fontSize: "12px" }}>Bookings: {cat.bookingCount || 0}</div>
-                                </td>
-                                <td style={{ maxWidth: '250px' }}>
-                                    <div className="product-desc" style={{ WebkitLineClamp: 2, display: "-webkit-box", WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                                        {cat.description || "Chưa có mô tả"}
-                                    </div>
-                                </td>
-                                <td>
-                                    <span className="category-badge" style={{ backgroundColor: cat.isActive ? "#dcfce7" : "#fee2e2", color: cat.isActive ? "#059669" : "#dc2626" }}>
-                                        {cat.isActive ? "Đang hoạt động" : "Đang ẩn"}
-                                    </span>
-                                </td>
-                                <td>
-                                    <div className="action-row">
-                                        <button className="action-btn btn-edit" onClick={(e) => openEditModal(e, cat)}>Sửa</button>
-                                        <button className={`action-btn ${cat.isActive ? "btn-secondary" : "btn-primary"}`} onClick={(e) => handleToggleStatus(e, cat._id)}>
-                                            {cat.isActive ? "Ẩn" : "Hiện"}
-                                        </button>
-                                        <button className="action-btn btn-delete" onClick={(e) => handleDeleteClick(e, cat._id, cat.name)}>Xóa</button>
-                                    </div>
-                                </td>
+                <div className="z-category-table-wrapper">
+                    <table className="z-category-table">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Hình ảnh</th>
+                                <th>Thông tin Dịch vụ</th>
+                                <th>Lượt đặt</th>
+                                <th>Trạng thái</th>
+                                <th>Thao tác</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {filteredCategories.length === 0 && <div className="state-message">Không có dữ liệu trong mục {activeParentCategory?.title}.</div>}
-            </div>
-
-            {/* MODAL FORM */}
-            <Modal 
-                isOpen={isFormModalOpen} 
-                onClose={() => !isSubmittingForm && setIsFormModalOpen(false)} 
-                title={isEditMode ? "Cập nhật dịch vụ" : "Thêm mới dịch vụ"}
-                maxWidth="550px"
-            >
-                <form onSubmit={handleSubmitForm} className="custom-form">
-                    <div className="form-group">
-                        <label>Thuộc danh mục (Đang chọn từ Navbar)</label>
-                        <input 
-                            type="text" 
-                            value={activeParentCategory?.title || "N/A"} 
-                            disabled 
-                            className="form-input"
-                            style={{ backgroundColor: '#f3f4f6', color: '#12915A', fontWeight: 'bold' }}
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label>Tên dịch vụ <span style={{color: 'red'}}>*</span></label>
-                        <input type="text" name="name" value={formData.name} onChange={handleInputChange} required className="form-input" />
-                    </div>
-
-                    <div className="form-group">
-                        <label>Mô tả ngắn</label>
-                        <textarea name="description" value={formData.description} onChange={handleInputChange} rows="4" className="form-textarea" />
-                    </div>
-
-                    <div className="form-group">
-                        <label>Hình đại diện</label>
-                        <div className="file-upload-wrapper">
-                            <input type="file" accept="image/*" ref={fileInputRef} style={{ display: "none" }} onChange={handleImageChange} />
-                            {imagePreview ? (
-                                <div className="image-preview-box">
-                                    <img src={imagePreview} alt="Preview" style={{ width: '100px', height: '100px', objectFit: 'cover' }}/>
-                                    <button type="button" onClick={removeImage} className="x-btn">×</button>
-                                </div>
+                        </thead>
+                        <tbody>
+                            {filteredCategories.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6">
+                                        <div className="z-category-state">Không tìm thấy dữ liệu phù hợp.</div>
+                                    </td>
+                                </tr>
                             ) : (
-                                <div className="image-upload-btn" onClick={() => fileInputRef.current.click()}>+ Tải ảnh</div>
+                                filteredCategories.map((cat, index) => (
+                                    <tr key={cat._id} onClick={(e) => openEditModal(e, cat)}>
+                                        <td>{index + 1}</td>
+                                        <td>
+                                            <img
+                                                src={cat.thumbnailUrl || FALLBACK_IMAGE}
+                                                alt={cat.name}
+                                                className="z-category-img-preview"
+                                                onError={(e) => {
+                                                    e.target.src = FALLBACK_IMAGE;
+                                                }}
+                                            />
+                                        </td>
+                                        <td style={{ maxWidth: "300px" }}>
+                                            <div style={{ fontWeight: "600", color: "#111827", marginBottom: "4px" }}>{cat.name}</div>
+                                            <div className="z-category-text-clamp" title={cat.description}>
+                                                {cat.description || "Chưa có mô tả"}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span style={{ fontWeight: "500", color: "#374151" }}>{cat.bookingCount || 0}</span>
+                                        </td>
+                                        <td>{cat.isActive ? <span className="z-category-badge-active">Đang hoạt động</span> : <span className="z-category-badge-inactive">Đang ẩn</span>}</td>
+                                        <td>
+                                            <div className="z-category-actions" onClick={(e) => e.stopPropagation()}>
+                                                <div className="z-category-dropdown-actions">
+                                                    <button className="z-category-more-btn">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
+                                                            <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
+                                                        </svg>
+                                                    </button>
+                                                    <div className="z-category-action-menu">
+                                                        <EditButton onClick={(e) => openEditModal(e, cat)} />
+                                                        <Button variant="outline" onClick={(e) => handleToggleStatus(e, cat._id)}>
+                                                            {cat.isActive ? "Ẩn dịch vụ" : "Hiện dịch vụ"}
+                                                        </Button>
+                                                        <DeleteButton onClick={(e) => handleDeleteClick(e, cat._id, cat.name)} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
                             )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* --- MODAL FORM --- */}
+                <Modal isOpen={isFormModalOpen} onClose={() => !isSubmitting && setIsFormModalOpen(false)} title={isEditMode ? "Cập nhật dịch vụ" : "Thêm mới dịch vụ"} size="lg" onSave={handleSubmitForm} saveText={isSubmitting ? "Đang xử lý..." : "Lưu dữ liệu"}>
+                    <div className="z-category-form">
+                        <div className="z-category-form-grid">
+                            {/* CỘT TRÁI */}
+                            <div className="z-category-form-column">
+                                <div className="z-category-form-group">
+                                    <label>Thuộc Danh mục (Từ Navbar)</label>
+                                    <input type="text" value={activeParentCategory?.title || "N/A"} disabled className="z-category-input readonly" style={{ backgroundColor: "#f3f4f6", color: "#12915A", fontWeight: "bold" }} />
+                                </div>
+
+                                <div className="z-category-form-group">
+                                    <label>
+                                        Tên dịch vụ <span className="z-category-required">*</span>
+                                    </label>
+                                    <input type="text" name="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="z-category-input" placeholder="VD: Bọc răng sứ Cercon" disabled={isSubmitting} required />
+                                </div>
+
+                                <div className="z-category-form-group">
+                                    <label>Mô tả ngắn</label>
+                                    <textarea name="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows="4" className="z-category-textarea" placeholder="Nhập mô tả (tùy chọn)..." disabled={isSubmitting} />
+                                </div>
+                            </div>
+
+                            {/* CỘT PHẢI */}
+                            <div className="z-category-form-column">
+                                <h3 className="z-category-form-section-title">Thư viện Ảnh</h3>
+                                <div className="z-category-form-group">
+                                    <label>Hình đại diện (1 ảnh duy nhất)</label>
+                                    <div className="z-category-upload-wrapper">
+                                        <input type="file" accept="image/*" ref={fileInputRef} style={{ display: "none" }} onChange={handleImageChange} disabled={isSubmitting} />
+
+                                        {imagePreview ? (
+                                            <div className="z-category-image-box">
+                                                <img src={imagePreview} alt="Preview" className="z-category-preview-img" />
+                                                <button type="button" className="z-category-remove-img-btn" onClick={removeImage}>
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="z-category-add-img-btn" onClick={() => fileInputRef.current.click()}>
+                                                + Tải ảnh
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                </Modal>
 
-                    <div className="modal-footer-actions">
-                        <button type="button" className="btn-secondary" onClick={() => setIsFormModalOpen(false)}>Hủy bỏ</button>
-                        <button type="submit" className="btn-primary" disabled={isSubmittingForm}>
-                            {isSubmittingForm ? "Đang xử lý..." : "Lưu dữ liệu"}
-                        </button>
+                {/* --- MODAL XÓA --- */}
+                <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmitting && setIsDeleteModalOpen(false)} title="Xác nhận xóa" size="sm" onSave={confirmDelete} saveText={isSubmitting ? "Đang xóa..." : "Xác nhận xóa"}>
+                    <div className="z-category-delete-content">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                        </svg>
+                        <h3>Xác nhận xóa</h3>
+                        <p>
+                            Bạn có chắc chắn muốn xóa dịch vụ <br /> <strong style={{ color: "var(--primary-color)" }}>"{categoryToDelete?.name}"</strong> không?
+                        </p>
                     </div>
-                </form>
-            </Modal>
-
-            {/* MODAL XÓA */}
-            <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Xác nhận xóa">
-                <div style={{ textAlign: 'center' }}>
-                    <h3 className="delete-header">Bạn có chắc chắn muốn xóa "{categoryToDelete?.title}"?</h3>
-                    <div className="modal-footer-delete">
-                        <button className="btn-secondary" onClick={() => setIsDeleteModalOpen(false)}>Hủy bỏ</button>
-                        <button className="btn-danger" onClick={confirmDelete} disabled={isSubmittingDelete}>Xác nhận xóa</button>
-                    </div>
-                </div>
-            </Modal>
-        </div>
+                </Modal>
+            </div>
+        </>
     );
 };
 

@@ -381,10 +381,10 @@ export const bookingApi = {
     getAllBookingsAdmin: (params) => axiosApi.get("/booking/admin/all", { params }),
 
     // Admin xác nhận lịch
-    confirmBooking: (id) => axiosApi.post(`/booking/${id}/confirm`),
+    confirmBooking: (id) => axiosApi.patch(`/booking/${id}/confirm`),
 
     // Admin đánh dấu đã hoàn thành sau khi khách khám xong
-    completeBooking: (id) => axiosApi.post(`/booking/${id}/complete`),
+    completeBooking: (id) => axiosApi.patch(`/booking/${id}/complete`),
 
     // Admin xóa lịch
     deleteBooking: (id) => axiosApi.delete(`/booking/${id}`),

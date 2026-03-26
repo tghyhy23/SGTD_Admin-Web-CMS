@@ -55,8 +55,7 @@ const Clinics = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState("all");
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-    const [sortOrder, setSortOrder] = useState("rating_desc");
-    const [showSortDropdown, setShowSortDropdown] = useState(false);
+    const [filterProvince, setFilterProvince] = useState("all");
 
     const [toast, setToast] = useState({ show: false, message: "", type: "success" });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -426,24 +425,50 @@ const Clinics = () => {
 
     const handleRowClick = (id) => navigate(`/clinics/${id}`);
 
-    const filteredClinics = clinics
-        .filter((clinic) => {
-            const normalizedSearch = removeVietnameseTones(searchTerm);
-            const normalizedName = removeVietnameseTones(clinic.name || "");
-            const normalizedAddress = removeVietnameseTones(clinic.address || "");
+    const uniqueProvinces = Array.from(
+        new Map(
+            districts
+                .filter((d) => d.provinceId) // Bỏ qua các huyện không có data tỉnh
+                .map((d) => [d.provinceId._id, { _id: d.provinceId._id, name: d.provinceId.name }]),
+        ).values(),
+    );
 
-            const matchesSearch = normalizedName.includes(normalizedSearch) || normalizedAddress.includes(normalizedSearch);
-            let matchesStatus = true;
-            if (filterStatus === "active") matchesStatus = clinic.isActive === true;
-            if (filterStatus === "inactive") matchesStatus = clinic.isActive === false;
+    const provinceOptions = [
+        { value: "all", label: "Tất cả Tỉnh/Thành" },
+        ...uniqueProvinces.map((p) => ({
+            value: p._id,
+            label: p.name
+        }))
+    ];
 
-            return matchesSearch && matchesStatus;
-        })
-        .sort((a, b) => {
-            if (sortOrder === "rating_desc") return (b.totalRating || 0) - (a.totalRating || 0);
-            if (sortOrder === "rating_asc") return (a.totalRating || 0) - (b.totalRating || 0);
-            return 0;
-        });
+    const filteredClinics = clinics.filter((clinic) => {
+        const normalizedSearch = removeVietnameseTones(searchTerm);
+        const normalizedName = removeVietnameseTones(clinic.name || "");
+        const normalizedAddress = removeVietnameseTones(clinic.address || "");
+
+        // 1. Lọc theo search
+        const matchesSearch = normalizedName.includes(normalizedSearch) || normalizedAddress.includes(normalizedSearch);
+
+        // 2. Lọc theo trạng thái
+        let matchesStatus = true;
+        if (filterStatus === "active") matchesStatus = clinic.isActive === true;
+        if (filterStatus === "inactive") matchesStatus = clinic.isActive === false;
+
+        // 3. Lọc theo Tỉnh/Thành phố
+        let matchesProvince = true;
+        if (filterProvince !== "all") {
+            // Lấy ID của quận/huyện từ clinic
+            const clinicDistrictId = clinic.districtId?._id || clinic.districtId;
+            // Tìm object quận/huyện tương ứng trong state districts để lấy ra provinceId
+            const districtObj = districts.find((d) => d._id === clinicDistrictId);
+            // Lấy ra ID của tỉnh/thành phố
+            const clinicProvinceId = districtObj?.provinceId?._id || clinic.districtId?.provinceId?._id;
+
+            matchesProvince = clinicProvinceId === filterProvince;
+        }
+
+        return matchesSearch && matchesStatus && matchesProvince;
+    });
 
     const districtOptions = districts.map((d) => ({
         value: d._id,
@@ -451,9 +476,32 @@ const Clinics = () => {
     }));
 
     const customSelectStyles = {
-        control: (provided, state) => ({ ...provided, minHeight: "42px", borderRadius: "8px", borderColor: state.isFocused ? "var(--primary-color)" : "#e5e7eb", boxShadow: "none", "&:hover": { borderColor: "var(--primary-color)" }, fontSize: '14px' }),
-        input: (provided) => ({ ...provided, margin: 0, padding: 0, fontSize: '14px' }),
-        option: (provided, state) => ({ ...provided, backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white", color: state.isSelected ? "var(--primary-color)" : "#374151", cursor: "pointer", margin: "4px", borderRadius: "6px", fontSize: '14px' }),
+        control: (provided, state) => ({
+            ...provided,
+            minHeight: "38px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db",
+            boxShadow: "none",
+            "&:hover": { borderColor: "var(--primary-color)" },
+            backgroundColor: "#fff",
+        }),
+        input: (provided) => ({ ...provided, margin: 0, padding: 0, fontSize: "14px" }),
+        option: (provided, state) => ({
+            ...provided,
+            backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white",
+            color: state.isSelected ? "var(--primary-color)" : "#374151",
+            cursor: "pointer",
+            margin: "4px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            width: "96%",
+        }),
+        menu: (provided) => ({ ...provided, zIndex: 9999 }),
+        menuList: (provided) => ({
+            ...provided,
+            overflowX: "hidden",
+        }),
     };
 
     if (isLoading) return <div className="z-clinic-state">Đang tải dữ liệu...</div>;
@@ -461,7 +509,7 @@ const Clinics = () => {
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý Chi nhánh" }]} title={`Chi nhánh ${activeParentCategory?.title || "Tất cả"}`} description="Quản lý thông tin, dịch vụ và định vị của các phòng khám." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý Chi nhánh" }]} title={`Quản lí phòng khám`} description="Quản lí và thiết lập khu vực, định vị của các phòng khám trên các tỉnh thành." />
 
             <div className="z-clinic-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
@@ -480,7 +528,7 @@ const Clinics = () => {
                             className="z-clinic-btn-filter"
                             onClick={() => {
                                 setShowFilterDropdown(!showFilterDropdown);
-                                setShowSortDropdown(false);
+                                // setShowProvinceDropdown(false);
                             }}
                         >
                             <span>{filterStatus === "active" ? "Đang hoạt động" : filterStatus === "inactive" ? "Ngừng hoạt động" : "Tất cả trạng thái"}</span>
@@ -521,41 +569,16 @@ const Clinics = () => {
                         )}
                     </div>
 
-                    <div className="z-clinic-filter">
-                        <button
-                            className="z-clinic-btn-filter"
-                            onClick={() => {
-                                setShowSortDropdown(!showSortDropdown);
-                                setShowFilterDropdown(false);
-                            }}
-                        >
-                            <span>{sortOrder === "rating_desc" ? "Đánh giá: Cao đến thấp" : "Đánh giá: Thấp đến cao"}</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151">
-                                <path d="M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z" />
-                            </svg>
-                        </button>
-                        {showSortDropdown && (
-                            <div className="z-clinic-dropdown-menu">
-                                <div
-                                    className={`z-clinic-dropdown-item ${sortOrder === "rating_desc" ? "active" : ""}`}
-                                    onClick={() => {
-                                        setSortOrder("rating_desc");
-                                        setShowSortDropdown(false);
-                                    }}
-                                >
-                                    Đánh giá: Cao đến thấp
-                                </div>
-                                <div
-                                    className={`z-clinic-dropdown-item ${sortOrder === "rating_asc" ? "active" : ""}`}
-                                    onClick={() => {
-                                        setSortOrder("rating_asc");
-                                        setShowSortDropdown(false);
-                                    }}
-                                >
-                                    Đánh giá: Thấp đến cao
-                                </div>
-                            </div>
-                        )}
+                    <div className="z-clinic-filter" style={{ minWidth: "250px", zIndex: 10 }}>
+                        <Select 
+                            options={provinceOptions}
+                            value={provinceOptions.find((opt) => opt.value === filterProvince) || provinceOptions[0]}
+                            onChange={(selected) => setFilterProvince(selected ? selected.value : "all")}
+                            placeholder="-- Gõ để tìm Tỉnh/Thành --"
+                            isSearchable={true}
+                            styles={customSelectStyles}
+                            noOptionsMessage={() => "Không tìm thấy Tỉnh/Thành"}
+                        />
                     </div>
 
                     <AddButton onClick={openAddModal} className="z-clinic-add-btn-pull-right" style={{ marginLeft: "auto" }}>

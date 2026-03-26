@@ -1,24 +1,540 @@
-.modal-content-clinic {
-  width: 45%;
-  background-color: #ffffff;
-  border-radius: 12px;
-  max-height: 95vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  animation: slideUp 0.3s ease-out;
-  overflow: hidden;
+/* Container chính */
+.z-clinic-detail-container {
+    background: var(--bg-color);
+    border-radius: 12px;
 }
-.form-group {
-        /* padding: 8px 24px; */
+
+/* Các trạng thái Loading / Error */
+.z-clinic-detail-state {
+    text-align: center;
+    padding: 60px;
+    color: var(--gray500);
+    font-size: 16px;
 }
-.modal-content-review {
-        width: 40%;
-        background-color: #ffffff;
-        border-radius: 12px;
-        max-height: 95vh;
-        display: flex;
+.z-clinic-detail-error {
+    color: var(--error);
+}
+
+/* Layout Box Chính */
+.z-clinic-detail-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 32px;
+}
+
+.z-clinic-detail-layout {
+    display: flex;
+    gap: 40px;
+}
+
+/* --- CỘT TRÁI (HÌNH ẢNH) --- */
+.z-clinic-detail-left {
+    flex: 0 0 30%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.z-clinic-detail-main-img-container {
+    width: 450px;
+    height: 500px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f9fafb;
+}
+
+.z-clinic-detail-main-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.z-clinic-detail-thumb-list {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+}
+
+.z-clinic-detail-thumb-list::-webkit-scrollbar {
+    height: 6px;
+}
+.z-clinic-detail-thumb-list::-webkit-scrollbar-thumb {
+    background-color: #d1d5db;
+    border-radius: 4px;
+}
+
+.z-clinic-detail-thumb-item {
+    width: 80px;
+    height: 60px;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.z-clinic-detail-thumb-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+}
+
+.z-clinic-detail-thumb-item.active {
+    border-color: var(--primary-color);
+}
+.z-clinic-detail-thumb-item.active img {
+    border: none;
+}
+
+/* --- CỘT PHẢI (THÔNG TIN) --- */
+.z-clinic-detail-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.z-clinic-detail-header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.z-clinic-detail-badge {
+    width: fit-content;
+    background: #f3f4f6;
+    color: #4b5563;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.z-clinic-detail-title {
+    font-size: 24px;
+    color: #111827;
+    margin: 0;
+    line-height: 1.3;
+    font-weight: 700;
+}
+
+.z-clinic-detail-phone {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.z-clinic-detail-section h3 {
+    font-size: 16px;
+    margin: 0 0 10px 0;
+    color: #111827;
+    font-weight: 700;
+}
+
+.z-clinic-detail-desc {
+    color: #4b5563;
+    line-height: 1.6;
+    text-align: justify;
+    margin: 0;
+    font-size: 15px;
+}
+
+/* Specs Box (Tone màu xanh nhạt) */
+.z-clinic-detail-specs-box {
+    background-color: var(--base-primary); 
+    border: 1px solid var(--primary-color); 
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.z-clinic-detail-specs-box h3 {
+    font-size: 16px;
+    margin: 0 0 16px 0;
+    color: var(--primary-color); 
+    font-weight: 700;
+}
+
+.z-clinic-detail-specs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.z-clinic-detail-specs-list li {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dashed var(--primary-color);
+    padding-bottom: 12px;
+}
+
+.z-clinic-detail-specs-list li:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.spec-label {
+    color: var(--primary-color);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.spec-value {
+    color: var(--primary-color);
+    font-weight: 700;
+    font-size: 14px;
+    text-align: right;
+    max-width: 60%;
+}
+
+/* Nút bấm Action (Main View) */
+.z-clinic-detail-actions {
+    display: flex;
+    gap: 16px;
+    margin-top: auto; 
+}
+
+.z-clinic-detail-btn-back {
+    background-color: #fff;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.z-clinic-detail-btn-back:hover {
+    background-color: #f3f4f6;
+}
+
+.z-clinic-detail-btn-primary {
+    background-color: var(--primary-color);
+    color: #fff;
+    border: 1px solid var(--primary-color);
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.z-clinic-detail-btn-primary:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 4px 6px -1px rgba(18, 145, 90, 0.2);
+}
+
+/* ================= TABLE REVIEWS ================= */
+.z-clinic-detail-table-wrapper {
+    overflow-x: auto;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: visible; 
+}
+
+.z-clinic-detail-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.z-clinic-detail-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    font-size: 14px;
+}
+.z-clinic-detail-table td {
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    font-size: 14px;
+    vertical-align: middle;
+}
+
+.z-clinic-detail-table tbody tr {
+    transition: background-color 0.2s;
+}
+.z-clinic-detail-table tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+.z-clinic-detail-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #e5e7eb;
+}
+
+.z-clinic-detail-text-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: #4b5563;
+    line-height: 1.5;
+}
+
+/* Badges */
+.z-clinic-detail-badge-active {
+    background: var(--base-primary);
+    color: var(--primary-color);
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--primary-color);
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.z-clinic-detail-badge-inactive {
+    background: var(--inactive-bg);
+    color: var(--inactive-color);
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--inactive-border);
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+/* Kebab Menu (3 Chấm) */
+.z-clinic-detail-dropdown-actions {
+    position: relative;
+    display: inline-block;
+}
+
+.z-clinic-detail-more-btn {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.z-clinic-detail-more-btn:hover {
+    background-color: #e5e7eb;
+}
+
+.z-clinic-detail-action-menu {
+    position: absolute;
+    right: 0;
+    top: 0;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.2s ease;
+    min-width: 140px;
+}
+
+.z-clinic-detail-dropdown-actions:hover .z-clinic-detail-action-menu {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.z-clinic-detail-action-menu button {
+    width: 100%;
+    white-space: nowrap;
+}
+
+
+/* ================= MODAL FORMS ================= */
+.z-clinic-detail-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.z-clinic-detail-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.z-clinic-detail-form-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.z-clinic-detail-form-row {
+    display: flex;
+    gap: 16px;
+}
+
+.z-clinic-detail-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.z-clinic-detail-form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.z-clinic-detail-required {
+    color: var(--error);
+}
+
+.z-clinic-detail-form-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.z-clinic-detail-input,
+.z-clinic-detail-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #111827;
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+
+.z-clinic-detail-input:focus,
+.z-clinic-detail-textarea:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(18, 145, 90, 0.1);
+}
+
+.z-clinic-detail-input:disabled,
+.z-clinic-detail-textarea:disabled {
+    background-color: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.z-clinic-detail-textarea {
+    resize: vertical;
+}
+
+/* Upload Ảnh trong Form */
+.z-clinic-detail-upload-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.z-clinic-detail-img-box {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 8px;
+    padding: 4px;
+    border: 1px dashed #d1d5db;
+    background: #fff;
+}
+
+.z-clinic-detail-img-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.z-clinic-detail-remove-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: var(--error);
+    color: white;
+    border: 2px solid white;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+    transition: transform 0.1s;
+}
+
+.z-clinic-detail-remove-btn:hover {
+    transform: scale(1.1);
+    background: #dc2626;
+}
+
+.z-clinic-detail-add-img-btn {
+    width: 100px;
+    height: 100px;
+    border-radius: 8px;
+    border: 1px dashed #d1d5db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #6b7280;
+    background: #f9fafb;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.z-clinic-detail-add-img-btn:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+    color: #374151;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .z-clinic-detail-layout,
+    .z-clinic-detail-form-grid {
         flex-direction: column;
-        animation: slideUp 0.3s ease-out;
-        overflow: hidden;
+        display: flex;
+    }
+    .z-clinic-detail-left {
+        width: 100%;
+    }
 }

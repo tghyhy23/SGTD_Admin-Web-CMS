@@ -11,7 +11,7 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/api/v1': {
-        target: 'https://api-sgtd.congtyeon.com',
+        target: 'https://api-sgtd.eonsr.com',
         changeOrigin: true,
         secure: false,
       }

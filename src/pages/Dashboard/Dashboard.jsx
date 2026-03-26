@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-// Đã đổi từ branchApi sang clinicApi theo đúng cấu trúc file axiosApi.js của bạn
 import { bookingApi, clinicApi } from "../../api/axiosApi"; 
 import Modal from "../../ui/Modal/Modal";
 import PageHeader from "../../ui/PageHeader/PageHeader";
@@ -20,27 +19,31 @@ const Dashboard = () => {
     // 1. STATE QUẢN LÝ DỮ LIỆU
     // ==========================================
     const [bookings, setBookings] = useState([]);
-    const [branches, setBranches] = useState([]); // State lưu danh sách chi nhánh
+    const [branches, setBranches] = useState([]); 
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
     // ==========================================
-    // 2. STATE LỌC, TÌM KIẾM & PHÂN TRANG
+    // 2. STATE LỌC, TÌM KIẾM, SẮP XẾP & PHÂN TRANG
     // ==========================================
     const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState(""); // State riêng để chặn delay khi gõ
+    
     const [filterStatus, setFilterStatus] = useState("");
-    const [filterBranch, setFilterBranch] = useState(""); // State lưu ID chi nhánh đang lọc
+    const [filterBranch, setFilterBranch] = useState("");
+    const [sortOrder, setSortOrder] = useState("desc"); // desc = Mới nhất, asc = Cũ nhất
     
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
     const [showBranchDropdown, setShowBranchDropdown] = useState(false); 
+    const [showSortDropdown, setShowSortDropdown] = useState(false); 
 
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const limit = 10;
 
     // ==========================================
-    // 3. STATE CÁC MODALS (CONFIRM, COMPLETE, DELETE)
+    // 3. STATE CÁC MODALS
     // ==========================================
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [bookingToConfirm, setBookingToConfirm] = useState(null);
@@ -52,14 +55,13 @@ const Dashboard = () => {
     const [bookingToDelete, setBookingToDelete] = useState(null);
 
     // ==========================================
-    // 4. FETCH DATA
+    // 4. FETCH DATA & EFFECTS
     // ==========================================
-
-    // Lấy danh sách chi nhánh 1 lần khi load trang
+    
+    // Lấy danh sách chi nhánh (chạy 1 lần)
     useEffect(() => {
         const fetchBranches = async () => {
             try {
-                // SỬ DỤNG clinicApi.getAllClinics thay vì branchApi
                 const res = await clinicApi.getAllClinics({ limit: 100 }); 
                 if (res && res.success) {
                     setBranches(res.data?.branches || res.data || []);
@@ -71,13 +73,16 @@ const Dashboard = () => {
         fetchBranches();
     }, []);
 
+    // Hàm gọi API lấy danh sách đặt lịch
     const fetchBookings = async () => {
         setIsLoading(true);
         try {
             const params = { page, limit };
-            if (searchTerm) params.search = searchTerm;
+            // Sử dụng debouncedSearch thay vì searchTerm để API chuẩn xác
+            if (debouncedSearch) params.search = debouncedSearch;
             if (filterStatus) params.status = filterStatus;
-            if (filterBranch) params.branchId = filterBranch; // Thêm param lọc theo chi nhánh
+            if (filterBranch) params.branchId = filterBranch;
+            if (sortOrder) params.sort = sortOrder;
 
             const res = await bookingApi.getAllBookingsAdmin(params);
             if (res && res.success) {
@@ -92,18 +97,20 @@ const Dashboard = () => {
         }
     };
 
-    // Gọi API khi page, search, status, hoặc branch thay đổi
+    // TỐI ƯU 1: Chỉ tạo trễ (delay 500ms) khi GÕ TÌM KIẾM
     useEffect(() => {
         const timer = setTimeout(() => {
-            fetchBookings();
+            setDebouncedSearch(searchTerm);
+            setPage(1); // Đưa về trang 1 khi tìm kiếm từ khóa mới
         }, 500);
         return () => clearTimeout(timer);
-    }, [page, searchTerm, filterStatus, filterBranch]);
+    }, [searchTerm]);
 
-    // Reset về trang 1 khi đổi bộ lọc
+    // TỐI ƯU 2: Cập nhật API NGAY LẬP TỨC khi Sắp xếp / Bộ lọc / Trang thay đổi
     useEffect(() => {
-        setPage(1);
-    }, [searchTerm, filterStatus, filterBranch]);
+        fetchBookings();
+    }, [page, debouncedSearch, filterStatus, filterBranch, sortOrder]);
+
 
     // ==========================================
     // 5. HANDLERS GỌI API TỪ MODAL
@@ -180,8 +187,8 @@ const Dashboard = () => {
         <>
             <PageHeader 
                 breadcrumbs={[{ label: "Quản lý Lịch Hẹn" }]} 
-                title="Dashboard - Lịch Hẹn" 
-                description="Quản lý và theo dõi các lịch hẹn đặt trước của khách hàng." 
+                title="Quản lí lịch Hẹn" 
+                description="Quản lý theo dõi các lịch hẹn của khách hàng. Xác nhận và cập nhật hoàn thành dịch vụ khách hàng" 
             />
 
             <div className="z-dashboard-container">
@@ -196,7 +203,7 @@ const Dashboard = () => {
                     <h1 className="z-dashboard-title">Danh sách lịch hẹn</h1>
                 </div>
 
-                {/* --- TOOLS BAR (Search & Filter) --- */}
+                {/* --- TOOLS BAR (Search & Filters) --- */}
                 <div className="z-dashboard-tools">
                     <div className="z-dashboard-search">
                         <input
@@ -213,7 +220,8 @@ const Dashboard = () => {
                             className="z-dashboard-btn-filter" 
                             onClick={() => {
                                 setShowBranchDropdown(!showBranchDropdown);
-                                setShowStatusDropdown(false); // Đóng menu kia
+                                setShowStatusDropdown(false);
+                                setShowSortDropdown(false);
                             }}
                         >
                             <span style={{ maxWidth: '160px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -229,6 +237,7 @@ const Dashboard = () => {
                                     className={`z-dashboard-dropdown-item ${filterBranch === "" ? "active" : ""}`}
                                     onClick={() => {
                                         setFilterBranch("");
+                                        setPage(1); // Trở về trang 1 khi đổi bộ lọc
                                         setShowBranchDropdown(false);
                                     }}
                                 >
@@ -240,6 +249,7 @@ const Dashboard = () => {
                                         className={`z-dashboard-dropdown-item ${filterBranch === branch._id ? "active" : ""}`}
                                         onClick={() => {
                                             setFilterBranch(branch._id);
+                                            setPage(1); // Trở về trang 1 khi đổi bộ lọc
                                             setShowBranchDropdown(false);
                                         }}
                                     >
@@ -256,7 +266,8 @@ const Dashboard = () => {
                             className="z-dashboard-btn-filter" 
                             onClick={() => {
                                 setShowStatusDropdown(!showStatusDropdown);
-                                setShowBranchDropdown(false); // Đóng menu kia
+                                setShowBranchDropdown(false);
+                                setShowSortDropdown(false);
                             }}
                         >
                             <span>{getStatusLabelText(filterStatus)}</span>
@@ -272,6 +283,7 @@ const Dashboard = () => {
                                         className={`z-dashboard-dropdown-item ${filterStatus === opt.value ? "active" : ""}`}
                                         onClick={() => {
                                             setFilterStatus(opt.value);
+                                            setPage(1); // Trở về trang 1 khi đổi bộ lọc
                                             setShowStatusDropdown(false);
                                         }}
                                     >

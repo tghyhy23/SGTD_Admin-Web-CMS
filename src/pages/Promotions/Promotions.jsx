@@ -5,6 +5,11 @@ import PageHeader from "../../ui/PageHeader/PageHeader";
 import ToastMessage from "../../ui/ToastMessage/ToastMessage";
 import { AddButton, EditButton, DeleteButton, Button } from "../../ui/Button/Button";
 import { Select } from "../../ui/Select/Select";
+import ReactSelect from "react-select";
+import DatePicker, { registerLocale } from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import vi from "date-fns/locale/vi"; // Import tiếng Việt
+registerLocale("vi", vi); // Kích hoạt tiếng Việt cho lịch
 import "./Promotions.css";
 
 const STATUS_OPTIONS = [
@@ -87,8 +92,8 @@ const Promotions = () => {
         discountValue: 0,
         maxDiscountAmount: "",
         minOrderValue: 0,
-        startDate: "",
-        endDate: "",
+        startDate: null,
+        endDate: null,
         usageLimit: "",
         limitPerUser: "",
         applicableServiceIds: [],
@@ -153,9 +158,9 @@ const Promotions = () => {
     }, []);
 
     // Reset về trang 1 khi đổi bộ lọc
-    useEffect(() => {
-        setPage(1);
-    }, [searchTerm, filterStatus, filterBranch]); // Thêm filterBranch vào dependency
+    // useEffect(() => {
+    //     setPage(1);
+    // }, [searchTerm, filterStatus, filterBranch]); // Thêm filterBranch vào dependency
 
     // --- LOGIC TẶNG KHUYẾN MÃI ---
     const openApplyModal = (e, promo) => {
@@ -295,14 +300,14 @@ const Promotions = () => {
             branchId: promo.branchId?._id || promo.branchId || "",
             isActive: promo.isActive,
             badgeText: promo.badgeText || "",
-            details: promo.details?.join("\n") || "",
-            terms: promo.terms?.join("\n") || "",
+            details: Array.isArray(promo.details) ? promo.details.join("\n") : promo.details || "",
+            terms: Array.isArray(promo.terms) ? promo.terms.join("\n") : promo.terms || "",
             discountType: promo.discountType || "percentage",
             discountValue: promo.discountValue || 0,
             maxDiscountAmount: promo.maxDiscountAmount || "",
             minOrderValue: promo.minOrderValue || 0,
-            startDate: promo.startDate ? new Date(promo.startDate).toISOString().slice(0, 16) : "",
-            endDate: promo.endDate ? new Date(promo.endDate).toISOString().slice(0, 16) : "",
+            startDate: promo.startDate ? new Date(promo.startDate) : null,
+            endDate: promo.endDate ? new Date(promo.endDate) : null,
             usageLimit: promo.usageLimit || "",
             limitPerUser: promo.limitPerUser || "",
             applicableServiceIds: promo.applicableServiceIds?.map((s) => s._id || s) || [],
@@ -352,7 +357,7 @@ const Promotions = () => {
     const handleFormSubmit = async (e) => {
         e.preventDefault();
 
-        if (!formData.name || !formData.code || !formData.startDate || !formData.endDate || !formData.discountValue) {
+        if (!formData.branchId || !formData.name || !formData.code || !formData.startDate || !formData.endDate || !formData.discountValue) {
             return showToast("Vui lòng điền đầy đủ các trường bắt buộc!", "error");
         }
 
@@ -373,8 +378,8 @@ const Promotions = () => {
             if (formData.usageLimit) submitData.append("usageLimit", Number(formData.usageLimit));
             if (formData.limitPerUser) submitData.append("limitPerUser", Number(formData.limitPerUser));
 
-            submitData.append("startDate", formData.startDate);
-            submitData.append("endDate", formData.endDate);
+            submitData.append("startDate", formData.startDate.toISOString());
+            submitData.append("endDate", formData.endDate.toISOString());
 
             submitData.append("details", JSON.stringify(formData.details ? formData.details.split("\n").filter((d) => d.trim() !== "") : []));
             submitData.append("terms", JSON.stringify(formData.terms ? formData.terms.split("\n").filter((t) => t.trim() !== "") : []));
@@ -392,17 +397,21 @@ const Promotions = () => {
                 showToast(currentPromoId ? "Cập nhật thành công!" : "Tạo khuyến mãi thành công!");
 
                 const savedPromo = res.data?.promotion || res.data;
-                const selectedBranch = branches.find((b) => b._id === formData.branchId) || formData.branchId;
+
+                // MẤU CHỐT Ở ĐÂY: Tìm object chi nhánh đầy đủ từ danh sách đã có trên Frontend
+                const fullBranchObject = branches.find((b) => b._id === formData.branchId) || formData.branchId;
 
                 if (currentPromoId) {
                     setPromotions((prev) =>
                         prev.map((p) => {
                             if (p._id === currentPromoId) {
-                                if (savedPromo && savedPromo._id) return savedPromo;
+                                // Lấy data API trả về, nhưng ghi đè branchId bằng Object đầy đủ
                                 return {
-                                    ...p,
+                                    ...(savedPromo && savedPromo._id ? savedPromo : p),
                                     ...formData,
-                                    branchId: selectedBranch,
+                                    details: formData.details ? formData.details.split("\n").filter((d) => d.trim() !== "") : [],
+                                    terms: formData.terms ? formData.terms.split("\n").filter((t) => t.trim() !== "") : [],
+                                    branchId: fullBranchObject, // <--- Ép kiểu thành Object ở đây
                                     bannerImageUrl: imageFile ? URL.createObjectURL(imageFile) : previewImage,
                                     computedStatus: !formData.isActive ? "inactive" : p.computedStatus,
                                 };
@@ -411,17 +420,15 @@ const Promotions = () => {
                         }),
                     );
                 } else {
-                    const newPromo =
-                        savedPromo && savedPromo._id
-                            ? savedPromo
-                            : {
-                                  _id: Date.now().toString(),
-                                  ...formData,
-                                  branchId: selectedBranch,
-                                  usedCount: 0,
-                                  computedStatus: formData.isActive ? "active" : "inactive",
-                                  bannerImageUrl: imageFile ? URL.createObjectURL(imageFile) : "",
-                              };
+                    // Lấy data API trả về, nhưng ghi đè branchId bằng Object đầy đủ
+                    const newPromo = {
+                        ...(savedPromo && savedPromo._id ? savedPromo : { _id: Date.now().toString() }),
+                        ...formData,
+                        branchId: fullBranchObject, // <--- Ép kiểu thành Object ở đây
+                        usedCount: 0,
+                        computedStatus: formData.isActive ? "active" : "inactive",
+                        bannerImageUrl: imageFile ? URL.createObjectURL(imageFile) : savedPromo?.bannerImageUrl || "",
+                    };
                     setPromotions((prev) => [newPromo, ...prev]);
                 }
                 setIsFormModalOpen(false);
@@ -455,9 +462,42 @@ const Promotions = () => {
         return `${value.toLocaleString("vi-VN")} đ`;
     };
 
+    const filterBranchOptions = [{ value: "", label: "Tất cả chi nhánh" }, ...branches.map((b) => ({ value: b._id, label: b.name }))];
+    const formBranchOptions = branches.map((b) => ({ value: b._id, label: b.name }));
+
+    // Bê nguyên style từ file Location.jsx sang
+    const customSelectStyles = {
+        control: (provided, state) => ({
+            ...provided,
+            minHeight: "38px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db",
+            boxShadow: "none",
+            "&:hover": { borderColor: "var(--primary-color)" },
+            backgroundColor: "#fff",
+        }),
+        input: (provided) => ({ ...provided, margin: 0, padding: 0, fontSize: "14px" }),
+        option: (provided, state) => ({
+            ...provided,
+            backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white",
+            color: state.isSelected ? "var(--primary-color)" : "#374151",
+            cursor: "pointer",
+            margin: "4px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            width: "96%",
+        }),
+        menu: (provided) => ({ ...provided, zIndex: 9999 }),
+        menuList: (provided) => ({
+            ...provided,
+            overflowX: "hidden",
+        }),
+    };
+
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý Khuyến Mãi" }]} title="Quản lý Khuyến Mãi (Promotions)" description="Thiết lập các chương trình giảm giá, mã giảm giá và theo dõi lượt sử dụng." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý Khuyến Mãi" }]} title="Quản lý Khuyến Mãi" description="Thiết lập các chương trình giảm giá, mã giảm giá và theo dõi lượt sử dụng." />
 
             <div className="z-promo-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
@@ -473,44 +513,21 @@ const Promotions = () => {
                     </div>
 
                     {/* Filter CHI NHÁNH */}
-                    <div className="z-promo-filter">
-                        <button
-                            className="z-promo-btn-filter"
-                            onClick={() => {
-                                setShowBranchDropdown(!showBranchDropdown);
-                                setShowStatusDropdown(false);
+
+                    <div style={{ minWidth: "300px", zIndex: 10 }}>
+                        <ReactSelect
+                            options={filterBranchOptions}
+                            value={filterBranchOptions.find((opt) => opt.value === filterBranch) || filterBranchOptions[0]}
+                            // 🟢 SỬA DÒNG NÀY:
+                            onChange={(selected) => {
+                                setFilterBranch(selected ? selected.value : "");
+                                setPage(1);
                             }}
-                        >
-                            <span style={{ maxWidth: "160px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{getBranchLabelText()}</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151">
-                                <path d="M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z" />
-                            </svg>
-                        </button>
-                        {showBranchDropdown && (
-                            <div className="z-promo-dropdown-menu" style={{ maxHeight: "300px", overflowY: "auto" }}>
-                                <div
-                                    className={`z-promo-dropdown-item ${filterBranch === "" ? "active" : ""}`}
-                                    onClick={() => {
-                                        setFilterBranch("");
-                                        setShowBranchDropdown(false);
-                                    }}
-                                >
-                                    Tất cả chi nhánh
-                                </div>
-                                {branches.map((branch) => (
-                                    <div
-                                        key={branch._id}
-                                        className={`z-promo-dropdown-item ${filterBranch === branch._id ? "active" : ""}`}
-                                        onClick={() => {
-                                            setFilterBranch(branch._id);
-                                            setShowBranchDropdown(false);
-                                        }}
-                                    >
-                                        {branch.name}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                            styles={customSelectStyles}
+                            isSearchable={true}
+                            placeholder="Tìm Chi nhánh..."
+                            noOptionsMessage={() => "Không tìm thấy chi nhánh"}
+                        />
                     </div>
 
                     {/* Filter TRẠNG THÁI */}
@@ -536,6 +553,7 @@ const Promotions = () => {
                                         onClick={() => {
                                             setFilterStatus(opt.value);
                                             setShowStatusDropdown(false);
+                                            setPage(1);
                                         }}
                                     >
                                         {opt.label}
@@ -591,10 +609,10 @@ const Promotions = () => {
                                         </td>
                                         <td>
                                             <div className="z-promo-text-bold z-promo-text-clamp">{promo.name}</div>
-                                            <div className="z-promo-subtext">{promo.branchId?.name || "Tất cả chi nhánh"}</div>
+                                            <div className="z-promo-subtext">{promo.branchId?.name || "Đang tải..."}</div>
                                         </td>
                                         <td>
-                                            <div className="z-promo-text-bold" style={{ color: "#ef4444" }}>
+                                            <div className="z-promo-text-bold" style={{ color: "var(--error)" }}>
                                                 {formatDiscount(promo.discountType, promo.discountValue)}
                                             </div>
                                             {promo.maxDiscountAmount && promo.discountType === "percentage" && <div className="z-promo-subtext">Tối đa: {promo.maxDiscountAmount.toLocaleString("vi-VN")}đ</div>}
@@ -670,8 +688,24 @@ const Promotions = () => {
                                 <h3 className="z-promo-form-subtitle">Thông tin cơ bản</h3>
 
                                 <div className="z-promo-form-group">
-                                    <label>Chi nhánh áp dụng</label>
-                                    <Select name="branchId" options={[{ value: "", label: "-- Tất cả chi nhánh --" }, ...branches.map((b) => ({ value: b._id, label: b.name }))]} value={formData.branchId} onChange={handleFormChange} disabled={isSubmitting || currentPromoId} />
+                                    <label>
+                                        Chi nhánh áp dụng <span className="z-promo-required">*</span>
+                                    </label>
+                                    <ReactSelect
+                                        name="branchId"
+                                        options={formBranchOptions}
+                                        // Tìm option tương ứng với giá trị đang lưu trong formData
+                                        value={formBranchOptions.find((opt) => opt.value === formData.branchId) || null}
+                                        // Ghi đè thẳng vào state formData
+                                        onChange={(selected) => setFormData((prev) => ({ ...prev, branchId: selected ? selected.value : "" }))}
+                                        // Lưu ý: react-select dùng thuộc tính 'isDisabled' thay vì 'disabled'
+                                        isDisabled={isSubmitting || !!currentPromoId}
+                                        styles={customSelectStyles}
+                                        placeholder="-- Chọn chi nhánh --"
+                                        isSearchable={true}
+                                        noOptionsMessage={() => "Không tìm thấy chi nhánh"}
+                                        menuPosition="fixed" // 🟢 Cực kỳ quan trọng: Giúp menu xổ xuống không bị Modal cắt mất
+                                    />
                                 </div>
 
                                 <div className="z-promo-form-row">
@@ -752,13 +786,24 @@ const Promotions = () => {
                                         <label>
                                             Bắt đầu <span className="z-promo-required">*</span>
                                         </label>
-                                        <input type="datetime-local" name="startDate" className="z-promo-input" required value={formData.startDate} onChange={handleFormChange} disabled={isSubmitting} />
+                                        <DatePicker
+                                            selected={formData.startDate}
+                                            onChange={(date) => setFormData((prev) => ({ ...prev, startDate: date }))}
+                                            showTimeSelect
+                                            timeFormat="HH:mm"
+                                            timeIntervals={15} // Bước nhảy thời gian là 15 phút
+                                            dateFormat="dd/MM/yyyy HH:mm"
+                                            className="z-promo-input" // Giữ nguyên class CSS để ô input đẹp như cũ
+                                            placeholderText="Chọn ngày & giờ"
+                                            disabled={isSubmitting}
+                                            locale="vi" // Dùng tiếng Việt
+                                        />
                                     </div>
                                     <div className="z-promo-form-group" style={{ flex: 1 }}>
                                         <label>
                                             Kết thúc <span className="z-promo-required">*</span>
                                         </label>
-                                        <input type="datetime-local" name="endDate" className="z-promo-input" required value={formData.endDate} onChange={handleFormChange} disabled={isSubmitting} />
+                                        <DatePicker selected={formData.endDate} onChange={(date) => setFormData((prev) => ({ ...prev, endDate: date }))} showTimeSelect timeFormat="HH:mm" timeIntervals={15} dateFormat="dd/MM/yyyy HH:mm" className="z-promo-input" placeholderText="Chọn ngày & giờ" disabled={isSubmitting} locale="vi" />
                                     </div>
                                 </div>
 
@@ -773,9 +818,9 @@ const Promotions = () => {
                                     </div>
                                 </div>
 
-                                <h3 className="z-promo-form-subtitle" style={{ marginTop: "16px" }}>
+                                {/* <h3 className="z-promo-form-subtitle" style={{ marginTop: "16px" }}>
                                     Nội dung App Khách
-                                </h3>
+                                </h3> */}
 
                                 <div className="z-promo-form-group">
                                     <label>Ảnh Banner (Giao diện Khách)</label>

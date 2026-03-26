@@ -49,7 +49,7 @@
     border-radius: 6px;
     outline: none;
     font-size: 14px;
-    width: 250px;
+    width: 300px;
 }
 
 .z-services-search input:focus {
@@ -175,21 +175,22 @@
 .z-services-badge-gray {
     background: #f3f4f6;
     color: #4b5563;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
 }
 
 .z-services-badge-blue {
-    background: var(--base-edit);
-    color: var(--edit);
-    padding: 4px 12px;
-    border-radius: 4px;
-    border: 1px solid var(--edit);
+    background: var(--base-primary);
+    color: var(--primary-color);
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--primary-color);
     font-weight: bold;
 }
-
+.z-services-table th:nth-child(3) { width: 30%; }
 /* Table Actions Menu 3 chấm */
 .z-services-actions {
     display: flex;
@@ -294,14 +295,16 @@
 }
 
 .z-services-form-section-title {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
     color: #111827;
     margin: 0;
     padding-bottom: 8px;
     border-bottom: 1px solid var(--border-color);
 }
-
+.z-services-textarea {
+    min-height: 220px;
+}
 .z-services-input,
 .z-services-textarea,
 select.z-services-input {
