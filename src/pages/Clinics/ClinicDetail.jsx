@@ -552,10 +552,10 @@ const ClinicDetail = () => {
                                     onChange={(date) => setReviewForm(prev => ({ ...prev, fakeDate: date }))} 
                                     showTimeSelect 
                                     timeFormat="HH:mm" 
-                                    timeIntervals={15} 
+                                    timeIntervals={1} 
                                     dateFormat="dd/MM/yyyy HH:mm" 
                                     className="z-clinic-detail-input" 
-                                    placeholderText="Bỏ trống lấy ngày HT" 
+                                    placeholderText="Bỏ trống lấy ngày hiện tại" 
                                     disabled={isSubmitting} 
                                     locale="vi" 
                                 />
