@@ -107,8 +107,12 @@
     text-align: left;
     font-size: 14px;
 }
+.z-blog-table th:nth-child(3),
+.z-blog-table td:nth-child(3) {
+    padding-right: 100px; /* Thêm khoảng đệm 40px bên phải */
+}
 .z-blog-table th:nth-child(3) {
-    width: 550px; /* Thiết lập độ rộng cố định bạn mong muốn */
+    width: 500px; /* Thiết lập độ rộng cố định bạn mong muốn */
     max-width: 550px;
     min-width: 250px;
 }
@@ -141,8 +145,8 @@
     border-radius: 4px;
 }
 .z-blog-status-badge {
-    padding: 4px 12px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-size: 12px;
     font-weight: 600;
     border: 1px solid transparent;
@@ -157,7 +161,36 @@
     color: var(--inactive-color);
     /* border-color: var(--inactive-border) */
 }
+.z-blog-text-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: var(--text-main);
+    margin-bottom: 6px;
+    font-weight: 600;
+    line-height: 1.4;
+    font-size: 14px;
+    word-break: break-word; /* Giúp ngắt từ dài để không tràn bảng */
+}
+.z-blog-featured-tag {
+   font-size: 12px;
+}
+.z-blog-badge-gray{
+    font-size: 14px;
+}
 
+/* Giới hạn Link URL / Mô tả tối đa 2 dòng */
+.z-blog-subtext {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-all; /* Link URL thường dính liền nhau nên cần break-all */
+}
 /* Kebab Menu (3 chấm) */
 .z-blog-actions-cell {
     position: relative;

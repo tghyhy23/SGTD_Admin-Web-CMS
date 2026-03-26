@@ -40,7 +40,7 @@
     padding: 8px 14px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
-    width: 280px;
+    width: 300px;
     outline: none;
     font-size: 14px;
     transition: all 0.2s ease-in-out;
@@ -172,7 +172,7 @@
 
 /* Status Badges */
 [class^="z-dashboard-badge-"] {
-    padding: 4px 10px;
+    padding: 6px 12px;
     border-radius: 6px;
     font-size: 12px;
     font-weight: 600;

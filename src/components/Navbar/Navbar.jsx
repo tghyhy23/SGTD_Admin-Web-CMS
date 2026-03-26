@@ -1,12 +1,10 @@
 // src/components/Navbar/Navbar.jsx
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { categoryApi } from '../../api/axiosApi'; 
 import { useLocation } from 'react-router-dom'; // Thêm import useLocation
 import './Navbar.css';
 
 const Navbar = ({ toggleSidebar }) => {
-  const { user } = useAuth(); 
   const location = useLocation(); // Lấy đường dẫn hiện tại
   
   const [categories, setCategories] = useState([]);
@@ -44,11 +42,11 @@ const Navbar = ({ toggleSidebar }) => {
   const handleSwitchCategory = (category) => {
     setActiveCategory(category);
     localStorage.setItem('activeCategory', JSON.stringify(category));
-    window.location.reload(); 
+    window.dispatchEvent(new Event('activeCategoryChanged'));
   };
 
   // Xác định xem trang hiện tại có cần ẩn Tabs không (Có thể thêm các trang khác vào mảng này)
-  const hideTabsPages = ['/banners', '/blogs', '/users'];
+  const hideTabsPages = ['/banners', '/blogs', '/users', '/locations', '/promotions'];
   const isHideTabs = hideTabsPages.includes(location.pathname);
 
   return (
@@ -82,9 +80,9 @@ const Navbar = ({ toggleSidebar }) => {
                     className={`nav-tab-item ${isActive ? 'active' : ''}`}
                     onClick={() => handleSwitchCategory(cat)}
                 >
-                    {cat.iconUrl && (
+                    {/* {cat.iconUrl && (
                         <img src={cat.iconUrl} alt="" className="nav-tab-icon" />
-                    )}
+                    )} */}
                     <span>{cat.title || cat.name}</span>
                 </div>
                 );
@@ -94,12 +92,7 @@ const Navbar = ({ toggleSidebar }) => {
         
       </div>
 
-      <div className="navbar-right">
-        {/* === HIỂN THỊ ROLE NGƯỜI DÙNG === */}
-        <div className="nav-user-role">
-            <span className="role-value">{user?.role || "ADMIN"}</span>
-        </div>
-      </div>
+      
     </div>
   );
 };

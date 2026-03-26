@@ -6,6 +6,7 @@ import PageHeader from "../../ui/PageHeader/PageHeader";
 import ToastMessage from "../../ui/ToastMessage/ToastMessage";
 import Modal from "../../ui/Modal/Modal";
 import { AddButton, EditButton, DeleteButton } from "../../ui/Button/Button";
+import ReactSelect from "react-select"; // 🟢 THÊM IMPORT REACT-SELECT
 
 import "./Services.css";
 
@@ -33,10 +34,8 @@ const Services = () => {
 
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("");
-    const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
     const [sortOrder, setSortOrder] = useState("newest");
-    const [showSortDropdown, setShowSortDropdown] = useState(false);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -169,11 +168,10 @@ const Services = () => {
     useEffect(() => {
         fetchProductsByActiveCategory(true);
         const handleStorageChange = () => fetchProductsByActiveCategory(true);
-        window.addEventListener("storage", handleStorageChange);
-        return () => window.removeEventListener("storage", handleStorageChange);
+        window.addEventListener("activeCategoryChanged", handleStorageChange);
+        return () => window.removeEventListener("activeCategoryChanged", handleStorageChange);
     }, []);
 
-    // XỬ LÝ ẢNH BẰNG VIRTUAL INPUT (Không dùng thẻ input rác)
     const handleAddImageClick = () => {
         const fileInput = document.createElement("input");
         fileInput.type = "file";
@@ -276,7 +274,6 @@ const Services = () => {
             if (response && response.success) {
                 showToast(isEditMode ? "Cập nhật sản phẩm thành công!" : "Tạo sản phẩm thành công!");
                 
-                // Cập nhật State trực tiếp giống Banners để mượt mà
                 const categoryName = getCategoryNameByServiceId(formData.serviceId);
                 const serverVariant = response.data?.variant || response.data;
                 const updatedImageUrls = serverVariant?.imageUrls || [...oldImageUrls, ...imagePreviews];
@@ -326,7 +323,7 @@ const Services = () => {
                 }
 
                 setIsModalOpen(false);
-                fetchProductsByActiveCategory(false); // Fetch ngầm
+                fetchProductsByActiveCategory(false);
             } else {
                 showToast(response?.message || "Lỗi xử lý sản phẩm", "error");
             }
@@ -384,12 +381,49 @@ const Services = () => {
             return 0;
         });
 
-    const getSortLabel = () => {
-        if (sortOrder === "newest") return "Mới nhất (Mặc định)";
-        if (sortOrder === "oldest") return "Cũ nhất";
-        if (sortOrder === "asc") return "Giá: Thấp đến cao";
-        if (sortOrder === "desc") return "Giá: Cao đến thấp";
-        return "Mặc định";
+    // 🟢 CẤU HÌNH OPTIONS CHO REACT-SELECT
+    const formServiceOptions = rawServices.map((srv) => ({ value: srv._id, label: srv.name }));
+
+    const filterCategoryOptions = [
+        { value: "", label: "Tất cả dịch vụ" },
+        ...categories.map((cat) => ({ value: cat, label: cat }))
+    ];
+
+    const sortOptions = [
+        { value: "newest", label: "Mới nhất (Mặc định)" },
+        { value: "oldest", label: "Cũ nhất" },
+        { value: "asc", label: "Giá: Thấp đến cao" },
+        { value: "desc", label: "Giá: Cao đến thấp" }
+    ];
+
+    // 🟢 STYLE ĐỒNG BỘ CHO REACT-SELECT
+    const customSelectStyles = {
+        control: (provided, state) => ({
+            ...provided,
+            minHeight: "38px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db",
+            boxShadow: "none",
+            "&:hover": { borderColor: "var(--primary-color)" },
+            backgroundColor: "#fff",
+        }),
+        input: (provided) => ({ ...provided, margin: 0, padding: 0, fontSize: "14px" }),
+        option: (provided, state) => ({
+            ...provided,
+            backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white",
+            color: state.isSelected ? "var(--primary-color)" : "#374151",
+            cursor: "pointer",
+            margin: "4px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            width: "96%",
+        }),
+        menu: (provided) => ({ ...provided, zIndex: 9999 }),
+        menuList: (provided) => ({
+            ...provided,
+            overflowX: "hidden",
+        }),
     };
 
     if (isLoading) return <div className="z-services-state">Đang tải dữ liệu...</div>;
@@ -397,7 +431,7 @@ const Services = () => {
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Sản phẩm & Biến thể" }]} title={`Quản lý: ${activeParentCategory?.title || "Tất cả"}`} description="Danh sách các sản phẩm hoặc dịch vụ chi tiết thuộc danh mục." />
+            <PageHeader breadcrumbs={[{ label: "Sản phẩm & Biến thể" }]} title={`Quản lý dịch vụ`} description="Quản lí danh sách dịch vụ, thông tin chi tiết và miêu tả của sản phẩm." />
 
             <div className="z-services-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
@@ -411,67 +445,28 @@ const Services = () => {
                         <input type="text" placeholder="Tìm tên sản phẩm..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
 
-                    <div className="z-services-filter">
-                        <button
-                            className="z-services-btn-filter"
-                            onClick={() => {
-                                setShowFilterDropdown(!showFilterDropdown);
-                                setShowSortDropdown(false);
-                            }}
-                        >
-                            <span>{selectedCategory === "" ? "Tất cả dịch vụ" : selectedCategory}</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151">
-                                <path d="M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z" />
-                            </svg>
-                        </button>
-                        {showFilterDropdown && (
-                            <div className="z-services-dropdown-menu">
-                                <div
-                                    className={`z-services-dropdown-item ${selectedCategory === "" ? "active" : ""}`}
-                                    onClick={() => {
-                                        setSelectedCategory("");
-                                        setShowFilterDropdown(false);
-                                    }}
-                                >
-                                    Tất cả dịch vụ
-                                </div>
-                                {categories.map((cat, index) => (
-                                    <div
-                                        key={index}
-                                        className={`z-services-dropdown-item ${selectedCategory === cat ? "active" : ""}`}
-                                        onClick={() => {
-                                            setSelectedCategory(cat);
-                                            setShowFilterDropdown(false);
-                                        }}
-                                    >
-                                        {cat}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                    {/* 🟢 LỌC DANH MỤC BẰNG REACT-SELECT */}
+                    <div style={{ minWidth: "220px", zIndex: 11 }}>
+                        <ReactSelect
+                            options={filterCategoryOptions}
+                            value={filterCategoryOptions.find(opt => opt.value === selectedCategory) || filterCategoryOptions[0]}
+                            onChange={(selected) => setSelectedCategory(selected ? selected.value : "")}
+                            styles={customSelectStyles}
+                            isSearchable={true}
+                            placeholder="Lọc dịch vụ..."
+                            noOptionsMessage={() => "Không tìm thấy"}
+                        />
                     </div>
 
-                    <div className="z-services-filter">
-                        <button
-                            className="z-services-btn-filter"
-                            onClick={() => {
-                                setShowSortDropdown(!showSortDropdown);
-                                setShowFilterDropdown(false);
-                            }}
-                        >
-                            <span>{getSortLabel()}</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151">
-                                <path d="M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z" />
-                            </svg>
-                        </button>
-                        {showSortDropdown && (
-                            <div className="z-services-dropdown-menu">
-                                <div className={`z-services-dropdown-item ${sortOrder === "newest" ? "active" : ""}`} onClick={() => { setSortOrder("newest"); setShowSortDropdown(false); }}>Mới nhất (Mặc định)</div>
-                                <div className={`z-services-dropdown-item ${sortOrder === "oldest" ? "active" : ""}`} onClick={() => { setSortOrder("oldest"); setShowSortDropdown(false); }}>Cũ nhất</div>
-                                <div className={`z-services-dropdown-item ${sortOrder === "asc" ? "active" : ""}`} onClick={() => { setSortOrder("asc"); setShowSortDropdown(false); }}>Giá: Thấp đến cao</div>
-                                <div className={`z-services-dropdown-item ${sortOrder === "desc" ? "active" : ""}`} onClick={() => { setSortOrder("desc"); setShowSortDropdown(false); }}>Giá: Cao đến thấp</div>
-                            </div>
-                        )}
+                    {/* 🟢 LỌC SẮP XẾP BẰNG REACT-SELECT */}
+                    <div style={{ minWidth: "220px", zIndex: 10 }}>
+                        <ReactSelect
+                            options={sortOptions}
+                            value={sortOptions.find(opt => opt.value === sortOrder) || sortOptions[0]}
+                            onChange={(selected) => setSortOrder(selected ? selected.value : "newest")}
+                            styles={customSelectStyles}
+                            isSearchable={false}
+                        />
                     </div>
 
                     <AddButton style={{ marginLeft: "auto" }} onClick={openAddModal}>
@@ -486,7 +481,7 @@ const Services = () => {
                                 <th>STT</th>
                                 <th>Hình ảnh</th>
                                 <th>Thông tin Sản phẩm</th>
-                                <th>Danh mục con</th>
+                                <th>Danh mục</th>
                                 <th>Giá</th>
                                 <th>Đơn vị</th>
                                 <th>Thao tác</th>
@@ -541,18 +536,24 @@ const Services = () => {
                             {/* CỘT TRÁI */}
                             <div className="z-services-form-column">
                                 <div className="z-services-form-group">
-                                    <label>Thuộc Danh mục Hệ thống</label>
+                                    <label>Thuộc Danh mục</label>
                                     <input type="text" value={activeParentCategory?.title || "N/A"} disabled className="z-services-input readonly" style={{ backgroundColor: "#f3f4f6", color: "#12915A", fontWeight: "bold" }} />
                                 </div>
 
+                                {/* 🟢 CHỌN DỊCH VỤ TRONG FORM BẰNG REACT-SELECT */}
                                 <div className="z-services-form-group">
                                     <label>Dịch vụ <span className="z-services-required">*</span></label>
-                                    <select className="z-services-input" required value={formData.serviceId} onChange={(e) => setFormData({ ...formData, serviceId: e.target.value })} disabled={isSubmitting}>
-                                        <option value="">-- Chọn dịch vụ --</option>
-                                        {rawServices.map((srv) => (
-                                            <option key={srv._id} value={srv._id}>{srv.name}</option>
-                                        ))}
-                                    </select>
+                                    <ReactSelect
+                                        options={formServiceOptions}
+                                        value={formServiceOptions.find(opt => opt.value === formData.serviceId) || null}
+                                        onChange={(selected) => setFormData({ ...formData, serviceId: selected ? selected.value : "" })}
+                                        isDisabled={isSubmitting}
+                                        styles={customSelectStyles}
+                                        placeholder="-- Chọn dịch vụ --"
+                                        isSearchable={true}
+                                        noOptionsMessage={() => "Không tìm thấy dịch vụ"}
+                                        menuPosition="fixed" // Tránh menu bị cắt xén trong Modal
+                                    />
                                 </div>
 
                                 <div className="z-services-form-group">
