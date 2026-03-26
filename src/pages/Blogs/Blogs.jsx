@@ -283,7 +283,7 @@ const Blogs = () => {
                                     <td>{index + 1}</td>
                                     <td><img src={post.thumbnailUrl || FALLBACK_IMG} alt="" className="z-blog-img-preview" /></td>
                                     <td>
-                                        <div className="z-blog-text-clamp"><strong>{post.title}</strong></div>
+                                        <div className="z-blog-text-clamp">{post.title}</div>
                                         <div className="z-blog-subtext">{post.externalUrl}</div>
                                     </td>
                                     <td>

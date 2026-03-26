@@ -70,7 +70,7 @@
     border-radius: 6px;
     outline: none;
     font-size: 14px;
-    width: 250px;
+    width: 300px;
     transition: all 0.2s ease-in-out;
 }
 
@@ -169,8 +169,8 @@
 .z-location-badge-gray {
     background: #f3f4f6;
     color: #374151;
-    padding: 4px 10px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-size: 12px;
     font-weight: 600;
 }
@@ -178,8 +178,8 @@
 .z-location-badge-blue {
     background: var(--base-edit);
     color: var(--edit);
-    padding: 4px 12px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
     border: 1px solid var(--edit);
     font-weight: bold;
 }

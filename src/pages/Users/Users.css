@@ -23,8 +23,8 @@
 
 /* Status Badge kiểu mới (Không dùng dot) */
 .z-user-status-badge {
-    padding: 4px 12px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-size: 12px;
     font-weight: 600;
     display: inline-block;
@@ -92,7 +92,7 @@
     padding: 8px 14px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
-    width: 250px;
+    width: 300px;
     outline: none;
 }
 .z-user-search input {
@@ -199,8 +199,8 @@
     color: #111827;
 }
 .z-user-role-badge {
-    padding: 4px 12px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-size: 12px;
     font-weight: 800;
     text-transform: uppercase;

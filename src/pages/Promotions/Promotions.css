@@ -43,7 +43,7 @@
     padding: 8px 14px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
-    width: 280px;
+    width: 300px;
     outline: none;
     font-size: 14px;
     transition: all 0.2s ease-in-out;
@@ -169,8 +169,8 @@
 
 /* Status Badges */
 [class^="z-promo-badge-"] {
-    padding: 4px 12px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-size: 12px;
     font-weight: 600;
     display: inline-block;
@@ -359,10 +359,10 @@
 .z-promo-input,
 .z-promo-textarea {
     width: 100%;
-    padding: 12px 14px;
+    padding: 10px 16px;
     background: #f9fafb;
     border: 1px solid #d1d5db;
-    border-radius: 8px;
+    border-radius: 6px;
     font-size: 14px;
     color: #111827;
     outline: none;
@@ -387,7 +387,7 @@
 
 .z-promo-textarea {
     resize: vertical;
-    min-height: 80px;
+    min-height: 200px;
 }
 
 /* Checkbox List Dịch Vụ */
@@ -516,4 +516,19 @@
     line-height: 1.5;
     margin: 0;
     font-size: 14px;
+}
+/* --- REACT DATEPICKER TWEAKS --- */
+.react-datepicker-wrapper {
+    width: 100%;
+}
+.react-datepicker__input-container {
+    width: 100%;
+}
+.react-datepicker-popper {
+    z-index: 9999 !important; /* Đảm bảo lịch nổi lên trên cùng */
+}
+/* Tuỳ chọn: Đổi màu xanh mặc định của lịch sang màu hệ thống của bạn */
+.react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item--selected,
+.react-datepicker__day--selected, .react-datepicker__day--keyboard-selected {
+    background-color: var(--primary-color) !important;
 }

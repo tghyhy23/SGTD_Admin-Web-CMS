@@ -215,20 +215,29 @@ const Location = () => {
     const customSelectStyles = {
         control: (provided, state) => ({
             ...provided,
-            minHeight: "42px",
-            borderRadius: "8px",
+            minHeight: "38px",
+            borderRadius: "6px",
             fontSize: "14px",
-            borderColor: state.isFocused ? "var(--primary-color)" : "#e5e7eb",
+            borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db",
             boxShadow: "none",
             "&:hover": { borderColor: "var(--primary-color)" },
             backgroundColor: "#fff",
         }),
         input: (provided) => ({ ...provided, margin: 0, padding: 0, fontSize: "14px" }),
-        option: (provided, state) => ({ ...provided, backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white", color: state.isSelected ? "var(--primary-color)" : "#374151", cursor: "pointer", margin: "4px", borderRadius: "6px", fontSize: "14px", width: "96%"}),
+        option: (provided, state) => ({
+            ...provided,
+            backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white",
+            color: state.isSelected ? "var(--primary-color)" : "#374151",
+            cursor: "pointer",
+            margin: "4px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            width: "96%",
+        }),
         menu: (provided) => ({ ...provided, zIndex: 9999 }),
         menuList: (provided) => ({
             ...provided,
-            overflowX: "hidden", 
+            overflowX: "hidden",
         }),
     };
 
@@ -239,7 +248,7 @@ const Location = () => {
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý Khu vực" }]} title="Quản lý Khu vực (Locations)" description="Quản lý danh sách Tỉnh/Thành phố và Phường/Xã trên hệ thống." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý Khu vực" }]} title="Quản lý Khu vực" description="Quản lý danh sách Tỉnh/Thành phố và Phường/Xã trên hệ thống." />
 
             <div className="z-location-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />

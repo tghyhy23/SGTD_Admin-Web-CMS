@@ -6,7 +6,7 @@
 /* Khung hiển thị giá trị */
 .z-select-trigger {
     width: 100%;
-    padding: 10px 14px;
+    padding: 8px 16px;
     background: #fff;
     border: 1px solid var(--border-color, #d1d5db);
     border-radius: 6px;
