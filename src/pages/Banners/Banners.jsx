@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { bannerApi } from "../../api/axiosApi";
 import Modal from "../../ui/Modal/Modal";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // 🟢 THÊM IMPORT
 
 import { Button, AddButton, EditButton, DeleteButton } from "../../ui/Button/Button";
 import { Select } from "../../ui/Select/Select";
@@ -21,12 +22,9 @@ const removeVietnameseTones = (str) => {
 
 const FALLBACK_IMG = "https://via.placeholder.com/300x150?text=No+Banner";
 
-// ✅ 1. CẬP NHẬT FULL ENUM VỊ TRÍ THEO BACKEND
 const POSITION_LABELS = {
-    // HERO: "Trang Chủ",
     MIDDLE: "Background Trang Chủ",
     BOTTOM: "Trang Khuyến Mãi",
-    // POPUP: "Popup Khuyến Mãi",
     ABOUT_HERO: "Trang Giới Thiệu (lớn)",
     ABOUT_MIDDLE: "Trang Giới Thiệu (nhỏ)",
     EDU: "SGTD EDU",
@@ -34,17 +32,14 @@ const POSITION_LABELS = {
     PCDA: "PDCA",
 };
 
-// ✅ 2. MAPPING ĐƯỜNG DẪN APP MOBILE TƯƠNG ỨNG VỚI VỊ TRÍ
 const DEFAULT_LINKS = {
-    // HERO: "/(tabs)/index", // Trang chủ
     MIDDLE: "/(tabs)/index",
-    BOTTOM: "/promotion/Promotions", // Trang khuyến mãi
-    // POPUP: "/promotion/Promotions",
+    BOTTOM: "/promotion/Promotions", 
     ABOUT_HERO: "/dentistry/Intro",
     ABOUT_MIDDLE: "/dentistry/Intro",
-    EDU: "/intro/SGTD", // Trang giới thiệu SGTD
-    MEKONG: "/intro/Mekong", // Trang giới thiệu Mekong
-    PCDA: "/intro/PDCA", // Trang giới thiệu PCDA
+    EDU: "/intro/SGTD", 
+    MEKONG: "/intro/Mekong", 
+    PCDA: "/intro/PDCA", 
 };
 
 const LINK_LABELS = {
@@ -67,109 +62,139 @@ const statusOptions = [
 ];
 
 const Banners = () => {
-    const [banners, setBanners] = useState([]);
+    const queryClient = useQueryClient(); // Dùng để can thiệp cache
+
+    // UI States
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 15;
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(null);
-
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState("all");
     const [filterPosition, setFilterPosition] = useState("all");
-
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-
     const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
-    // State Modal Xóa
+    // Modals States
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [bannerToDelete, setBannerToDelete] = useState(null);
-    const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
-
-    // State Modal Form
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editBannerId, setEditBannerId] = useState(null);
-    const [isSubmittingForm, setIsSubmittingForm] = useState(false);
 
-    // ✅ 3. INITIAL FORM
     const initialForm = {
-        title: "",
-        subtitle: "",
-        description: "",
-        position: "MIDDLE", // Để tạm MIDDLE thay vì HERO vì HERO bị comment lại
-        displayOrder: 0,
-        status: "PUBLISHED",
+        title: "", subtitle: "", description: "", position: "MIDDLE", displayOrder: 0, status: "PUBLISHED",
     };
     const [formData, setFormData] = useState(initialForm);
-
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
     const fileInputRef = useRef(null);
 
-    // FETCH DATA
-    const fetchAllBanners = async () => {
-        setIsLoading(true);
-        try {
+    // ==========================================
+    // 1. DÙNG USEQUERY THAY CHO USEEFFECT ĐỂ FETCH DATA
+    // ==========================================
+    const { data: banners = [], isLoading, error } = useQuery({
+        queryKey: ["banners"],
+        queryFn: async () => {
             const res = await bannerApi.getAllBanners({ limit: 100 });
-            if (res && res.success) {
-                setBanners(res.data.banners || []);
-            } else {
-                setError("Không thể tải danh sách banner.");
-            }
-        } catch (err) {
-            console.error("Lỗi lấy danh sách banner:", err);
-            setError("Lỗi kết nối đến máy chủ.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchAllBanners();
-    }, []);
+            if (res && res.success) return res.data.banners || [];
+            throw new Error("Không thể tải danh sách banner.");
+        },
+        staleTime: 5 * 60 * 1000 // Cache dữ liệu 5 phút
+    });
 
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, filterStatus, filterPosition]);
 
-    // XỬ LÝ XÓA
+    // ==========================================
+    // 2. DÙNG USEMUTATION ĐỂ XỬ LÝ API (THÊM/SỬA/XÓA)
+    // ==========================================
+
+    // Mutation Thêm / Sửa Banner
+    const saveBannerMutation = useMutation({
+        mutationFn: ({ id, submitData }) => id ? bannerApi.updateBanner(id, submitData) : bannerApi.createBanner(submitData),
+        onSuccess: (res, variables) => {
+            const updatedBanner = res.data?.banner || res.data || res;
+            
+            // Cập nhật Cache UI ngay lập tức
+            queryClient.setQueryData(["banners"], (old) => {
+                if (!old) return [];
+                if (variables.id) {
+                    return old.map(b => b._id === variables.id ? { ...b, ...updatedBanner } : b);
+                }
+                return [updatedBanner, ...old];
+            });
+
+            setToast({ show: true, message: variables.id ? "Cập nhật thành công!" : "Thêm mới thành công!", type: "success" });
+            setIsFormModalOpen(false);
+        },
+        onError: (err) => {
+            console.error("Lỗi submit form:", err);
+            const serverMessage = err.response?.data?.message;
+            const isSizeError = err.response?.status === 413 || (serverMessage && serverMessage.toLowerCase().includes("large"));
+            setToast({
+                show: true,
+                message: isSizeError ? "Kích thước ảnh quá lớn! Vui lòng chọn ảnh có dung lượng nhỏ hơn." : serverMessage || "Có lỗi xảy ra!",
+                type: "error",
+            });
+        }
+    });
+
+    // Mutation Xóa Banner
+    const deleteBannerMutation = useMutation({
+        mutationFn: (id) => bannerApi.deleteBanner(id),
+        onSuccess: (res, deletedId) => {
+            queryClient.setQueryData(["banners"], (old) => old.filter(b => b._id !== deletedId));
+            setToast({ show: true, message: "Xóa banner thành công!", type: "success" });
+            setIsDeleteModalOpen(false);
+            setBannerToDelete(null);
+        },
+        onError: (err) => {
+            setToast({ show: true, message: err.response?.data?.message || "Không thể xóa banner lúc này", type: "error" });
+        }
+    });
+
+    // Mutation Đổi trạng thái (Optimistic Update)
+    const toggleStatusMutation = useMutation({
+        mutationFn: ({ id, submitData }) => bannerApi.updateBanner(id, submitData),
+        onMutate: async ({ id, newStatus }) => {
+            await queryClient.cancelQueries({ queryKey: ["banners"] });
+            const previousBanners = queryClient.getQueryData(["banners"]);
+
+            // Đổi UI ngay lập tức trước khi gọi API
+            queryClient.setQueryData(["banners"], (old) =>
+                old.map(b => b._id === id ? { ...b, status: newStatus } : b)
+            );
+            return { previousBanners };
+        },
+        onSuccess: (_, variables) => {
+            setToast({ show: true, message: `Đã chuyển sang: ${variables.newStatus === "PUBLISHED" ? "Đang hoạt động" : "Đang ẩn"}`, type: "success" });
+        },
+        onError: (err, variables, context) => {
+            queryClient.setQueryData(["banners"], context.previousBanners); // Rollback nếu lỗi
+            setToast({ show: true, message: err.response?.data?.message || "Lỗi khi cập nhật trạng thái", type: "error" });
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ["banners"] }) // Đồng bộ ngầm lại để chắc chắn
+    });
+
+    const isSubmitting = saveBannerMutation.isPending || deleteBannerMutation.isPending || toggleStatusMutation.isPending;
+
+    // ==========================================
+    // 3. UI HANDLERS
+    // ==========================================
     const handleDeleteClick = (e, id, title) => {
         e.stopPropagation();
         setBannerToDelete({ id, title });
         setIsDeleteModalOpen(true);
     };
 
-    const confirmDelete = async () => {
-        if (!bannerToDelete) return;
-        setIsSubmittingDelete(true);
-        try {
-            const response = await bannerApi.deleteBanner(bannerToDelete.id);
-            if (response && response.success) {
-                setToast({ show: true, message: "Xóa banner thành công!", type: "success" });
-                setIsDeleteModalOpen(false);
-                setBanners((prev) => prev.filter((b) => b._id !== bannerToDelete.id));
-                setBannerToDelete(null);
-            } else {
-                setToast({ show: true, message: response?.message || "Lỗi xóa banner", type: "error" });
-            }
-        } catch (error) {
-            setToast({ show: true, message: error.response?.data?.message || "Không thể xóa banner lúc này", type: "error" });
-        } finally {
-            setIsSubmittingDelete(false);
-        }
+    const confirmDelete = () => {
+        if (bannerToDelete) deleteBannerMutation.mutate(bannerToDelete.id);
     };
 
-    // MỞ FORM
     const openAddModal = () => {
         setIsEditMode(false);
         setEditBannerId(null);
-
-        const defaultPos = filterPosition === "all" ? "MIDDLE" : filterPosition;
-        setFormData({
-            ...initialForm,
-            position: defaultPos,
-        });
+        setFormData({ ...initialForm, position: filterPosition === "all" ? "MIDDLE" : filterPosition });
         setImageFile(null);
         setImagePreview(null);
         setIsFormModalOpen(true);
@@ -180,12 +205,8 @@ const Banners = () => {
         setIsEditMode(true);
         setEditBannerId(banner._id);
         setFormData({
-            title: banner.title || "",
-            subtitle: banner.subtitle || "",
-            description: banner.description || "",
-            position: banner.position || "MIDDLE",
-            displayOrder: banner.displayOrder || 0,
-            status: banner.status || "DRAFT",
+            title: banner.title || "", subtitle: banner.subtitle || "", description: banner.description || "",
+            position: banner.position || "MIDDLE", displayOrder: banner.displayOrder || 0, status: banner.status || "DRAFT",
         });
         setImageFile(null);
         setImagePreview(banner.imageUrl || null);
@@ -199,10 +220,7 @@ const Banners = () => {
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
-        if (file) {
-            setImageFile(file);
-            setImagePreview(URL.createObjectURL(file));
-        }
+        if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)); }
         e.target.value = null;
     };
 
@@ -211,110 +229,39 @@ const Banners = () => {
         setImagePreview(null);
     };
 
-    // LƯU FORM
-    const handleSaveBanner = async () => {
-        if (!formData.title) {
-            return setToast({ show: true, message: "Vui lòng nhập tiêu đề!", type: "error" });
+    const handleSaveBanner = () => {
+        if (!formData.title) return setToast({ show: true, message: "Vui lòng nhập tiêu đề!", type: "error" });
+
+        const submitData = new FormData();
+        submitData.append("title", formData.title);
+        submitData.append("subtitle", formData.subtitle);
+        submitData.append("description", formData.description);
+        submitData.append("position", formData.position);
+        submitData.append("buttonLink", DEFAULT_LINKS[formData.position] || "");
+        submitData.append("displayOrder", formData.displayOrder);
+        submitData.append("status", formData.status);
+
+        if (imageFile) {
+            submitData.append("image", imageFile);
+        } else if (!isEditMode) {
+            return setToast({ show: true, message: "Vui lòng chọn hình ảnh cho Banner!", type: "error" });
         }
 
-        setIsSubmittingForm(true);
-        try {
-            const submitData = new FormData();
-            submitData.append("title", formData.title);
-            submitData.append("subtitle", formData.subtitle);
-            submitData.append("description", formData.description);
-            submitData.append("position", formData.position);
-
-            // ✅ TỰ ĐỘNG GÁN LINK LÚC SUBMIT DỰA VÀO VỊ TRÍ (POSITION)
-            const autoLink = DEFAULT_LINKS[formData.position] || "";
-            submitData.append("buttonLink", autoLink);
-
-            submitData.append("displayOrder", formData.displayOrder);
-            submitData.append("status", formData.status);
-
-            if (imageFile) {
-                submitData.append("image", imageFile);
-            } else if (!isEditMode) {
-                setIsSubmittingForm(false);
-                return setToast({ show: true, message: "Vui lòng chọn hình ảnh cho Banner!", type: "error" });
-            }
-
-            let response;
-            if (isEditMode) {
-                response = await bannerApi.updateBanner(editBannerId, submitData);
-            } else {
-                response = await bannerApi.createBanner(submitData);
-            }
-
-            if (response && response.success) {
-                setToast({ show: true, message: isEditMode ? "Cập nhật thành công!" : "Thêm mới thành công!", type: "success" });
-
-                // CẬP NHẬT UI TRỰC TIẾP
-                if (isEditMode) {
-                    setBanners((prev) =>
-                        prev.map((b) => {
-                            if (b._id === editBannerId) {
-                                return {
-                                    ...b,
-                                    ...formData,
-                                    buttonLink: autoLink, // Cập nhật ui luôn
-                                    displayOrder: Number(formData.displayOrder),
-                                    imageUrl: imagePreview || b.imageUrl,
-                                };
-                            }
-                            return b;
-                        }),
-                    );
-                } else {
-                    const newBanner = response.data?.banner ||
-                        response.data || {
-                            _id: Date.now().toString(),
-                            ...formData,
-                            buttonLink: autoLink,
-                            displayOrder: Number(formData.displayOrder),
-                            imageUrl: imagePreview || "",
-                            createdAt: new Date().toISOString(),
-                        };
-                    setBanners((prev) => [newBanner, ...prev]);
-                }
-
-                setIsFormModalOpen(false);
-            } else {
-                setToast({ show: true, message: response?.message || "Có lỗi xảy ra", type: "error" });
-            }
-        } catch (error) {
-            console.error("Lỗi submit form:", error);
-            setToast({ show: true, message: error.response?.data?.message || "Lỗi kết nối đến máy chủ", type: "error" });
-        } finally {
-            setIsSubmittingForm(false);
-        }
+        saveBannerMutation.mutate({ id: isEditMode ? editBannerId : null, submitData });
     };
 
-    // TOGGLE STATUS
-    const handleTogglePublishStatus = async (e, banner) => {
+    const handleTogglePublishStatus = (e, banner) => {
         e.stopPropagation();
         const newStatus = banner.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
-        const previousBanners = [...banners];
-
-        setBanners((prev) => prev.map((b) => (b._id === banner._id ? { ...b, status: newStatus } : b)));
-
-        try {
-            const submitData = new FormData();
-            submitData.append("status", newStatus);
-            const response = await bannerApi.updateBanner(banner._id, submitData);
-            if (response && response.success) {
-                setToast({ show: true, message: `Đã chuyển sang: ${newStatus === "PUBLISHED" ? "Đang hoạt động" : "Đang ẩn"}`, type: "success" });
-            } else {
-                setBanners(previousBanners);
-                setToast({ show: true, message: response?.message || "Lỗi khi cập nhật trạng thái", type: "error" });
-            }
-        } catch (error) {
-            setBanners(previousBanners);
-            setToast({ show: true, message: "Lỗi kết nối đến máy chủ", type: "error" });
-        }
+        const submitData = new FormData();
+        submitData.append("status", newStatus);
+        
+        toggleStatusMutation.mutate({ id: banner._id, submitData, newStatus });
     };
 
-    // LỌC DỮ LIỆU
+    // ==========================================
+    // 4. LỌC & RENDER UI
+    // ==========================================
     const allFilteredBanners = banners
         .filter((banner) => {
             const normalizedSearch = removeVietnameseTones(searchTerm);
@@ -329,10 +276,15 @@ const Banners = () => {
         })
         .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
 
-    const indexOfLastItem = currentPage * itemsPerPage;
+    const MathCeil = Math.ceil(allFilteredBanners.length / itemsPerPage);
+    const totalPages = MathCeil > 0 ? MathCeil : 1; 
+    
+    // Đảm bảo currentPage không vượt quá totalPages khi search/filter
+    const validCurrentPage = currentPage > totalPages ? totalPages : currentPage;
+    
+    const indexOfLastItem = validCurrentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentItems = allFilteredBanners.slice(indexOfFirstItem, indexOfLastItem);
-    const totalPages = Math.ceil(allFilteredBanners.length / itemsPerPage);
 
     const getStatusLabel = () => {
         if (filterStatus === "published") return "Đang hoạt động";
@@ -341,7 +293,7 @@ const Banners = () => {
     };
 
     if (isLoading) return <div className="z-banner-state">Đang tải dữ liệu...</div>;
-    if (error) return <div className="z-banner-state z-banner-error">{error}</div>;
+    if (error) return <div className="z-banner-state z-banner-error">{error.message}</div>;
 
     return (
         <>
@@ -368,14 +320,8 @@ const Banners = () => {
                         <input type="text" placeholder="Tìm tiêu đề banner..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
 
-                    {/* Filter Trạng thái */}
                     <div className="z-banner-filter">
-                        <button
-                            className="z-banner-btn-filter"
-                            onClick={() => {
-                                setShowFilterDropdown(!showFilterDropdown);
-                            }}
-                        >
+                        <button className="z-banner-btn-filter" onClick={() => setShowFilterDropdown(!showFilterDropdown)}>
                             <span>{getStatusLabel()}</span>
                             <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151">
                                 <path d="M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z" />
@@ -383,33 +329,9 @@ const Banners = () => {
                         </button>
                         {showFilterDropdown && (
                             <div className="z-banner-dropdown-menu">
-                                <div
-                                    className={`z-banner-dropdown-item ${filterStatus === "all" ? "active" : ""}`}
-                                    onClick={() => {
-                                        setFilterStatus("all");
-                                        setShowFilterDropdown(false);
-                                    }}
-                                >
-                                    Tất cả trạng thái
-                                </div>
-                                <div
-                                    className={`z-banner-dropdown-item ${filterStatus === "published" ? "active" : ""}`}
-                                    onClick={() => {
-                                        setFilterStatus("published");
-                                        setShowFilterDropdown(false);
-                                    }}
-                                >
-                                    Đang hoạt động
-                                </div>
-                                <div
-                                    className={`z-banner-dropdown-item ${filterStatus === "draft" ? "active" : ""}`}
-                                    onClick={() => {
-                                        setFilterStatus("draft");
-                                        setShowFilterDropdown(false);
-                                    }}
-                                >
-                                    Đang ẩn
-                                </div>
+                                <div className={`z-banner-dropdown-item ${filterStatus === "all" ? "active" : ""}`} onClick={() => { setFilterStatus("all"); setShowFilterDropdown(false); }}>Tất cả trạng thái</div>
+                                <div className={`z-banner-dropdown-item ${filterStatus === "published" ? "active" : ""}`} onClick={() => { setFilterStatus("published"); setShowFilterDropdown(false); }}>Đang hoạt động</div>
+                                <div className={`z-banner-dropdown-item ${filterStatus === "draft" ? "active" : ""}`} onClick={() => { setFilterStatus("draft"); setShowFilterDropdown(false); }}>Đang ẩn</div>
                             </div>
                         )}
                     </div>
@@ -438,12 +360,10 @@ const Banners = () => {
                                     <td>{indexOfFirstItem + index + 1}</td>
                                     <td>
                                         <img
-                                            src={banner.imageUrl || FALLBACK_IMG}
+                                            src={banner.imageUrl ? `${banner.imageUrl}?t=${new Date(banner.updatedAt || banner.createdAt || Date.now()).getTime()}` : FALLBACK_IMG}
                                             alt={banner.title}
                                             className="z-banner-img-preview"
-                                            onError={(e) => {
-                                                e.target.src = FALLBACK_IMG;
-                                            }}
+                                            onError={(e) => { e.target.src = FALLBACK_IMG; }}
                                         />
                                     </td>
                                     <td>
@@ -468,7 +388,7 @@ const Banners = () => {
                                                 </button>
 
                                                 <div className="z-banner-action-menu">
-                                                    <Button variant="outline" onClick={(e) => handleTogglePublishStatus(e, banner)}>
+                                                    <Button variant="outline" onClick={(e) => handleTogglePublishStatus(e, banner)} disabled={toggleStatusMutation.isPending}>
                                                         {banner.status === "PUBLISHED" ? "Ẩn Banner" : "Hoạt động"}
                                                     </Button>
                                                     <EditButton onClick={(e) => openEditModal(e, banner)} />
@@ -486,85 +406,63 @@ const Banners = () => {
 
                 {totalPages > 1 && (
                     <div className="z-banner-pagination">
-                        <button className="z-pagination-btn" disabled={currentPage === 1} onClick={() => setCurrentPage((prev) => prev - 1)}>
+                        <button className="z-pagination-btn" disabled={validCurrentPage === 1} onClick={() => setCurrentPage((prev) => prev - 1)}>
                             Trước
                         </button>
                         <div className="z-pagination-numbers">
                             {[...Array(totalPages)].map((_, i) => (
-                                <button key={i + 1} className={`z-pagination-number ${currentPage === i + 1 ? "active" : ""}`} onClick={() => setCurrentPage(i + 1)}>
+                                <button key={i + 1} className={`z-pagination-number ${validCurrentPage === i + 1 ? "active" : ""}`} onClick={() => setCurrentPage(i + 1)}>
                                     {i + 1}
                                 </button>
                             ))}
                         </div>
-                        <button className="z-pagination-btn" disabled={currentPage === totalPages} onClick={() => setCurrentPage((prev) => prev + 1)}>
+                        <button className="z-pagination-btn" disabled={validCurrentPage === totalPages} onClick={() => setCurrentPage((prev) => prev + 1)}>
                             Sau
                         </button>
                     </div>
                 )}
 
-                {/* ================= MODAL FORM: THÊM & SỬA ================= */}
-                <Modal isOpen={isFormModalOpen} onClose={() => !isSubmittingForm && setIsFormModalOpen(false)} title={isEditMode ? "Cập nhật Banner" : "Thêm Banner mới"} size="lg" onSave={handleSaveBanner} saveText={isSubmittingForm ? "Đang xử lý..." : isEditMode ? "Lưu thay đổi" : "Tạo Banner"}>
+                {/* MODAL THÊM/SỬA */}
+                <Modal isOpen={isFormModalOpen} onClose={() => !isSubmitting && setIsFormModalOpen(false)} title={isEditMode ? "Cập nhật Banner" : "Thêm Banner mới"} size="lg" onSave={handleSaveBanner} saveText={saveBannerMutation.isPending ? "Đang xử lý..." : isEditMode ? "Lưu thay đổi" : "Tạo Banner"}>
                     <div className="z-banner-form">
                         <div className="z-banner-form-group">
-                            <label>
-                                Tiêu đề <span className="z-banner-required">*</span>
-                            </label>
-                            <input type="text" name="title" value={formData.title} onChange={handleInputChange} placeholder="Nhập tiêu đề..." disabled={isSubmittingForm} className="z-banner-input" />
+                            <label>Tiêu đề <span className="z-banner-required">*</span></label>
+                            <input type="text" name="title" value={formData.title} onChange={handleInputChange} placeholder="Nhập tiêu đề..." disabled={isSubmitting} className="z-banner-input" />
                         </div>
-
                         <div className="z-banner-form-group">
                             <label>Phụ đề (Subtitle)</label>
-                            <input type="text" name="subtitle" value={formData.subtitle} onChange={handleInputChange} placeholder="Nhập phụ đề..." disabled={isSubmittingForm} className="z-banner-input" />
+                            <input type="text" name="subtitle" value={formData.subtitle} onChange={handleInputChange} placeholder="Nhập phụ đề..." disabled={isSubmitting} className="z-banner-input" />
                         </div>
-
                         <div className="z-banner-form-grid">
                             <div className="z-banner-form-group">
                                 <label>Vị trí (Position)</label>
-                                <Select name="position" options={positionOptions} value={formData.position} onChange={handleInputChange} disabled={isSubmittingForm} />
+                                <Select name="position" options={positionOptions} value={formData.position} onChange={handleInputChange} disabled={isSubmitting} />
                             </div>
                             <div className="z-banner-form-group">
                                 <label>Thứ tự hiển thị</label>
-                                <input type="number" name="displayOrder" value={formData.displayOrder} onChange={handleInputChange} min="0" disabled={isSubmittingForm} className="z-banner-input" />
+                                <input type="number" name="displayOrder" value={formData.displayOrder} onChange={handleInputChange} min="0" disabled={isSubmitting} className="z-banner-input" />
                             </div>
                         </div>
-
-                        {/* ✅ THAY Ô INPUT LINK BẰNG Ô CHỈ ĐỌC (READ-ONLY) */}
                         <div className="z-banner-form-group">
                             <label>Điều hướng đến</label>
-                            <input
-                                type="text"
-                                // Dùng từ điển để dịch đường dẫn sang tiếng Việt. Nếu không có trong từ điển thì hiện thẳng đường dẫn.
-                                value={LINK_LABELS[DEFAULT_LINKS[formData.position]] || DEFAULT_LINKS[formData.position] || "Không có link điều hướng"}
-                                disabled={true}
-                                className="z-banner-input readonly z-banner-input-highlight"
-                            />
-                            {/* <small style={{ color: "gray", marginTop: "4px", display: "inline-block" }}>
-                                URL thực tế: <strong>{DEFAULT_LINKS[formData.position] || "N/A"}</strong>
-                            </small> */}
+                            <input type="text" value={LINK_LABELS[DEFAULT_LINKS[formData.position]] || DEFAULT_LINKS[formData.position] || "Không có link điều hướng"} disabled={true} className="z-banner-input readonly z-banner-input-highlight" />
                         </div>
-
                         <div className="z-banner-form-group">
                             <label>Trạng thái (Status)</label>
-                            <Select name="status" options={statusOptions} value={formData.status} onChange={handleInputChange} disabled={isSubmittingForm} />
+                            <Select name="status" options={statusOptions} value={formData.status} onChange={handleInputChange} disabled={isSubmitting} />
                         </div>
-
                         <div className="z-banner-form-group">
                             <label>Mô tả (Description)</label>
-                            <textarea name="description" value={formData.description} onChange={handleInputChange} placeholder="Nhập mô tả..." rows="3" disabled={isSubmittingForm} className="z-banner-textarea" />
+                            <textarea name="description" value={formData.description} onChange={handleInputChange} placeholder="Nhập mô tả..." rows="3" disabled={isSubmitting} className="z-banner-textarea" />
                         </div>
-
                         <div className="z-banner-form-group">
-                            <label>
-                                Hình ảnh Banner Desktop <span className="z-banner-required">*</span>
-                            </label>
+                            <label>Hình ảnh Banner Desktop <span className="z-banner-required">*</span></label>
                             <div className="z-banner-upload-wrapper">
-                                <input type="file" accept="image/*" ref={fileInputRef} style={{ display: "none" }} onChange={handleImageChange} disabled={isSubmittingForm} />
+                                <input type="file" accept="image/*" ref={fileInputRef} style={{ display: "none" }} onChange={handleImageChange} disabled={isSubmitting} />
                                 {imagePreview ? (
                                     <div className="z-banner-image-preview-box">
                                         <img src={imagePreview} alt="Preview" />
-                                        <button type="button" className="z-banner-remove-img-btn" onClick={removeImage}>
-                                            ×
-                                        </button>
+                                        <button type="button" className="z-banner-remove-img-btn" onClick={removeImage}>×</button>
                                     </div>
                                 ) : (
                                     <div className="z-banner-image-upload-btn" onClick={() => fileInputRef.current.click()}>
@@ -576,19 +474,14 @@ const Banners = () => {
                     </div>
                 </Modal>
 
-                {/* ================= MODAL XÓA ================= */}
-                <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmittingDelete && setIsDeleteModalOpen(false)} title="Xác nhận xóa" size="sm" onSave={confirmDelete} saveText={isSubmittingDelete ? "Đang xóa..." : "Xác nhận xóa"}>
+                {/* MODAL XÓA */}
+                <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmitting && setIsDeleteModalOpen(false)} title="Xác nhận xóa" size="sm" onSave={confirmDelete} saveText={deleteBannerMutation.isPending ? "Đang xóa..." : "Xác nhận xóa"}>
                     <div className="z-banner-delete-content">
                         <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 6h18"></path>
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                            <path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
                         </svg>
                         <h3>Xác nhận xóa</h3>
-                        <p>
-                            Bạn có chắc chắn muốn xóa Banner <br />
-                            <strong>"{bannerToDelete?.title}"</strong> không?
-                        </p>
+                        <p>Bạn có chắc chắn muốn xóa Banner <br /><strong>"{bannerToDelete?.title}"</strong> không?</p>
                     </div>
                 </Modal>
             </div>

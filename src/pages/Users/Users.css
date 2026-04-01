@@ -211,8 +211,8 @@
 }
 
 .z-user-role-badge.admin {
-    background: var(--base-super-admin);
-    color: var(--super-admin);
+    background: var(--base-admin);
+    color: var(--admin);
 }
 .z-user-role-badge.user {
     background: var(--base-primary);

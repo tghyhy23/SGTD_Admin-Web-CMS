@@ -2,30 +2,38 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import defaultAvatar from "../../assets/images/default_ava.jpg";
 import logo from "../../assets/images/logo_sgtd.png";
 import "./Sidebar.css";
+
+
+const AVATAR_PLACEHOLDER = defaultAvatar
 
 const Sidebar = ({ isExpanded }) => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
-    // State Menu Profile ở dưới cùng
     const [showDropdown, setShowDropdown] = useState(false);
 
     const displayName = user?.fullName || user?.name || "Admin";
-    const displayAvatar = user?.avatarUrl || "https://i.pravatar.cc/150?img=11";
+    const displayAvatar = user?.avatarUrl || AVATAR_PLACEHOLDER;
+    
+    // ✅ THÊM MỚI: Lấy role hiện tại
+    const userRole = user?.role || user?.account?.role || "USER";
 
     const handleLogout = () => {
-        localStorage.removeItem("activeCategory"); // Clear dữ liệu nếu cần
+        localStorage.removeItem("activeCategory");
         logout();
     };
 
-    const menuItems = [
+    // ✅ CẬP NHẬT: Thêm mảng `allowedRoles` vào từng đối tượng menu
+    const allMenuItems = [
         {
             path: "/",
             label: "Quản lí lịch hẹn",
+            allowedRoles: ["SUPERADMIN", "ADMIN"], // Cả 2 đều thấy
             icon: (
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-clock-icon lucide-calendar-clock">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-calendar-clock-icon lucide-calendar-clock">
                     <path d="M16 14v2.2l1.6 1" />
                     <path d="M16 2v4" />
                     <path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5" />
@@ -38,6 +46,7 @@ const Sidebar = ({ isExpanded }) => {
         {
             path: "/users",
             label: "Quản lí người dùng",
+            allowedRoles: ["SUPERADMIN"], // Chỉ SUPERADMIN
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
                     <path d="M10 15H6a4 4 0 0 0-4 4v2" />
@@ -57,6 +66,8 @@ const Sidebar = ({ isExpanded }) => {
         {
             path: "/services",
             label: "Quản lí dịch vụ",
+            allowedRoles: ["SUPERADMIN"],
+            // allowedRoles: ["SUPERADMIN", "ADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
                     <rect width="7" height="9" x="3" y="3" rx="1" />
@@ -69,6 +80,8 @@ const Sidebar = ({ isExpanded }) => {
         {
             path: "/categories",
             label: "Quản lí danh mục",
+            allowedRoles: ["SUPERADMIN"],
+            // allowedRoles: ["SUPERADMIN", "ADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
                     <path d="M11 13v4" />
@@ -82,6 +95,7 @@ const Sidebar = ({ isExpanded }) => {
         {
             path: "/promotions",
             label: "Quản lí khuyến mãi",
+            allowedRoles: ["SUPERADMIN", "ADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
                     <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
@@ -92,6 +106,7 @@ const Sidebar = ({ isExpanded }) => {
         {
             path: "/locations",
             label: "Quản lí khu vực",
+            allowedRoles: ["SUPERADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
                     <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
@@ -102,6 +117,7 @@ const Sidebar = ({ isExpanded }) => {
         {
             path: "/notifications",
             label: "Quản lí thông báo",
+            allowedRoles: ["SUPERADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
                     <path d="M10.268 21a2 2 0 0 0 3.464 0" />
@@ -113,6 +129,7 @@ const Sidebar = ({ isExpanded }) => {
         {
             path: "/clinics",
             label: "Quản lí phòng khám",
+            allowedRoles: ["SUPERADMIN", "ADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
                     <path d="M12 7v4" />
@@ -126,6 +143,7 @@ const Sidebar = ({ isExpanded }) => {
         {
             path: "/banners",
             label: "Quản lí banner",
+            allowedRoles: ["SUPERADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
                     <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
@@ -137,6 +155,7 @@ const Sidebar = ({ isExpanded }) => {
         {
             path: "/blogs",
             label: "Quản lí tin tức",
+            allowedRoles: ["SUPERADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
                     <path d="M15 18h-5" />
@@ -148,16 +167,18 @@ const Sidebar = ({ isExpanded }) => {
         },
     ];
 
+    // ✅ THÊM MỚI: Lọc menu hiển thị dựa trên role
+    const filteredMenuItems = allMenuItems.filter(item => item.allowedRoles.includes(userRole));
+
     return (
         <aside className={`sidebar ${!isExpanded ? "collapsed" : ""}`}>
-            {/* LOGO TRÊN CÙNG */}
             <div className="sidebar-logo-container">
                 <img src={logo} alt="Logo" className="z-sidebar-logo-img" />
             </div>
 
-            {/* VÙNG MENU CUỘN ĐƯỢC */}
             <ul className="sidebar-menu">
-                {menuItems.map((item, index) => (
+                {/* Dùng filteredMenuItems thay vì menuItems */}
+                {filteredMenuItems.map((item, index) => (
                     <li key={index}>
                         <NavLink to={item.path} className={({ isActive }) => (isActive ? "active-link" : "")}>
                             <span className="menu-icon">{item.icon}</span>
@@ -167,13 +188,11 @@ const Sidebar = ({ isExpanded }) => {
                 ))}
             </ul>
 
-            {/* VÙNG CHỨA AVATAR DƯỚI CÙNG (GHIM CỐ ĐỊNH) */}
             <div className="sidebar-footer" onMouseEnter={() => setShowDropdown(true)} onMouseLeave={() => setShowDropdown(false)}>
-                {/* MENU DROPDOWN SẼ BUNG NGƯỢC LÊN TRÊN KHI HOVER */}
                 {showDropdown && (
                     <div className="profile-dropdown-menu">
                         <div className="dropdown-header">
-                            <span className="dropdown-role">{user?.role || "ADMIN"}</span>
+                            <span className="dropdown-role">{userRole}</span>
                             <span className="dropdown-email">{user?.email || "admin@example.com"}</span>
                         </div>
 
@@ -199,7 +218,6 @@ const Sidebar = ({ isExpanded }) => {
                     </div>
                 )}
 
-                {/* THẺ HIỂN THỊ AVATAR */}
                 <div className="user-profile">
                     <img src={displayAvatar} alt="avatar" className="avatar" />
                     {isExpanded && (
@@ -207,7 +225,7 @@ const Sidebar = ({ isExpanded }) => {
                             <span className="user-name" title={displayName}>
                                 {displayName}
                             </span>
-                            <span className="sidebar-user-role">{user?.role || "ADMIN"}</span>
+                            <span className="sidebar-user-role">{userRole}</span>
                         </div>
                     )}
                 </div>

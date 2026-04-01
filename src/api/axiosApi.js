@@ -303,11 +303,9 @@ export const userApi = {
     // ==========================================
 
     // Sửa thông tin user bất kỳ (Admin) - Gửi FormData vì backend hỗ trợ up avatar
-    updateUserByAdmin: (id, formData) =>
-        axiosApi.put(`/auth/edit-user/${id}`, formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        }),
-
+    updateUserByAdmin: (id, data) => axiosApi.put(`/auth/edit-user/${id}`, data),
+    // Thêm user mới (Admin)
+    createUser: (data) => axiosApi.post("/auth/create-user", data),
     // Xóa user bất kỳ (Admin)
     deleteUserByAdmin: (id) => axiosApi.delete(`/auth/delete-account/${id}`),
 };

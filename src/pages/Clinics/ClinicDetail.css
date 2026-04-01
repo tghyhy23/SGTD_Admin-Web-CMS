@@ -81,7 +81,29 @@
     flex-shrink: 0;
     overflow: hidden;
 }
+.avatar-box, .avatar-box img {
+    border-radius: 50% !important; /* Biến khung ảnh thành hình tròn */
+   
+}
 
+.avatar-add {
+    border-radius: 50% !important;
+    flex-direction: column;
+    font-size: 12px;
+    width: 100px;
+    height: 100px;
+}
+
+/* Hiệu ứng khi hover vào khung ảnh để xóa */
+.z-clinic-detail-img-box.avatar-box:hover img {
+    filter: brightness(0.8);
+}
+
+/* Đảm bảo nút remove nằm đúng vị trí trên hình tròn */
+.avatar-box .z-clinic-detail-remove-btn {
+    top: 2px;
+    right: 2px;
+}
 .z-clinic-detail-thumb-item img {
     width: 100%;
     height: 100%;
