@@ -14,7 +14,6 @@ import Login from './pages/Auth/Login/Login';
 // Dashboard & Pages
 import Dashboard from './pages/Dashboard/Dashboard';
 import Services from './pages/Services/Services';
-// 1. IMPORT COMPONENT CHI TIẾT VÀO ĐÂY
 import ServiceDetail from './pages/Services/ServiceDetail'; 
 import Clinics from './pages/Clinics/Clinics';
 import ClinicDetail from './pages/Clinics/ClinicDetail';
@@ -27,7 +26,6 @@ import Location from './pages/Location/Location';
 import Notifications from './pages/Notifications/Notifications';
 import Warranties from './pages/Waranties/Warranties';
 
-
 function App() {
   const { user, loading } = useContext(AuthContext);
 
@@ -39,6 +37,12 @@ function App() {
     );
   }
 
+  // ✅ THÊM MỚI: Lấy role của user để phân quyền
+  // (Lưu ý: Tuỳ thuộc vào cấu trúc dữ liệu user của bạn, có thể là user?.role hoặc user?.account?.role)
+  const userRole = user?.role || user?.account?.role;
+  const isSuperAdmin = userRole === "SUPERADMIN";
+  const isAdmin = userRole === "ADMIN" || isSuperAdmin; // SUPERADMIN cũng có mọi quyền của ADMIN
+
   return (
     <BrowserRouter>
       <Routes>
@@ -49,38 +53,38 @@ function App() {
           </Route>
         ) : (
           <Route element={<MainLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/users" element={<Users />} />
-            
-            {/* 2. KHAI BÁO CÁC ROUTE CỦA SERVICES Ở ĐÂY */}
-            <Route path="/services" element={<Services />} />
-            <Route path="/services/:id" element={<ServiceDetail />} /> 
+            {/* ========================================== */}
+            {/* NHÓM 1: CÁC ROUTE CỦA ADMIN (Superadmin cũng vào được) */}
+            {/* ========================================== */}
+            {isAdmin && (
+                <>
+                  <Route path="/" element={<Dashboard />} /> {/* Lịch hẹn */}
+                  <Route path="/clinics" element={<Clinics />} />
+                  <Route path="/clinics/:id" element={<ClinicDetail />} />
+                  <Route path="/promotions" element={<Promotions />} />
+                </>
+            )}
 
-            {/* 2. KHAI BÁO CÁC ROUTE CỦA CLINICS Ở ĐÂY */}
-            <Route path="/clinics" element={<Clinics />} />
-            <Route path="/clinics/:id" element={<ClinicDetail />} />
+            {/* ========================================== */}
+            {/* NHÓM 2: CÁC ROUTE CHỈ DÀNH CHO SUPERADMIN */}
+            {/* ========================================== */}
+            {isSuperAdmin && (
+                <>
+                  <Route path="/users" element={<Users />} />
+                  <Route path="/clinics" element={<Clinics />} />
+                  <Route path="/clinics/:id" element={<ClinicDetail />} />
+                  <Route path="/services" element={<Services />} />
+                  <Route path="/services/:id" element={<ServiceDetail />} />
+                  <Route path="/categories" element={<Categories />} />
+                  <Route path="/blogs" element={<Blogs />} />
+                  <Route path="/banners" element={<Banners />} />
+                  <Route path="/notifications" element={<Notifications />} />
+                  <Route path="/locations" element={<Location />} />
+                  <Route path="/warranties" element={<Warranties />} />
+                </>
+            )}
 
-            {/* 2. KHAI BÁO CÁC ROUTE CỦA BLOGS Ở ĐÂY */}
-            <Route path="/blogs" element={<Blogs />} />
-
-            {/* Banner */}
-            <Route path="/banners" element={<Banners />} />
-
-            {/* Notification */}
-            <Route path="/notifications" element={<Notifications />} />
-
-            {/* Danh mục */}
-            <Route path="/categories" element={<Categories />} />
-
-            {/* Chi Nhánh, địa điểm */}
-            <Route path="/locations" element={<Location />} />
-
-            {/* Chi Nhánh, địa điểm */}
-            <Route path="/warranties" element={<Warranties />} />
-
-            {/* Promotions */}
-            <Route path="/promotions" element={<Promotions />} />
-
+            {/* Nếu truy cập vào trang không tồn tại hoặc không có quyền -> Đẩy về trang chủ */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         )}

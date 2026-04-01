@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // 🟢 THÊM IMPORT
 import { notificationApi } from "../../api/axiosApi";
 import PageHeader from "../../ui/PageHeader/PageHeader";
 import ToastMessage from "../../ui/ToastMessage/ToastMessage";
@@ -34,83 +35,83 @@ const formPriorityOptions = [
 ];
 
 export default function Notifications() {
-    // ==========================================
-    // 1. STATE QUẢN LÝ DỮ LIỆU
-    // ==========================================
-    const [notifications, setNotifications] = useState([]);
-    // const [stats, setStats] = useState({ total: 0, totalRead: 0, totalUnread: 0, readRate: "0%" });
-    const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
 
     // ==========================================
-    // 2. STATE LỌC, TÌM KIẾM & PHÂN TRANG
+    // 1. STATE LỌC, TÌM KIẾM & PHÂN TRANG
     // ==========================================
     const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState(""); // 🟢 Tách riêng search delay
     const [filterType, setFilterType] = useState("");
     const [filterIsRead, setFilterIsRead] = useState("");
 
     const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
     const limit = 10;
 
     // ==========================================
-    // 3. STATE MODAL (GỬI THÔNG BÁO)
+    // 2. STATE MODAL (GỬI THÔNG BÁO)
     // ==========================================
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
-    const initialForm = {
-        title_msg: "",
-        content_msg: "",
-        type: "SYSTEM",
-        priority: "MEDIUM",
-    };
+    const initialForm = { title_msg: "", content_msg: "", type: "SYSTEM", priority: "MEDIUM" };
     const [formData, setFormData] = useState(initialForm);
 
     // ==========================================
-    // 4. FETCH DATA TỪ API
+    // DEBOUNCE TÌM KIẾM
     // ==========================================
-    // const fetchStats = async () => {
-    //     try {
-    //         const res = await notificationApi.getNotificationStats();
-    //         if (res && res.success) {
-    //             setStats(res.data);
-    //         }
-    //     } catch (error) {
-    //         console.error("Lỗi lấy thống kê:", error);
-    //     }
-    // };
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+            setPage(1); // Trở về trang 1 khi gõ tìm kiếm
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
-    const fetchNotifications = async () => {
-        setIsLoading(true);
-        try {
+    // ==========================================
+    // 3. REACT QUERY: FETCH DỮ LIỆU
+    // ==========================================
+    const { data, isLoading, error } = useQuery({
+        queryKey: ["notifications", page, limit, debouncedSearch, filterType, filterIsRead],
+        queryFn: async () => {
             const params = { page, limit };
-            if (searchTerm) params.search = searchTerm;
+            if (debouncedSearch) params.search = debouncedSearch;
             if (filterType) params.type = filterType;
             if (filterIsRead !== "") params.isRead = filterIsRead;
 
             const res = await notificationApi.getAllNotifications(params);
             if (res && res.success) {
-                setNotifications(res.data.notifications || []);
-                setTotalPages(res.data.pagination?.pages || 1);
+                return {
+                    notifications: res.data.notifications || [],
+                    totalPages: res.data.pagination?.pages || 1
+                };
             }
-        } catch (error) {
-            console.error("Lỗi lấy danh sách thông báo:", error);
-        } finally {
-            setIsLoading(false);
+            throw new Error("Không thể tải danh sách thông báo.");
+        },
+        staleTime: 1 * 60 * 1000, // Cache trong 1 phút
+    });
+
+    const notifications = data?.notifications || [];
+    const totalPages = data?.totalPages || 1;
+
+    // ==========================================
+    // 4. REACT QUERY: MUTATION (GỬI BROADCAST)
+    // ==========================================
+    const broadcastMutation = useMutation({
+        mutationFn: (payload) => notificationApi.broadcastNotification(payload),
+        onSuccess: () => {
+            showToast("Đã gửi thông báo hàng loạt thành công!");
+            setIsModalOpen(false);
+            setFormData(initialForm);
+            setPage(1); // Chuyển về trang 1 để thấy thông báo mới nhất
+            queryClient.invalidateQueries({ queryKey: ["notifications"] }); // Làm mới danh sách
+        },
+        onError: (err) => {
+            showToast(err.response?.data?.message || "Lỗi kết nối hoặc xử lý từ server", "error");
         }
-    };
+    });
 
-    // useEffect(() => {
-    //     fetchStats();
-    // }, []);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchNotifications();
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [page, searchTerm, filterType, filterIsRead]);
+    const isSubmitting = broadcastMutation.isPending;
 
     // ==========================================
     // 5. HANDLERS
@@ -125,61 +126,29 @@ export default function Notifications() {
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleSendBroadcast = async (e) => {
+    const handleSendBroadcast = (e) => {
         e.preventDefault();
-
         if (!formData.title_msg || !formData.content_msg) {
             return showToast("Vui lòng nhập đủ Tiêu đề và Nội dung!", "error");
         }
-
-        setIsSubmitting(true);
-        try {
-            const res = await notificationApi.broadcastNotification(formData);
-            if (res && res.success) {
-                showToast("Đã gửi thông báo hàng loạt thành công!");
-                setIsModalOpen(false);
-                setFormData(initialForm);
-                setPage(1);
-                fetchNotifications();
-                // fetchStats();
-            } else {
-                showToast(res?.message || "Có lỗi xảy ra", "error");
-            }
-        } catch (error) {
-            showToast(error.response?.data?.message || "Lỗi kết nối", "error");
-        } finally {
-            setIsSubmitting(false);
-        }
+        broadcastMutation.mutate(formData);
     };
 
     // 🟢 STYLE ĐỒNG BỘ CHO REACT-SELECT
     const customSelectStyles = {
         control: (provided, state) => ({
-            ...provided,
-            minHeight: "38px",
-            borderRadius: "6px",
-            fontSize: "14px",
-            borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db",
-            boxShadow: "none",
-            "&:hover": { borderColor: "var(--primary-color)" },
-            backgroundColor: "#fff",
+            ...provided, minHeight: "38px", borderRadius: "6px", fontSize: "14px",
+            borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db", boxShadow: "none",
+            "&:hover": { borderColor: "var(--primary-color)" }, backgroundColor: "#fff",
         }),
         input: (provided) => ({ ...provided, margin: 0, padding: 0, fontSize: "14px" }),
         option: (provided, state) => ({
-            ...provided,
-            backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white",
-            color: state.isSelected ? "var(--primary-color)" : "#374151",
-            cursor: "pointer",
-            margin: "4px",
-            borderRadius: "6px",
-            fontSize: "14px",
-            width: "96%",
+            ...provided, backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white",
+            color: state.isSelected ? "var(--primary-color)" : "#374151", cursor: "pointer",
+            margin: "4px", borderRadius: "6px", fontSize: "14px", width: "96%",
         }),
         menu: (provided) => ({ ...provided, zIndex: 9999 }),
-        menuList: (provided) => ({
-            ...provided,
-            overflowX: "hidden",
-        }),
+        menuList: (provided) => ({ ...provided, overflowX: "hidden" }),
     };
 
     // ==========================================
@@ -192,27 +161,6 @@ export default function Notifications() {
             <div className="z-notification-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
 
-                {/* THỐNG KÊ */}
-                {/* <div className="z-notification-stats-grid">
-                    <div className="z-notification-stat-card">
-                        <div className="z-notification-stat-value">{stats.total}</div>
-                        <div className="z-notification-stat-label">Tổng thông báo</div>
-                    </div>
-                    <div className="z-notification-stat-card">
-                        <div className="z-notification-stat-value text-green">{stats.totalRead}</div>
-                        <div className="z-notification-stat-label">Đã đọc</div>
-                    </div>
-                    <div className="z-notification-stat-card">
-                        <div className="z-notification-stat-value text-orange">{stats.totalUnread}</div>
-                        <div className="z-notification-stat-label">Chưa đọc</div>
-                    </div>
-                    <div className="z-notification-stat-card">
-                        <div className="z-notification-stat-value text-blue">{stats.readRate}</div>
-                        <div className="z-notification-stat-label">Tỷ lệ đọc</div>
-                    </div>
-                </div> */}
-
-                {/* HEADER & TOOLS BAR */}
                 <div className="z-notification-header">
                     <h1 className="z-notification-title">Lịch sử Thông báo</h1>
                 </div>
@@ -223,10 +171,7 @@ export default function Notifications() {
                             type="text"
                             placeholder="Tìm tiêu đề, nội dung..."
                             value={searchTerm}
-                            onChange={(e) => {
-                                setSearchTerm(e.target.value);
-                                setPage(1);
-                            }}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
 
@@ -263,7 +208,6 @@ export default function Notifications() {
                     </AddButton>
                 </div>
 
-                {/* BẢNG DỮ LIỆU */}
                 <div className="z-notification-table-wrapper">
                     <table className="z-notification-table">
                         <thead>
@@ -281,6 +225,12 @@ export default function Notifications() {
                                 <tr>
                                     <td colSpan="6">
                                         <div className="z-notification-state">Đang tải dữ liệu...</div>
+                                    </td>
+                                </tr>
+                            ) : error ? (
+                                <tr>
+                                    <td colSpan="6">
+                                        <div className="z-notification-state z-notification-error">{error.message}</div>
                                     </td>
                                 </tr>
                             ) : notifications.length === 0 ? (
@@ -320,7 +270,6 @@ export default function Notifications() {
                     </table>
                 </div>
 
-                {/* PHÂN TRANG */}
                 {totalPages > 1 && (
                     <div className="z-notification-pagination">
                         <button className="z-pagination-btn" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
@@ -372,7 +321,7 @@ export default function Notifications() {
                                     isDisabled={isSubmitting}
                                     styles={customSelectStyles}
                                     isSearchable={false}
-                                    menuPosition="fixed" // Tránh bị Modal che mất
+                                    menuPosition="fixed"
                                 />
                             </div>
 
@@ -385,7 +334,7 @@ export default function Notifications() {
                                     isDisabled={isSubmitting}
                                     styles={customSelectStyles}
                                     isSearchable={false}
-                                    menuPosition="fixed" // Tránh bị Modal che mất
+                                    menuPosition="fixed"
                                 />
                             </div>
                         </div>

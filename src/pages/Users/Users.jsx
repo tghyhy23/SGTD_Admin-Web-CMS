@@ -1,4 +1,6 @@
+// src/pages/Users/Users.jsx
 import React, { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Thêm import
 import { userApi } from "../../api/axiosApi";
 import Modal from "../../ui/Modal/Modal";
 import { Button, EditButton, DeleteButton, AddButton } from "../../ui/Button/Button";
@@ -18,7 +20,39 @@ const removeVietnameseTones = (str) => {
         .trim();
 };
 
-const FALLBACK_AVATAR = "https://via.placeholder.com/150/e0e6ed/7f8c8d?text=User";
+const formatDateForInput = (dateString) => {
+    if (!dateString) return "";
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0];
+};
+
+// ==========================================
+// HÀM DỊCH LỖI TỪ BACKEND SANG TIẾNG VIỆT
+// ==========================================
+const translateErrorMessage = (errorMsg) => {
+    if (!errorMsg) return "Có lỗi xảy ra, vui lòng thử lại sau.";
+    const msg = errorMsg.toLowerCase();
+
+    if (msg.includes("email is already taken")) return "Email này đã được sử dụng!";
+    if (msg.includes("phone number is already taken") || msg.includes("phone number is already associated")) return "Số điện thoại này đã được sử dụng bởi tài khoản khác!";
+    if (msg.includes("valid email is required") || msg.includes("invalid email format")) return "Định dạng email không hợp lệ!";
+    if (msg.includes("invalid phone number format")) return "Định dạng số điện thoại không hợp lệ!";
+    if (msg.includes("full name and password are required") || msg.includes("full name cannot be empty")) return "Họ tên và mật khẩu là bắt buộc!";
+    if (msg.includes("invalid gender")) return "Giới tính không hợp lệ!";
+    if (msg.includes("invalid date of birth")) return "Ngày sinh không hợp lệ!";
+    if (msg.includes("current password is required")) return "Vui lòng nhập mật khẩu hiện tại!";
+    if (msg.includes("current password is incorrect")) return "Mật khẩu hiện tại không chính xác!";
+    if (msg.includes("new password cannot be the same")) return "Mật khẩu mới không được trùng với mật khẩu cũ!";
+    if (msg.includes("password must be at least") || msg.includes("password requires")) return "Mật khẩu phải đủ mạnh (ít nhất 8 ký tự, gồm chữ hoa, chữ thường và số)!";
+    if (msg.includes("cannot change password for google")) return "Không thể đổi mật khẩu cho tài khoản đăng nhập bằng Google!";
+    if (msg.includes("user not found") || msg.includes("account not found")) return "Không tìm thấy thông tin tài khoản!";
+    if (msg.includes("unauthorized access")) return "Không có quyền thực hiện thao tác này!";
+    if (msg.includes("account is already inactive or deleted")) return "Tài khoản này đã bị khóa hoặc đã xóa trước đó!";
+    if (msg.includes("no valid updates provided")) return "Không có thông tin nào được thay đổi!";
+
+    return errorMsg; 
+};
 
 const roleOptions = [
     { value: "all", label: "Tất cả vai trò" },
@@ -26,14 +60,25 @@ const roleOptions = [
     { value: "ADMIN", label: "Quản trị viên (ADMIN)" },
 ];
 
+const genderOptions = [
+    { value: "MALE", label: "Nam" },
+    { value: "FEMALE", label: "Nữ" },
+    { value: "OTHER", label: "Khác" },
+];
+
+const statusOptions = [
+    { value: "ACTIVE", label: "Hoạt động" },
+    { value: "INACTIVE", label: "Đã khóa" },
+];
+
 const Users = () => {
-    const [users, setUsers] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const queryClient = useQueryClient();
+
+    // ==========================================
+    // STATE LỌC & PHÂN TRANG (Client-side)
+    // ==========================================
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 15;
-
-    // Filters & Search
     const [searchTerm, setSearchTerm] = useState("");
     const [filterRole, setFilterRole] = useState("all");
     const [showRoleDropdown, setShowRoleDropdown] = useState(false);
@@ -43,122 +88,186 @@ const Users = () => {
     // ==========================================
     // MODALS STATE
     // ==========================================
-    // 1. Delete Modal
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState(null);
-    const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
 
-    // 2. Edit Role Modal
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [userToEdit, setUserToEdit] = useState(null);
-    const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
-    const [formData, setFormData] = useState({ role: "USER" });
-
-    // 3. Create User Modal (THÊM MỚI)
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
-    const [createFormData, setCreateFormData] = useState({
-        fullName: "",
-        email: "",
-        phoneNumber: "",
-        password: "",
-        role: "USER",
+    const [formData, setFormData] = useState({
+        role: "USER", gender: "MALE", dateOfBirth: "", accountStatus: "ACTIVE",
     });
 
-    // ==========================================
-    // FETCH DATA
-    // ==========================================
-    const fetchAllUsers = async () => {
-        setIsLoading(true);
-        try {
-            const res = await userApi.getAllUsers({ limit: 100 });
-            const userData = res.users || res.data?.users || [];
-            setUsers(userData);
-        } catch (err) {
-            setError("Lỗi kết nối đến máy chủ.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [createFormData, setCreateFormData] = useState({
+        fullName: "", email: "", phoneNumber: "", password: "", role: "USER", gender: "MALE", dateOfBirth: "", accountStatus: "ACTIVE",
+    });
 
-    useEffect(() => {
-        fetchAllUsers();
-    }, []);
-
+    // Reset về trang 1 khi đổi bộ lọc
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, filterRole, sortOrder]);
 
     const getUserRole = (user) => user?.account?.role || user?.role || "USER";
+    const getUserStatus = (user) => user?.account?.status || user?.account?.accountStatus || user?.status || "ACTIVE";
 
     // ==========================================
-    // HANDLERS
+    // REACT QUERY: FETCH DỮ LIỆU
     // ==========================================
-    const confirmDelete = async () => {
-        if (!userToDelete) return;
-        setIsSubmittingDelete(true);
-        try {
-            const response = await userApi.deleteUserByAdmin(userToDelete.userId);
-            if (response && response.success) {
-                setToast({ show: true, message: "Khóa tài khoản thành công!", type: "success" });
-                setIsDeleteModalOpen(false);
-                fetchAllUsers();
-            }
-        } finally {
-            setIsSubmittingDelete(false);
+    const { data: users = [], isLoading } = useQuery({
+        queryKey: ["users"],
+        queryFn: async () => {
+            const res = await userApi.getAllUsers({ limit: 100 });
+            return res.users || res.data?.users || [];
+        },
+        staleTime: 5 * 60 * 1000, // Cache 5 phút, chuyển qua lại không bị load lại
+    });
+
+    // ==========================================
+    // REACT QUERY: MUTATIONS (Thêm/Sửa/Xóa)
+    // ==========================================
+    
+    // 1. Xóa/Khóa User
+    const deleteMutation = useMutation({
+        mutationFn: (userId) => userApi.deleteUserByAdmin(userId),
+        onSuccess: (res, deletedId) => { 
+            queryClient.setQueryData(["users"], (oldData) => {
+                if (!oldData) return [];
+                return oldData.map(user => {
+                    const currentId = String(user.userId || user._id);
+                    const targetId = String(deletedId);
+                    
+                    if (currentId === targetId) {
+                        return { 
+                            ...user, 
+                            status: "INACTIVE",
+                            account: { ...user.account, status: "INACTIVE", accountStatus: "INACTIVE" } 
+                        };
+                    }
+                    return user;
+                });
+            });
+
+            setToast({ show: true, message: "Khóa tài khoản thành công!", type: "success" });
+            setIsDeleteModalOpen(false);
+            setUserToDelete(null);
+            
+            // Đồng bộ lại với server sau (Background)
+            queryClient.invalidateQueries({ queryKey: ["users"] }); 
+        },
+        onError: (error) => {
+            const errorMsg = error.response?.data?.message || error.message;
+            setToast({ show: true, message: translateErrorMessage(errorMsg), type: "error" });
         }
-    };
+    });
 
+    // 2. Cập nhật User
+    const editMutation = useMutation({
+        mutationFn: ({ id, payload }) => userApi.updateUserByAdmin(id, payload),
+        onSuccess: (res, variables) => { 
+            queryClient.setQueryData(["users"], (oldData) => {
+                if (!oldData) return [];
+                return oldData.map(user => {
+                    const currentId = String(user.userId || user._id);
+                    const targetId = String(variables.id);
+
+                    if (currentId === targetId) {
+                        return { 
+                            ...user, 
+                            ...variables.payload, // Ghi đè fullName, gender, dateOfBirth ở ngoài
+                            role: variables.payload.role, // Ghi đè role ngoài
+                            // QUAN TRỌNG: Ghi đè vào sâu bên trong object account để UI nhận diện được
+                            account: {
+                                ...user.account,
+                                role: variables.payload.role,
+                                status: variables.payload.accountStatus,
+                                accountStatus: variables.payload.accountStatus
+                            }
+                        };
+                    }
+                    return user;
+                });
+            });
+
+            setToast({ show: true, message: "Cập nhật tài khoản thành công!", type: "success" });
+            setIsEditModalOpen(false);
+            
+            queryClient.invalidateQueries({ queryKey: ["users"] });
+        },
+        onError: (error) => {
+            const errorMsg = error.response?.data?.message || error.message;
+            setToast({ show: true, message: translateErrorMessage(errorMsg), type: "error" });
+        }
+    });
+
+    // 3. Tạo User mới
+    const createMutation = useMutation({
+        mutationFn: (payload) => userApi.createUser(payload),
+        onSuccess: (res, variables) => {
+            // Lấy data chuẩn từ API trả về (nếu có), nếu không có thì tự chế cục data tạm
+            const newUserData = res?.user || res?.data || { 
+                ...variables, 
+                userId: Math.random().toString(), // Tạo ID tạm để map() không bị lỗi key
+                joinedAt: new Date().toISOString(),
+                account: { role: variables.role, status: variables.accountStatus }
+            };
+
+            queryClient.setQueryData(["users"], (oldData) => {
+                if (!oldData) return [newUserData];
+                return [newUserData, ...oldData]; // Đẩy lên đầu danh sách
+            });
+
+            setToast({ show: true, message: "Tạo tài khoản thành công!", type: "success" });
+            setIsCreateModalOpen(false);
+            
+            // Sau khi update UI xong, gọi lại API GET ngầm để lấy ID thật từ database
+            queryClient.invalidateQueries({ queryKey: ["users"] });
+        },
+        onError: (error) => {
+            const errorMsg = error.response?.data?.message || error.response?.data?.error || "Lỗi kết nối hệ thống";
+            setToast({ show: true, message: translateErrorMessage(errorMsg), type: "error" });
+        }
+    });
+
+    // Gom nhóm trạng thái loading của các hành động
+    const isSubmittingDelete = deleteMutation.isPending;
+    const isSubmittingEdit = editMutation.isPending;
+    const isSubmittingCreate = createMutation.isPending;
+
+    // ==========================================
+    // HANDLERS CALL MUTATIONS
+    // ==========================================
     const handleEditClick = (user) => {
         setUserToEdit(user);
-        setFormData({ role: getUserRole(user) });
+        setFormData({
+            fullName: user.fullName || user.username || "",
+            role: getUserRole(user),
+            gender: user.gender || "MALE",
+            dateOfBirth: formatDateForInput(user.dateOfBirth),
+            accountStatus: getUserStatus(user),
+        });
         setIsEditModalOpen(true);
     };
 
-    const handleEditSubmit = async () => {
-        setIsSubmittingEdit(true);
-        try {
-            const submitData = new FormData();
-            submitData.append("role", formData.role);
-            const response = await userApi.updateUserByAdmin(userToEdit.userId, submitData);
-            if (response && response.success !== false) {
-                setToast({ show: true, message: "Cập nhật quyền thành công!", type: "success" });
-                setIsEditModalOpen(false);
-                fetchAllUsers();
-            }
-        } finally {
-            setIsSubmittingEdit(false);
-        }
+    const handleEditSubmit = () => {
+        const payload = {
+            fullName: formData.fullName,
+            role: formData.role,
+            gender: formData.gender,
+            dateOfBirth: formData.dateOfBirth || null,
+            accountStatus: formData.accountStatus,
+        };
+        editMutation.mutate({ id: userToEdit.userId || userToEdit._id, payload });
     };
 
-    // Hàm Mở form tạo User mới
-    const handleOpenCreateForm = () => {
-        setCreateFormData({ fullName: "", email: "", phoneNumber: "", password: "", role: "USER" });
-        setIsCreateModalOpen(true);
-    };
-
-    // Hàm xử lý lưu User mới
-    const handleCreateSubmit = async () => {
+    const handleCreateSubmit = () => {
         if (!createFormData.fullName || !createFormData.email || !createFormData.password) {
-            setToast({ show: true, message: "Vui lòng nhập các thông tin bắt buộc!", type: "error" });
+            setToast({ show: true, message: "Vui lòng nhập các thông tin bắt buộc (*)", type: "error" });
             return;
         }
-
-        setIsSubmittingCreate(true);
-        try {
-            // TẠI ĐÂY BẠN CẦN GỌI API TẠO USER TỪ BACKEND
-            // const res = await userApi.createUser(createFormData);
-
-            // Fake API Call để test UI:
-            setTimeout(() => {
-                setToast({ show: true, message: "Tính năng tạo tài khoản đang phát triển!", type: "success" });
-                setIsCreateModalOpen(false);
-                setIsSubmittingCreate(false);
-            }, 1000);
-        } catch (error) {
-            setToast({ show: true, message: "Lỗi kết nối hệ thống", type: "error" });
-            setIsSubmittingCreate(false);
-        }
+        
+        const payload = { ...createFormData, dateOfBirth: createFormData.dateOfBirth || null };
+        createMutation.mutate(payload);
     };
 
     const handleCreateInputChange = (e) => {
@@ -167,7 +276,7 @@ const Users = () => {
     };
 
     // ==========================================
-    // FILTER & PAGINATION
+    // LỌC VÀ PHÂN TRANG (Trên mảng users đã cache)
     // ==========================================
     const allFilteredUsers = users
         .filter((user) => {
@@ -242,8 +351,7 @@ const Users = () => {
                         )}
                     </div>
 
-                    {/* NÚT THÊM MỚI Ở ĐÂY */}
-                    <AddButton onClick={handleOpenCreateForm} style={{ marginLeft: "auto" }}>
+                    <AddButton onClick={() => setIsCreateModalOpen(true)} style={{ marginLeft: "auto" }}>
                         Thêm tài khoản
                     </AddButton>
                 </div>
@@ -264,7 +372,7 @@ const Users = () => {
                         <tbody>
                             {currentItems.map((user, index) => {
                                 const role = getUserRole(user);
-                                const isInactive = user?.account?.status === "INACTIVE";
+                                const isInactive = getUserStatus(user) === "INACTIVE" || getUserStatus(user) === "DELETED";
                                 return (
                                     <tr key={user.userId || index}>
                                         <td style={{ textAlign: "center" }}>
@@ -300,7 +408,7 @@ const Users = () => {
                                                     </svg>
                                                 </button>
                                                 <div className="z-user-action-menu">
-                                                    <EditButton onClick={() => handleEditClick(user)} label="Cấp quyền" />
+                                                    <EditButton onClick={() => handleEditClick(user)} label="Cập nhật" />
                                                     {role !== "SUPERADMIN" && (
                                                         <DeleteButton
                                                             onClick={() => {
@@ -320,7 +428,6 @@ const Users = () => {
                     </table>
                 </div>
 
-                {/* PAGINATION UI */}
                 {totalPages > 1 && (
                     <div className="z-user-pagination">
                         <button className="z-pagination-btn" disabled={currentPage === 1} onClick={() => setCurrentPage((prev) => prev - 1)}>
@@ -341,24 +448,30 @@ const Users = () => {
 
                 {/* ================= MODALS ================= */}
 
-                {/* MODAL 1: CẤP QUYỀN (EDIT) */}
-                <Modal isOpen={isEditModalOpen} onClose={() => !isSubmittingEdit && setIsEditModalOpen(false)} title="Cấp quyền Người Dùng" maxWidth="550px" onSave={handleEditSubmit} saveText={isSubmittingEdit ? "Đang lưu..." : "Lưu thay đổi"}>
+                {/* MODAL 1: CẬP NHẬT TÀI KHOẢN (EDIT) */}
+                <Modal isOpen={isEditModalOpen} onClose={() => !isSubmittingEdit && setIsEditModalOpen(false)} title="Cập nhật Thông tin" maxWidth="550px" onSave={handleEditSubmit} saveText={isSubmittingEdit ? "Đang lưu..." : "Lưu thay đổi"}>
                     <div className="z-user-form">
                         <div className="z-user-form-group">
                             <label>Họ và tên</label>
-                            <input type="text" value={userToEdit?.fullName || ""} disabled className="z-user-input readonly" />
+                            <input type="text" className="z-user-input" value={formData.fullName || ""} onChange={(e) => setFormData((prev) => ({ ...prev, fullName: e.target.value }))} disabled={isSubmittingEdit} />
                         </div>
                         <div className="z-user-form-group">
+                            <label>Ngày sinh</label>
+                            <input type="date" className="z-user-input" value={formData.dateOfBirth} onChange={(e) => setFormData((prev) => ({ ...prev, dateOfBirth: e.target.value }))} disabled={isSubmittingEdit} />
+                        </div>
+                        <div style={{ display: "flex", gap: "16px" }}>
+                            <div className="z-user-form-group" style={{ flex: 1 }}>
+                                <label>Giới tính</label>
+                                <Select name="gender" options={genderOptions} value={formData.gender} onChange={(e) => setFormData((prev) => ({ ...prev, gender: e.target.value }))} disabled={isSubmittingEdit} />
+                            </div>
+                            <div className="z-user-form-group" style={{ flex: 1 }}>
+                                <label>Trạng thái</label>
+                                <Select name="accountStatus" options={statusOptions} value={formData.accountStatus} onChange={(e) => setFormData((prev) => ({ ...prev, accountStatus: e.target.value }))} disabled={isSubmittingEdit} />
+                            </div>
+                        </div>
+                        <div className="z-user-form-group" style={{ marginTop: "8px" }}>
                             <label>Vai trò hệ thống</label>
-                            <Select
-                                name="role"
-                                options={[
-                                    { value: "USER", label: "Khách hàng (USER)" },
-                                    { value: "ADMIN", label: "Quản trị viên (ADMIN)" },
-                                ]}
-                                value={formData.role}
-                                onChange={(e) => setFormData({ role: e.target.value })}
-                            />
+                            <Select name="role" options={roleOptions.filter((opt) => opt.value !== "all")} value={formData.role} onChange={(e) => setFormData((prev) => ({ ...prev, role: e.target.value }))} disabled={isSubmittingEdit} />
                         </div>
                     </div>
                 </Modal>
@@ -369,12 +482,12 @@ const Users = () => {
                     onClose={() => {
                         if (!isSubmittingCreate) {
                             setIsCreateModalOpen(false);
-                            // Xóa trắng state ngay khi đóng form
-                            setCreateFormData({ fullName: "", email: "", phoneNumber: "", password: "", role: "USER" });
+                            setCreateFormData({ fullName: "", email: "", phoneNumber: "", password: "", role: "USER", gender: "MALE", dateOfBirth: "", accountStatus: "ACTIVE" });
+                            setShowPassword(false);
                         }
                     }}
                     title="Tạo tài khoản mới"
-                    maxWidth="500px"
+                    maxWidth="550px"
                     onSave={handleCreateSubmit}
                     saveText={isSubmittingCreate ? "Đang tạo..." : "Xác nhận tạo"}
                 >
@@ -383,42 +496,84 @@ const Users = () => {
                             <label>
                                 Họ và tên <span style={{ color: "red" }}>*</span>
                             </label>
-                            <input type="text" name="fullName" value={createFormData.fullName} onChange={handleCreateInputChange} placeholder="Nhập họ và tên..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="off"/>
+                            <input type="text" name="fullName" value={createFormData.fullName} onChange={handleCreateInputChange} placeholder="Nhập họ và tên..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="off" />
                         </div>
-                        <div className="z-user-form-group">
-                            <label>
-                                Email <span style={{ color: "red" }}>*</span>
-                            </label>
-                            <input type="email" name="email" value={createFormData.email} onChange={handleCreateInputChange} placeholder="Nhập địa chỉ email..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="off"/>
+
+                        <div style={{ display: "flex", gap: "16px" }}>
+                            <div className="z-user-form-group" style={{ flex: 1 }}>
+                                <label>
+                                    Email <span style={{ color: "red" }}>*</span>
+                                </label>
+                                <input type="email" name="email" value={createFormData.email} onChange={handleCreateInputChange} placeholder="Nhập địa chỉ email..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="off" />
+                            </div>
+                            <div className="z-user-form-group" style={{ flex: 1 }}>
+                                <label>Số điện thoại</label>
+                                <input type="text" name="phoneNumber" value={createFormData.phoneNumber} onChange={handleCreateInputChange} placeholder="Nhập số điện thoại..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="off" />
+                            </div>
                         </div>
+
                         <div className="z-user-form-group">
-                            <label>Số điện thoại</label>
-                            <input type="text" name="phoneNumber" value={createFormData.phoneNumber} onChange={handleCreateInputChange} placeholder="Nhập số điện thoại..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="off"/>
+                            <label>Mật khẩu <small style={{ color: "gray" }}>(ít nhất 8 ký tự (gồm chữ hoa và chữ thường, 1 ký tự đặc biệt))</small> <span style={{ color: "red" }}>*</span></label>
+                            <div style={{ position: "relative" }}>
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    name="password"
+                                    value={createFormData.password}
+                                    onChange={handleCreateInputChange}
+                                    placeholder="Tạo mật khẩu..."
+                                    className="z-user-input"
+                                    disabled={isSubmittingCreate}
+                                    autoComplete="new-password"
+                                    style={{ paddingRight: "40px" }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    style={{
+                                        position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+                                    }}
+                                >
+                                    {showPassword ? (
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                                        </svg>
+                                    ) : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                            <circle cx="12" cy="12" r="3"></circle>
+                                        </svg>
+                                    )}
+                                </button>
+                            </div>
                         </div>
-                        <div className="z-user-form-group">
-                            <label>
-                                Mật khẩu <span style={{ color: "red" }}>*</span>
-                            </label>
-                            <input type="password" name="password" value={createFormData.password} onChange={handleCreateInputChange} placeholder="Tạo mật khẩu..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="new-password"/>
+
+                        <div style={{ display: "flex", gap: "16px" }}>
+                            <div className="z-user-form-group" style={{ flex: 1 }}>
+                                <label>Ngày sinh</label>
+                                <input type="date" name="dateOfBirth" className="z-user-input" value={createFormData.dateOfBirth} onChange={handleCreateInputChange} disabled={isSubmittingCreate} />
+                            </div>
+                            <div className="z-user-form-group" style={{ flex: 1 }}>
+                                <label>Giới tính</label>
+                                <Select name="gender" options={genderOptions} value={createFormData.gender} onChange={handleCreateInputChange} disabled={isSubmittingCreate} />
+                            </div>
                         </div>
-                        <div className="z-user-form-group">
-                            <label>Vai trò</label>
-                            <Select
-                                name="role"
-                                options={[
-                                    { value: "USER", label: "Khách hàng (USER)" },
-                                    { value: "ADMIN", label: "Quản trị viên (ADMIN)" },
-                                ]}
-                                value={createFormData.role}
-                                onChange={handleCreateInputChange}
-                                disabled={isSubmittingCreate}
-                            />
+
+                        <div style={{ display: "flex", gap: "16px", marginTop: "8px" }}>
+                            <div className="z-user-form-group" style={{ flex: 1 }}>
+                                <label>Vai trò</label>
+                                <Select name="role" options={roleOptions.filter((opt) => opt.value !== "all")} value={createFormData.role} onChange={handleCreateInputChange} disabled={isSubmittingCreate} />
+                            </div>
+                            <div className="z-user-form-group" style={{ flex: 1 }}>
+                                <label>Trạng thái</label>
+                                <Select name="accountStatus" options={statusOptions} value={createFormData.accountStatus} onChange={handleCreateInputChange} disabled={isSubmittingCreate} />
+                            </div>
                         </div>
                     </div>
                 </Modal>
 
                 {/* MODAL 3: XÓA/KHÓA TÀI KHOẢN */}
-                <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmittingDelete && setIsDeleteModalOpen(false)} title="Xác nhận khóa" maxWidth="400px" onSave={confirmDelete} saveText={isSubmittingDelete ? "Đang xử lý..." : "Khóa tài khoản"}>
+                <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmittingDelete && setIsDeleteModalOpen(false)} title="Xác nhận khóa" maxWidth="400px" onSave={() => deleteMutation.mutate(userToDelete.userId || userToDelete._id)} saveText={isSubmittingDelete ? "Đang xử lý..." : "Khóa tài khoản"}>
                     <div className="z-user-delete-content">
                         <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M3 6h18"></path>
