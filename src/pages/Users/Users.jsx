@@ -34,8 +34,8 @@ const translateErrorMessage = (errorMsg) => {
     if (!errorMsg) return "Có lỗi xảy ra, vui lòng thử lại sau.";
     const msg = errorMsg.toLowerCase();
 
-    if (msg.includes("email is already taken")) return "Email này đã được sử dụng!";
-    if (msg.includes("phone number is already taken") || msg.includes("phone number is already associated")) return "Số điện thoại này đã được sử dụng bởi tài khoản khác!";
+    if (msg.includes("email is already ") || msg.includes("email is already registered")) return "Email này đã được sử dụng!";
+    if (msg.includes("phone number is already") || msg.includes("phone number is already associated")) return "Số điện thoại này đã được sử dụng!";
     if (msg.includes("valid email is required") || msg.includes("invalid email format")) return "Định dạng email không hợp lệ!";
     if (msg.includes("invalid phone number format")) return "Định dạng số điện thoại không hợp lệ!";
     if (msg.includes("full name and password are required") || msg.includes("full name cannot be empty")) return "Họ tên và mật khẩu là bắt buộc!";
@@ -51,7 +51,7 @@ const translateErrorMessage = (errorMsg) => {
     if (msg.includes("account is already inactive or deleted")) return "Tài khoản này đã bị khóa hoặc đã xóa trước đó!";
     if (msg.includes("no valid updates provided")) return "Không có thông tin nào được thay đổi!";
 
-    return errorMsg; 
+    return errorMsg;
 };
 
 const roleOptions = [
@@ -94,13 +94,23 @@ const Users = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [userToEdit, setUserToEdit] = useState(null);
     const [formData, setFormData] = useState({
-        role: "USER", gender: "MALE", dateOfBirth: "", accountStatus: "ACTIVE",
+        role: "USER",
+        gender: "MALE",
+        dateOfBirth: "",
+        accountStatus: "ACTIVE",
     });
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [createFormData, setCreateFormData] = useState({
-        fullName: "", email: "", phoneNumber: "", password: "", role: "USER", gender: "MALE", dateOfBirth: "", accountStatus: "ACTIVE",
+        fullName: "",
+        email: "",
+        phoneNumber: "",
+        password: "",
+        role: "USER",
+        gender: "MALE",
+        dateOfBirth: "",
+        accountStatus: "ACTIVE",
     });
 
     // Reset về trang 1 khi đổi bộ lọc
@@ -126,22 +136,22 @@ const Users = () => {
     // ==========================================
     // REACT QUERY: MUTATIONS (Thêm/Sửa/Xóa)
     // ==========================================
-    
+
     // 1. Xóa/Khóa User
     const deleteMutation = useMutation({
         mutationFn: (userId) => userApi.deleteUserByAdmin(userId),
-        onSuccess: (res, deletedId) => { 
+        onSuccess: (res, deletedId) => {
             queryClient.setQueryData(["users"], (oldData) => {
                 if (!oldData) return [];
-                return oldData.map(user => {
+                return oldData.map((user) => {
                     const currentId = String(user.userId || user._id);
                     const targetId = String(deletedId);
-                    
+
                     if (currentId === targetId) {
-                        return { 
-                            ...user, 
+                        return {
+                            ...user,
                             status: "INACTIVE",
-                            account: { ...user.account, status: "INACTIVE", accountStatus: "INACTIVE" } 
+                            account: { ...user.account, status: "INACTIVE", accountStatus: "INACTIVE" },
                         };
                     }
                     return user;
@@ -151,29 +161,29 @@ const Users = () => {
             setToast({ show: true, message: "Khóa tài khoản thành công!", type: "success" });
             setIsDeleteModalOpen(false);
             setUserToDelete(null);
-            
+
             // Đồng bộ lại với server sau (Background)
-            queryClient.invalidateQueries({ queryKey: ["users"] }); 
+            queryClient.invalidateQueries({ queryKey: ["users"] });
         },
         onError: (error) => {
             const errorMsg = error.response?.data?.message || error.message;
             setToast({ show: true, message: translateErrorMessage(errorMsg), type: "error" });
-        }
+        },
     });
 
     // 2. Cập nhật User
     const editMutation = useMutation({
         mutationFn: ({ id, payload }) => userApi.updateUserByAdmin(id, payload),
-        onSuccess: (res, variables) => { 
+        onSuccess: (res, variables) => {
             queryClient.setQueryData(["users"], (oldData) => {
                 if (!oldData) return [];
-                return oldData.map(user => {
+                return oldData.map((user) => {
                     const currentId = String(user.userId || user._id);
                     const targetId = String(variables.id);
 
                     if (currentId === targetId) {
-                        return { 
-                            ...user, 
+                        return {
+                            ...user,
                             ...variables.payload, // Ghi đè fullName, gender, dateOfBirth ở ngoài
                             role: variables.payload.role, // Ghi đè role ngoài
                             // QUAN TRỌNG: Ghi đè vào sâu bên trong object account để UI nhận diện được
@@ -181,8 +191,8 @@ const Users = () => {
                                 ...user.account,
                                 role: variables.payload.role,
                                 status: variables.payload.accountStatus,
-                                accountStatus: variables.payload.accountStatus
-                            }
+                                accountStatus: variables.payload.accountStatus,
+                            },
                         };
                     }
                     return user;
@@ -191,13 +201,13 @@ const Users = () => {
 
             setToast({ show: true, message: "Cập nhật tài khoản thành công!", type: "success" });
             setIsEditModalOpen(false);
-            
+
             queryClient.invalidateQueries({ queryKey: ["users"] });
         },
         onError: (error) => {
             const errorMsg = error.response?.data?.message || error.message;
             setToast({ show: true, message: translateErrorMessage(errorMsg), type: "error" });
-        }
+        },
     });
 
     // 3. Tạo User mới
@@ -205,12 +215,13 @@ const Users = () => {
         mutationFn: (payload) => userApi.createUser(payload),
         onSuccess: (res, variables) => {
             // Lấy data chuẩn từ API trả về (nếu có), nếu không có thì tự chế cục data tạm
-            const newUserData = res?.user || res?.data || { 
-                ...variables, 
-                userId: Math.random().toString(), // Tạo ID tạm để map() không bị lỗi key
-                joinedAt: new Date().toISOString(),
-                account: { role: variables.role, status: variables.accountStatus }
-            };
+            const newUserData = res?.user ||
+                res?.data || {
+                    ...variables,
+                    userId: Math.random().toString(), // Tạo ID tạm để map() không bị lỗi key
+                    joinedAt: new Date().toISOString(),
+                    account: { role: variables.role, status: variables.accountStatus },
+                };
 
             queryClient.setQueryData(["users"], (oldData) => {
                 if (!oldData) return [newUserData];
@@ -219,14 +230,14 @@ const Users = () => {
 
             setToast({ show: true, message: "Tạo tài khoản thành công!", type: "success" });
             setIsCreateModalOpen(false);
-            
+
             // Sau khi update UI xong, gọi lại API GET ngầm để lấy ID thật từ database
             queryClient.invalidateQueries({ queryKey: ["users"] });
         },
         onError: (error) => {
             const errorMsg = error.response?.data?.message || error.response?.data?.error || "Lỗi kết nối hệ thống";
             setToast({ show: true, message: translateErrorMessage(errorMsg), type: "error" });
-        }
+        },
     });
 
     // Gom nhóm trạng thái loading của các hành động
@@ -261,18 +272,46 @@ const Users = () => {
     };
 
     const handleCreateSubmit = () => {
+        // 1. Kiểm tra các trường bắt buộc
         if (!createFormData.fullName || !createFormData.email || !createFormData.password) {
             setToast({ show: true, message: "Vui lòng nhập các thông tin bắt buộc (*)", type: "error" });
             return;
         }
-        
+
+        // 2. Validate Email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(createFormData.email)) {
+            setToast({ show: true, message: "Định dạng email không hợp lệ!", type: "error" });
+            return;
+        }
+
+        // 3. Validate Số điện thoại (nếu có nhập, bắt buộc phải đúng 10 số)
+        if (createFormData.phoneNumber && createFormData.phoneNumber.length !== 10) {
+            setToast({ show: true, message: "Số điện thoại phải bao gồm đúng 10 chữ số!", type: "error" });
+            return;
+        }
+
         const payload = { ...createFormData, dateOfBirth: createFormData.dateOfBirth || null };
         createMutation.mutate(payload);
     };
-
+    const handlePhoneKeyDown = (e) => {
+        // Chặn dấu trừ, cộng, chữ e/E, và dấu chấm
+        if (["-", "+", "e", "E", "."].includes(e.key)) {
+            e.preventDefault();
+        }
+    };
     const handleCreateInputChange = (e) => {
         const { name, value } = e.target;
-        setCreateFormData((prev) => ({ ...prev, [name]: value }));
+
+        if (name === "phoneNumber") {
+            // Lọc bỏ mọi thứ không phải là số
+            const sanitizedValue = value.replace(/[^0-9]/g, "");
+            // Giới hạn không cho nhập quá 10 số
+            if (sanitizedValue.length > 10) return;
+            setCreateFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
+        } else {
+            setCreateFormData((prev) => ({ ...prev, [name]: value }));
+        }
     };
 
     // ==========================================
@@ -492,11 +531,15 @@ const Users = () => {
                     saveText={isSubmittingCreate ? "Đang tạo..." : "Xác nhận tạo"}
                 >
                     <div className="z-user-form">
+                        <div style={{ marginBottom: "-8px", marginTop: "-15px", paddingBottom: "6px", borderBottom: "1px dashed #e5e7eb" }}>
+                            <span style={{ color: "red", fontWeight: "bold", fontSize: "16px" }}>*</span>
+                            <span style={{ color: "#6b7280", fontSize: "12px", fontStyle: "italic", marginLeft: "4px" }}>: Các trường có dấu sao là bắt buộc. Vui lòng nhập đầy đủ thông tin.</span>
+                        </div>
                         <div className="z-user-form-group">
                             <label>
                                 Họ và tên <span style={{ color: "red" }}>*</span>
                             </label>
-                            <input type="text" name="fullName" value={createFormData.fullName} onChange={handleCreateInputChange} placeholder="Nhập họ và tên..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="off" />
+                            <input type="text" name="fullName" value={createFormData.fullName} onChange={handleCreateInputChange} placeholder="VD: Nguyễn Văn A" className="z-user-input" disabled={isSubmittingCreate} autoComplete="off" />
                         </div>
 
                         <div style={{ display: "flex", gap: "16px" }}>
@@ -504,33 +547,36 @@ const Users = () => {
                                 <label>
                                     Email <span style={{ color: "red" }}>*</span>
                                 </label>
-                                <input type="email" name="email" value={createFormData.email} onChange={handleCreateInputChange} placeholder="Nhập địa chỉ email..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="off" />
+                                <input type="email" name="email" value={createFormData.email} onChange={handleCreateInputChange} placeholder="VD: admin@gmail.com" className="z-user-input" disabled={isSubmittingCreate} autoComplete="off" />
                             </div>
                             <div className="z-user-form-group" style={{ flex: 1 }}>
                                 <label>Số điện thoại</label>
-                                <input type="text" name="phoneNumber" value={createFormData.phoneNumber} onChange={handleCreateInputChange} placeholder="Nhập số điện thoại..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="off" />
+                                <input type="text" name="phoneNumber" value={createFormData.phoneNumber} onChange={handleCreateInputChange} placeholder="VD: 0901234567" className="z-user-input" disabled={isSubmittingCreate} onKeyDown={handlePhoneKeyDown} autoComplete="off" />
                             </div>
                         </div>
 
                         <div className="z-user-form-group">
-                            <label>Mật khẩu <small style={{ color: "gray" }}>(ít nhất 8 ký tự (gồm chữ hoa và chữ thường, 1 ký tự đặc biệt))</small> <span style={{ color: "red" }}>*</span></label>
+                            <label>
+                                Mật khẩu <small style={{ color: "gray" }}>(ít nhất 8 ký tự (gồm chữ hoa và chữ thường, 1 ký tự đặc biệt))</small> <span style={{ color: "red" }}>*</span>
+                            </label>
                             <div style={{ position: "relative" }}>
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    name="password"
-                                    value={createFormData.password}
-                                    onChange={handleCreateInputChange}
-                                    placeholder="Tạo mật khẩu..."
-                                    className="z-user-input"
-                                    disabled={isSubmittingCreate}
-                                    autoComplete="new-password"
-                                    style={{ paddingRight: "40px" }}
-                                />
+                                <input type={showPassword ? "text" : "password"} name="password" value={createFormData.password} onChange={handleCreateInputChange} placeholder="Tạo mật khẩu..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="new-password" style={{ paddingRight: "40px" }} />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
                                     style={{
-                                        position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+                                        position: "absolute",
+                                        right: "12px",
+                                        top: "50%",
+                                        transform: "translateY(-50%)",
+                                        background: "none",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        color: "#6b7280",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        padding: 0,
                                     }}
                                 >
                                     {showPassword ? (

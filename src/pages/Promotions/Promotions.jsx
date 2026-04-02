@@ -21,6 +21,13 @@ const STATUS_OPTIONS = [
     { value: "inactive", label: "Đã tắt (Tạm dừng)" },
 ];
 
+const handlePreventInvalidChars = (e) => {
+    // Chặn dấu trừ (-), cộng (+), và chữ e/E (ký hiệu số mũ)
+    if (["-", "+", "e", "E"].includes(e.key)) {
+        e.preventDefault();
+    }
+};
+
 const removeVietnameseTones = (str) => {
     if (!str) return "";
     return str
@@ -192,13 +199,28 @@ const Promotions = () => {
     // ==========================================
     const deleteMutation = useMutation({
         mutationFn: (id) => promotionApi.deletePromotion(id),
-        onSuccess: () => {
+        onSuccess: (res, deletedId) => {
             showToast("Xóa khuyến mãi thành công!");
             setIsDeleteModalOpen(false);
             setPromoToDelete(null);
+
+            queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, filterBranch], (oldData) => {
+                if (!oldData) return oldData;
+
+                return {
+                    ...oldData,
+                    // Lọc bỏ promotion vừa bị xóa
+                    promotions: oldData.promotions.filter((promo) => promo._id !== deletedId),
+                };
+            });
+
+            // Vẫn gọi API ngầm phía sau để đảm bảo 100% đồng bộ với Database (Phòng trường hợp phân trang bị lệch)
             queryClient.invalidateQueries({ queryKey: ["promotions"] });
         },
-        onError: (err) => showToast(translateErrorMessage(err), "error"),
+        onError: (err) => {
+            setIsDeleteModalOpen(false); // Tuỳ chọn: đóng modal khi lỗi
+            showToast(translateErrorMessage(err), "error");
+        },
     });
 
     const toggleStatusMutation = useMutation({
@@ -342,7 +364,18 @@ const Promotions = () => {
 
     const handleFormChange = (e) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: name === "isActive" ? value === "true" : value }));
+
+        // Danh sách các trường cấu hình số lượng/tiền tệ không được âm
+        const numericFields = ["discountValue", "maxDiscountAmount", "minOrderValue", "usageLimit", "limitPerUser"];
+
+        if (numericFields.includes(name)) {
+            // Chỉ giữ lại các chữ số từ 0-9, loại bỏ hoàn toàn chữ cái, dấu trừ, khoảng trắng...
+            // Nếu giảm giá theo % cần số thập phân (VD: 12.5), bạn có thể đổi regex thành: /[^0-9.]/g
+            const sanitizedValue = value.replace(/[^0-9]/g, "");
+            setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
+        } else {
+            setFormData((prev) => ({ ...prev, [name]: name === "isActive" ? value === "true" : value }));
+        }
     };
 
     const handleServiceCheckboxChange = (serviceId) => {
@@ -617,6 +650,10 @@ const Promotions = () => {
                 {/* MODAL FORM CHÍNH */}
                 <Modal isOpen={isFormModalOpen} onClose={() => !isSubmitting && setIsFormModalOpen(false)} title={currentPromoId ? "Cập nhật Khuyến mãi" : "Tạo mới Khuyến mãi"} maxWidth="1000px" onSave={handleFormSubmit} saveText={isSubmitting ? "Đang xử lý..." : "Lưu Khuyến Mãi"}>
                     <div className="z-promo-form">
+                        <div style={{ marginBottom: "10px", marginTop: "-15px", paddingBottom: "10px", borderBottom: "1px dashed #e5e7eb" }}>
+                            <span style={{ color: "red", fontWeight: "bold", fontSize: "16px" }}>*</span>
+                            <span style={{ color: "#6b7280", fontSize: "12px", fontStyle: "italic", marginLeft: "4px" }}>: Các trường có dấu sao là bắt buộc. Vui lòng nhập đầy đủ thông tin.</span>
+                        </div>
                         <div className="z-promo-form-grid">
                             <div className="z-promo-form-column">
                                 <h3 className="z-promo-form-subtitle">Thông tin cơ bản</h3>
@@ -666,17 +703,17 @@ const Promotions = () => {
                                         <label>
                                             Giá trị giảm <span className="z-promo-required">*</span>
                                         </label>
-                                        <input type="number" name="discountValue" className="z-promo-input" required min="1" value={formData.discountValue} onChange={handleFormChange} disabled={isSubmitting} />
+                                        <input type="number" name="discountValue" className="z-promo-input" required min="1" value={formData.discountValue} onChange={handleFormChange} onKeyDown={handlePreventInvalidChars} disabled={isSubmitting} />
                                     </div>
                                 </div>
                                 <div className="z-promo-form-row">
                                     <div className="z-promo-form-group" style={{ flex: 1 }}>
                                         <label>Giảm tối đa (VNĐ)</label>
-                                        <input type="number" name="maxDiscountAmount" className="z-promo-input" placeholder="50.000đ" value={formData.maxDiscountAmount} onChange={handleFormChange} disabled={isSubmitting || formData.discountType === "fixed"} />
+                                        <input type="number" name="maxDiscountAmount" className="z-promo-input" placeholder="50.000đ" value={formData.maxDiscountAmount} onChange={handleFormChange} onKeyDown={handlePreventInvalidChars} disabled={isSubmitting || formData.discountType === "fixed"} />
                                     </div>
                                     <div className="z-promo-form-group" style={{ flex: 1 }}>
                                         <label>Đơn tối thiểu (VNĐ)</label>
-                                        <input type="number" name="minOrderValue" className="z-promo-input" placeholder="100.000đ" value={formData.minOrderValue} onChange={handleFormChange} disabled={isSubmitting} />
+                                        <input type="number" name="minOrderValue" className="z-promo-input" placeholder="100.000đ" value={formData.minOrderValue} onChange={handleFormChange} onKeyDown={handlePreventInvalidChars} disabled={isSubmitting} />
                                     </div>
                                 </div>
                                 <div className="z-promo-form-group">
@@ -711,11 +748,11 @@ const Promotions = () => {
                                 <div className="z-promo-form-row">
                                     <div className="z-promo-form-group" style={{ flex: 1 }}>
                                         <label>Tổng lượt dùng</label>
-                                        <input type="number" name="usageLimit" className="z-promo-input" placeholder="∞" min="1" value={formData.usageLimit} onChange={handleFormChange} disabled={isSubmitting} />
+                                        <input type="number" name="usageLimit" className="z-promo-input" placeholder="∞" min="1" value={formData.usageLimit} onChange={handleFormChange} onKeyDown={handlePreventInvalidChars} disabled={isSubmitting} />
                                     </div>
                                     <div className="z-promo-form-group" style={{ flex: 1 }}>
                                         <label>Lượt dùng/Khách</label>
-                                        <input type="number" name="limitPerUser" className="z-promo-input" placeholder="∞" min="1" value={formData.limitPerUser} onChange={handleFormChange} disabled={isSubmitting} />
+                                        <input type="number" name="limitPerUser" className="z-promo-input" placeholder="∞" min="1" value={formData.limitPerUser} onChange={handleFormChange} onKeyDown={handlePreventInvalidChars} disabled={isSubmitting} />
                                     </div>
                                 </div>
 
@@ -793,8 +830,9 @@ const Promotions = () => {
                         </svg>
                         <h3>Xóa khuyến mãi?</h3>
                         <p>
-                            Bạn có chắc chắn muốn xóa mã <strong style={{ color: "var(--primary-color)" }}>{promoToDelete?.code}</strong> không? Hành động này không thể hoàn tác.
+                            Bạn có chắc chắn muốn xóa mã <strong style={{ color: "var(--primary-color)" }}>{promoToDelete?.code}</strong> không?
                         </p>
+                        <span style={{ color: "var(--error)", fontSize: "14px" }}> Lưu ý* : Hành động này không thể hoàn tác.</span>
                     </div>
                 </Modal>
 
