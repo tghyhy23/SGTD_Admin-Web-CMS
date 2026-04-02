@@ -307,7 +307,7 @@ export const userApi = {
     // Thêm user mới (Admin)
     createUser: (data) => axiosApi.post("/auth/create-user", data),
     // Xóa user bất kỳ (Admin)
-    deleteUserByAdmin: (id) => axiosApi.delete(`/auth/delete-account/${id}`),
+    deleteUserByAdmin: () => axiosApi.delete("/auth/delete-account"),
 };
 
 export const locationApi = {

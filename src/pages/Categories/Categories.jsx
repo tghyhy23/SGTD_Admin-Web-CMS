@@ -74,7 +74,11 @@ const Categories = () => {
     // ==========================================
     // REACT QUERY: FETCH DỮ LIỆU
     // ==========================================
-    const { data: categories = [], isLoading, error } = useQuery({
+    const {
+        data: categories = [],
+        isLoading,
+        error,
+    } = useQuery({
         queryKey: ["categories", activeParentId],
         queryFn: async () => {
             if (!activeParentId) return [];
@@ -103,49 +107,46 @@ const Categories = () => {
             setCategoryToDelete(null);
             queryClient.invalidateQueries({ queryKey: ["categories", activeParentId] });
         },
-        onError: (err) => showToast(err.response?.data?.message || "Lỗi xóa danh mục", "error")
+        onError: (err) => showToast(err.response?.data?.message || "Lỗi xóa danh mục", "error"),
     });
 
     // 2. ẨN/HIỆN DANH MỤC (Optimistic Update Cực Mượt)
-    const toggleStatusMutation = useMutation({
-        mutationFn: (id) => categoryApi.toggleStatus(id),
-        onMutate: async (toggledId) => {
-            // Hủy các request get đang dở để không ghi đè nhầm
-            await queryClient.cancelQueries({ queryKey: ["categories", activeParentId] });
-            const previousCategories = queryClient.getQueryData(["categories", activeParentId]);
+    // const toggleStatusMutation = useMutation({
+    //     mutationFn: (id) => categoryApi.toggleStatus(id),
+    //     onMutate: async (toggledId) => {
+    //         // Hủy các request get đang dở để không ghi đè nhầm
+    //         await queryClient.cancelQueries({ queryKey: ["categories", activeParentId] });
+    //         const previousCategories = queryClient.getQueryData(["categories", activeParentId]);
 
-            // Cập nhật giao diện lập tức: Đảo ngược trạng thái isActive
-            queryClient.setQueryData(["categories", activeParentId], (old) => {
-                if (!old) return old;
-                return old.map(cat => cat._id === toggledId ? { ...cat, isActive: !cat.isActive } : cat);
-            });
+    //         // Cập nhật giao diện lập tức: Đảo ngược trạng thái isActive
+    //         queryClient.setQueryData(["categories", activeParentId], (old) => {
+    //             if (!old) return old;
+    //             return old.map(cat => cat._id === toggledId ? { ...cat, isActive: !cat.isActive } : cat);
+    //         });
 
-            return { previousCategories }; // Lưu lại state cũ để hoàn tác nếu API lỗi
-        },
-        onError: (err, toggledId, context) => {
-            // Trả lại trạng thái cũ nếu API báo lỗi
-            queryClient.setQueryData(["categories", activeParentId], context.previousCategories);
-            showToast("Lỗi khi cập nhật trạng thái", "error");
-        },
-        onSettled: () => {
-            // Dù lỗi hay thành công thì cũng đồng bộ lại với Backend
-            queryClient.invalidateQueries({ queryKey: ["categories", activeParentId] });
-        }
-    });
+    //         return { previousCategories }; // Lưu lại state cũ để hoàn tác nếu API lỗi
+    //     },
+    //     onError: (err, toggledId, context) => {
+    //         // Trả lại trạng thái cũ nếu API báo lỗi
+    //         queryClient.setQueryData(["categories", activeParentId], context.previousCategories);
+    //         showToast("Lỗi khi cập nhật trạng thái", "error");
+    //     },
+    //     onSettled: () => {
+    //         // Dù lỗi hay thành công thì cũng đồng bộ lại với Backend
+    //         queryClient.invalidateQueries({ queryKey: ["categories", activeParentId] });
+    //     }
+    // });
 
     // 3. THÊM / CẬP NHẬT DANH MỤC
     const saveMutation = useMutation({
-        mutationFn: ({ isEdit, id, payload }) => isEdit ? categoryApi.updateCategory(id, payload) : categoryApi.createCategory(payload),
+        mutationFn: ({ isEdit, id, payload }) => (isEdit ? categoryApi.updateCategory(id, payload) : categoryApi.createCategory(payload)),
         onSuccess: (res, variables) => {
             const serverCategory = res.data?.service || res.data;
-            
+
             queryClient.setQueryData(["categories", activeParentId], (old) => {
                 if (!old) return old;
                 if (variables.isEdit) {
-                    return old.map((cat) => (cat._id === variables.id 
-                        ? { ...cat, name: formData.name, description: formData.description, thumbnailUrl: imagePreview || cat.thumbnailUrl } 
-                        : cat
-                    ));
+                    return old.map((cat) => (cat._id === variables.id ? { ...cat, name: formData.name, description: formData.description, thumbnailUrl: imagePreview || cat.thumbnailUrl } : cat));
                 } else {
                     const newCategory = serverCategory || { ...variables.payload, _id: Date.now().toString(), isActive: true };
                     if (imagePreview) newCategory.thumbnailUrl = imagePreview;
@@ -157,7 +158,7 @@ const Categories = () => {
             setIsFormModalOpen(false);
             queryClient.invalidateQueries({ queryKey: ["categories", activeParentId] });
         },
-        onError: (err) => showToast(err.response?.data?.message || "Lỗi kết nối máy chủ", "error")
+        onError: (err) => showToast(err.response?.data?.message || "Lỗi kết nối máy chủ", "error"),
     });
 
     const isSubmitting = deleteMutation.isPending || saveMutation.isPending;
@@ -166,21 +167,25 @@ const Categories = () => {
     // HANDLERS
     // ==========================================
     const openAddModal = () => {
-        setIsEditMode(false); setEditCategoryId(null);
+        setIsEditMode(false);
+        setEditCategoryId(null);
         setFormData({ name: "", description: "", categoryId: activeParentId || "" });
-        setImageFile(null); setImagePreview(null);
+        setImageFile(null);
+        setImagePreview(null);
         setIsFormModalOpen(true);
     };
 
     const openEditModal = (e, cat) => {
         e.stopPropagation();
-        setIsEditMode(true); setEditCategoryId(cat._id);
+        setIsEditMode(true);
+        setEditCategoryId(cat._id);
         setFormData({
             name: cat.name || "",
             description: cat.description || "",
             categoryId: activeParentId || cat.categoryId?._id || cat.categoryId,
         });
-        setImageFile(null); setImagePreview(cat.thumbnailUrl || null);
+        setImageFile(null);
+        setImagePreview(cat.thumbnailUrl || null);
         setIsFormModalOpen(true);
     };
 
@@ -274,14 +279,40 @@ const Categories = () => {
                         </button>
                         {showFilterDropdown && (
                             <div className="z-category-dropdown-menu">
-                                <div className={`z-category-dropdown-item ${filterStatus === "all" ? "active" : ""}`} onClick={() => { setFilterStatus("all"); setShowFilterDropdown(false); }}>Tất cả trạng thái</div>
-                                <div className={`z-category-dropdown-item ${filterStatus === "active" ? "active" : ""}`} onClick={() => { setFilterStatus("active"); setShowFilterDropdown(false); }}>Đang hoạt động</div>
-                                <div className={`z-category-dropdown-item ${filterStatus === "inactive" ? "active" : ""}`} onClick={() => { setFilterStatus("inactive"); setShowFilterDropdown(false); }}>Đang ẩn</div>
+                                <div
+                                    className={`z-category-dropdown-item ${filterStatus === "all" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("all");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
+                                    Tất cả trạng thái
+                                </div>
+                                <div
+                                    className={`z-category-dropdown-item ${filterStatus === "active" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("active");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
+                                    Đang hoạt động
+                                </div>
+                                <div
+                                    className={`z-category-dropdown-item ${filterStatus === "inactive" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("inactive");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
+                                    Đang ẩn
+                                </div>
                             </div>
                         )}
                     </div>
 
-                    <AddButton onClick={openAddModal} style={{ marginLeft: "auto" }}>Thêm mới</AddButton>
+                    <AddButton onClick={openAddModal} style={{ marginLeft: "auto" }}>
+                        Thêm mới
+                    </AddButton>
                 </div>
 
                 <div className="z-category-table-wrapper">
@@ -312,7 +343,9 @@ const Categories = () => {
                                                 src={cat.thumbnailUrl || FALLBACK_IMAGE}
                                                 alt={cat.name}
                                                 className="z-category-img-preview"
-                                                onError={(e) => { e.target.src = FALLBACK_IMAGE; }}
+                                                onError={(e) => {
+                                                    e.target.src = FALLBACK_IMAGE;
+                                                }}
                                             />
                                         </td>
                                         <td style={{ maxWidth: "300px" }}>
@@ -335,9 +368,9 @@ const Categories = () => {
                                                     </button>
                                                     <div className="z-category-action-menu">
                                                         <EditButton onClick={(e) => openEditModal(e, cat)} />
-                                                        <Button variant="outline" onClick={(e) => toggleStatusMutation.mutate(cat._id)} disabled={toggleStatusMutation.isPending}>
+                                                        {/* <Button variant="outline" onClick={(e) => toggleStatusMutation.mutate(cat._id)} disabled={toggleStatusMutation.isPending}>
                                                             {cat.isActive ? "Ẩn danh mục" : "Hiện danh mục"}
-                                                        </Button>
+                                                        </Button> */}
                                                         <DeleteButton onClick={(e) => handleDeleteClick(e, cat._id, cat.name)} />
                                                     </div>
                                                 </div>
@@ -353,6 +386,10 @@ const Categories = () => {
                 {/* --- MODAL FORM --- */}
                 <Modal isOpen={isFormModalOpen} onClose={() => !isSubmitting && setIsFormModalOpen(false)} title={isEditMode ? "Cập nhật danh mục" : "Thêm mới danh mục"} size="lg" onSave={handleSubmitForm} saveText={isSubmitting ? "Đang xử lý..." : "Lưu dữ liệu"}>
                     <div className="z-category-form">
+                        <div style={{ marginTop: "-15px", paddingBottom: "6px", borderBottom: "1px dashed #e5e7eb" }}>
+                            <span style={{ color: "red", fontWeight: "bold", fontSize: "16px" }}>*</span>
+                            <span style={{ color: "#6b7280", fontSize: "12px", fontStyle: "italic", marginLeft: "4px" }}>: Các trường có dấu sao là bắt buộc. Vui lòng nhập đầy đủ thông tin.</span>
+                        </div>
                         <div className="z-category-form-grid">
                             <div className="z-category-form-column">
                                 <div className="z-category-form-group">
@@ -361,7 +398,9 @@ const Categories = () => {
                                 </div>
 
                                 <div className="z-category-form-group">
-                                    <label>Tên danh mục <span className="z-category-required">*</span></label>
+                                    <label>
+                                        Tên danh mục <span className="z-category-required">*</span>
+                                    </label>
                                     <input type="text" name="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="z-category-input" placeholder="VD: Bọc răng sứ Cercon" disabled={isSubmitting} required />
                                 </div>
 
@@ -381,10 +420,14 @@ const Categories = () => {
                                         {imagePreview ? (
                                             <div className="z-category-image-box">
                                                 <img src={imagePreview} alt="Preview" className="z-category-preview-img" />
-                                                <button type="button" className="z-category-remove-img-btn" onClick={removeImage}>×</button>
+                                                <button type="button" className="z-category-remove-img-btn" onClick={removeImage}>
+                                                    ×
+                                                </button>
                                             </div>
                                         ) : (
-                                            <div className="z-category-add-img-btn" onClick={() => fileInputRef.current.click()}>+ Tải ảnh</div>
+                                            <div className="z-category-add-img-btn" onClick={() => fileInputRef.current.click()}>
+                                                + Tải ảnh
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -397,11 +440,17 @@ const Categories = () => {
                 <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmitting && setIsDeleteModalOpen(false)} title="Xác nhận xóa" size="sm" onSave={() => deleteMutation.mutate(categoryToDelete?.id)} saveText={isSubmitting ? "Đang xóa..." : "Xác nhận xóa"}>
                     <div className="z-category-delete-content">
                         <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
                         </svg>
                         <h3>Xác nhận xóa</h3>
-                        <p>Bạn có chắc chắn muốn xóa danh mục <br /> <strong style={{ color: "var(--primary-color)" }}>"{categoryToDelete?.name}"</strong> không?</p>
-                        <p style={{ color: "var(--error)", marginTop: "8px", fontSize: "14px" }}>Lưu ý * : Việc xóa danh mục sẽ <b>mất các sản phẩm con</b> thuộc danh mục này</p>
+                        <p>
+                            Bạn có chắc chắn muốn xóa danh mục <br /> <strong style={{ color: "var(--primary-color)" }}>"{categoryToDelete?.name}"</strong> không?
+                        </p>
+                        <p style={{ color: "var(--error)", marginTop: "8px", fontSize: "14px" }}>
+                            Lưu ý * : Việc xóa danh mục sẽ <b>mất các sản phẩm con</b> thuộc danh mục này
+                        </p>
                     </div>
                 </Modal>
             </div>

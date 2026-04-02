@@ -37,6 +37,12 @@ const TIME_OPTIONS = generateTimeOptions();
 const translateErrorMessage = (errorMsg) => {
     if (!errorMsg) return null;
     const msg = errorMsg.toLowerCase();
+    if (msg.includes("413") || msg.includes("payload too large") || msg.includes("entity too large")) {
+        return "Kích thước ảnh tải lên quá lớn. Vui lòng chọn ảnh dưới 5MB!";
+    }
+    if (msg === "network error") {
+        return "Lỗi kết nối hoặc File quá lớn bị máy chủ từ chối (Lỗi 413). Vui lòng thử ảnh nhỏ hơn!";
+    }
     if (msg.includes("branch not found")) return "Không tìm thấy thông tin phòng khám trên hệ thống.";
     if (msg.includes("name, category, district, address and hotline are required")) return "Vui lòng điền đầy đủ thông tin bắt buộc!";
     if (msg.includes("manager not found")) return "Không tìm thấy thông tin tài khoản Quản lý.";
@@ -70,7 +76,7 @@ const ClinicDetail = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [isDeleteReviewModalOpen, setIsDeleteReviewModalOpen] = useState(false);
-    
+
     const [currentReviewId, setCurrentReviewId] = useState(null);
     const [reviewToDelete, setReviewToDelete] = useState(null);
 
@@ -82,23 +88,24 @@ const ClinicDetail = () => {
     // ==========================================
     // REACT QUERY: FETCH DỮ LIỆU
     // ==========================================
-    
-    // 1. Chi tiết Phòng khám
-    const { data: clinic, isLoading: isClinicLoading, error: clinicError } = useQuery({
+
+    const {
+        data: clinic,
+        isLoading: isClinicLoading,
+        error: clinicError,
+    } = useQuery({
         queryKey: ["clinicDetail", id],
         queryFn: async () => {
             const response = await clinicApi.getClinicById(id);
             if (response && response.success) return response.data.branch || response.data;
             throw new Error("Không tìm thấy thông tin phòng khám.");
         },
-        // FIX 1: Đổi initialData thành placeholderData để luôn Trigger Fetch ngầm API detail
-        placeholderData: passedClinic, 
-        staleTime: 5 * 60 * 1000
+        placeholderData: passedClinic,
+        staleTime: 5 * 60 * 1000,
     });
 
     const images = clinic?.imageUrls?.length > 0 ? clinic.imageUrls : [FALLBACK_IMG];
 
-    // 2. Danh sách Đánh giá (Reviews)
     const { data: reviewsData, isLoading: isReviewsLoading } = useQuery({
         queryKey: ["clinicReviews", id, reviewPage],
         queryFn: async () => {
@@ -106,23 +113,21 @@ const ClinicDetail = () => {
             if (res && res.success) return { reviews: res.data.reviews || [], total: res.data.pagination?.total || 0 };
             return { reviews: [], total: 0 };
         },
-        staleTime: 1 * 60 * 1000
+        staleTime: 1 * 60 * 1000,
     });
 
     const reviews = reviewsData?.reviews || [];
     const reviewTotal = reviewsData?.total || 0;
 
-    // 3. Dữ liệu tham chiếu
     const { data: managers = [] } = useQuery({
         queryKey: ["adminManagers"],
         queryFn: async () => {
             const res = await userApi.getAllUsers({ limit: 500 });
             const userList = res.users || res.data?.users || res.data || [];
-            // FIX 2: Bọc Array.isArray đề phòng API trả về object báo lỗi -> tránh sập hàm .filter()
             return Array.isArray(userList) ? userList.filter((u) => (u?.account?.role || u?.role || "USER") === "ADMIN") : [];
         },
         initialData: passedAdmins?.length ? passedAdmins : undefined,
-        staleTime: 10 * 60 * 1000
+        staleTime: 10 * 60 * 1000,
     });
 
     const { data: districts = [] } = useQuery({
@@ -132,7 +137,7 @@ const ClinicDetail = () => {
             return res?.data?.districts || [];
         },
         placeholderData: passedDistricts?.length ? passedDistricts : undefined,
-        staleTime: 10 * 60 * 1000
+        staleTime: 10 * 60 * 1000,
     });
 
     const { data: services = [] } = useQuery({
@@ -142,15 +147,27 @@ const ClinicDetail = () => {
             return res?.data?.services || [];
         },
         placeholderData: passedServices?.length ? passedServices : undefined,
-        staleTime: 10 * 60 * 1000
+        staleTime: 10 * 60 * 1000,
     });
 
     // ==========================================
     // FORMS STATE
     // ==========================================
     const initialForm = {
-        name: "", districtId: "", address: "", hotline: "", email: "", description: "", mapsUrl: "",
-        isActive: true, managerId: "", longitude: "", latitude: "", openTime: "07:30", closeTime: "19:30", availableServiceIds: [],
+        name: "",
+        districtId: "",
+        address: "",
+        hotline: "",
+        email: "",
+        description: "",
+        mapsUrl: "",
+        isActive: true,
+        managerId: "",
+        longitude: "",
+        latitude: "",
+        openTime: "07:30",
+        closeTime: "19:30",
+        availableServiceIds: [],
     };
     const [formData, setFormData] = useState(initialForm);
     const [imageFiles, setImageFiles] = useState([]);
@@ -158,11 +175,18 @@ const ClinicDetail = () => {
     const [oldImageUrls, setOldImageUrls] = useState([]);
 
     const [reviewForm, setReviewForm] = useState({
-        fakeAuthorName: "", fakeAvatarUrl: "", fakeAvatarFile: null, previewUrl: "",
-        rating: 5, content: "", fakeDate: null, oldReviewImageUrls: [], reviewImageFiles: [], reviewImagePreviews: [],
+        fakeAuthorName: "",
+        fakeAvatarUrl: "",
+        fakeAvatarFile: null,
+        previewUrl: "",
+        rating: 5,
+        content: "",
+        fakeDate: null,
+        oldReviewImageUrls: [],
+        reviewImageFiles: [],
+        reviewImagePreviews: [],
     });
 
-    // An toàn kiểm tra length của services
     const safeServices = services || [];
     const isAllServicesSelected = safeServices.length > 0 && formData.availableServiceIds.length === safeServices.length;
 
@@ -178,9 +202,7 @@ const ClinicDetail = () => {
             const isSelected = prev.availableServiceIds.includes(serviceId);
             return {
                 ...prev,
-                availableServiceIds: isSelected 
-                    ? prev.availableServiceIds.filter((id) => id !== serviceId) 
-                    : [...prev.availableServiceIds, serviceId],
+                availableServiceIds: isSelected ? prev.availableServiceIds.filter((id) => id !== serviceId) : [...prev.availableServiceIds, serviceId],
             };
         });
     };
@@ -196,10 +218,10 @@ const ClinicDetail = () => {
             queryClient.setQueryData(["clinicDetail", id], { ...clinic, ...updatedClinic });
             showToast("Cập nhật phòng khám thành công!");
             setIsModalOpen(false);
-            queryClient.invalidateQueries({ queryKey: ["clinics"] }); 
-            queryClient.invalidateQueries({ queryKey: ["clinicDetail", id] }); 
+            queryClient.invalidateQueries({ queryKey: ["clinics"] });
+            queryClient.invalidateQueries({ queryKey: ["clinicDetail", id] });
         },
-        onError: (err) => showToast(translateErrorMessage(err.response?.data?.message || err.message) || "Lỗi cập nhật phòng khám", "error")
+        onError: (err) => showToast(translateErrorMessage(err.response?.data?.message || err.message) || "Lỗi cập nhật phòng khám", "error"),
     });
 
     const toggleHideReviewMutation = useMutation({
@@ -209,7 +231,7 @@ const ClinicDetail = () => {
             const prev = queryClient.getQueryData(["clinicReviews", id, reviewPage]);
             queryClient.setQueryData(["clinicReviews", id, reviewPage], (old) => {
                 if (!old) return old;
-                return { ...old, reviews: old.reviews.map(r => r._id === reviewId ? { ...r, isHidden: !r.isHidden } : r) };
+                return { ...old, reviews: old.reviews.map((r) => (r._id === reviewId ? { ...r, isHidden: !r.isHidden } : r)) };
             });
             return { prev };
         },
@@ -218,7 +240,7 @@ const ClinicDetail = () => {
             queryClient.setQueryData(["clinicReviews", id, reviewPage], context.prev);
             showToast("Lỗi thay đổi trạng thái", "error");
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: ["clinicReviews", id, reviewPage] })
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ["clinicReviews", id, reviewPage] }),
     });
 
     const deleteReviewMutation = useMutation({
@@ -226,26 +248,26 @@ const ClinicDetail = () => {
         onSuccess: (res, reviewId) => {
             queryClient.setQueryData(["clinicReviews", id, reviewPage], (old) => {
                 if (!old) return old;
-                return { ...old, reviews: old.reviews.filter(r => r._id !== reviewId), total: old.total - 1 };
+                return { ...old, reviews: old.reviews.filter((r) => r._id !== reviewId), total: old.total - 1 };
             });
             showToast("Đã xóa đánh giá!");
             setIsDeleteReviewModalOpen(false);
             setReviewToDelete(null);
             queryClient.invalidateQueries({ queryKey: ["clinicReviews", id] });
-            queryClient.invalidateQueries({ queryKey: ["clinicDetail", id] }); 
+            queryClient.invalidateQueries({ queryKey: ["clinicDetail", id] });
         },
-        onError: (err) => showToast(translateErrorMessage(err.response?.data?.message || err.message) || "Lỗi xóa đánh giá", "error")
+        onError: (err) => showToast(translateErrorMessage(err.response?.data?.message || err.message) || "Lỗi xóa đánh giá", "error"),
     });
 
     const saveReviewMutation = useMutation({
-        mutationFn: ({ reviewId, payload }) => reviewId ? reviewApi.updateSeedReview(reviewId, payload) : reviewApi.createSeedReview(payload),
+        mutationFn: ({ reviewId, payload }) => (reviewId ? reviewApi.updateSeedReview(reviewId, payload) : reviewApi.createSeedReview(payload)),
         onSuccess: () => {
             showToast(currentReviewId ? "Cập nhật đánh giá thành công!" : "Tạo đánh giá thành công!");
             setIsReviewModalOpen(false);
             queryClient.invalidateQueries({ queryKey: ["clinicReviews", id] });
-            queryClient.invalidateQueries({ queryKey: ["clinicDetail", id] }); 
+            queryClient.invalidateQueries({ queryKey: ["clinicDetail", id] });
         },
-        onError: (err) => showToast(translateErrorMessage(err.response?.data?.message || err.message) || "Lỗi xử lý đánh giá", "error")
+        onError: (err) => showToast(translateErrorMessage(err.response?.data?.message || err.message) || "Lỗi xử lý đánh giá", "error"),
     });
 
     const isSubmitting = updateClinicMutation.isPending || saveReviewMutation.isPending || deleteReviewMutation.isPending || toggleHideReviewMutation.isPending;
@@ -259,19 +281,32 @@ const ClinicDetail = () => {
     };
 
     const handleEditClick = () => {
-        let lng = "", lat = "";
+        let lng = "",
+            lat = "";
         if (clinic.location?.coordinates) {
-            lng = clinic.location.coordinates[0]; lat = clinic.location.coordinates[1];
+            lng = clinic.location.coordinates[0];
+            lat = clinic.location.coordinates[1];
         }
         const clinicServiceIds = clinic.availableServiceIds?.map((s) => String(s._id || s)) || [];
         setFormData({
-            name: clinic.name || "", districtId: clinic.districtId?._id || clinic.districtId || "", address: clinic.address || "",
-            hotline: clinic.hotline || "", email: clinic.email || "", mapsUrl: clinic.mapsUrl || "", description: clinic.description || "",
-            isActive: clinic.isActive !== undefined ? clinic.isActive : true, managerId: clinic.managerId?._id || clinic.managerId || "",
-            longitude: lng, latitude: lat, openTime: clinic.openingHours?.openTime || "07:30", closeTime: clinic.openingHours?.closeTime || "19:30",
+            name: clinic.name || "",
+            districtId: clinic.districtId?._id || clinic.districtId || "",
+            address: clinic.address || "",
+            hotline: clinic.hotline || "",
+            email: clinic.email || "",
+            mapsUrl: clinic.mapsUrl || "",
+            description: clinic.description || "",
+            isActive: clinic.isActive !== undefined ? clinic.isActive : true,
+            managerId: clinic.managerId?._id || clinic.managerId || "",
+            longitude: lng,
+            latitude: lat,
+            openTime: clinic.openingHours?.openTime || "07:30",
+            closeTime: clinic.openingHours?.closeTime || "19:30",
             availableServiceIds: clinicServiceIds,
         });
-        setImageFiles([]); setImagePreviews([]); setOldImageUrls(clinic.imageUrls || []);
+        setImageFiles([]);
+        setImagePreviews([]);
+        setOldImageUrls(clinic.imageUrls || []);
         setIsModalOpen(true);
     };
 
@@ -300,18 +335,24 @@ const ClinicDetail = () => {
         const files = Array.from(e.target.files);
         if (oldImageUrls.length + imageFiles.length + files.length > 5) return showToast("Chỉ được upload tối đa 5 ảnh!", "error");
         const newPreviews = files.map((file) => URL.createObjectURL(file));
-        setImageFiles([...imageFiles, ...files]); setImagePreviews([...imagePreviews, ...newPreviews]);
+        setImageFiles([...imageFiles, ...files]);
+        setImagePreviews([...imagePreviews, ...newPreviews]);
         e.target.value = null;
     };
-    
+
     const removeNewImage = (index) => {
-        const newFiles = [...imageFiles]; const newPreviews = [...imagePreviews];
+        const newFiles = [...imageFiles];
+        const newPreviews = [...imagePreviews];
         URL.revokeObjectURL(newPreviews[index]);
-        newFiles.splice(index, 1); newPreviews.splice(index, 1);
-        setImageFiles(newFiles); setImagePreviews(newPreviews);
+        newFiles.splice(index, 1);
+        newPreviews.splice(index, 1);
+        setImageFiles(newFiles);
+        setImagePreviews(newPreviews);
     };
     const removeOldImage = (index) => {
-        const updated = [...oldImageUrls]; updated.splice(index, 1); setOldImageUrls(updated);
+        const updated = [...oldImageUrls];
+        updated.splice(index, 1);
+        setOldImageUrls(updated);
     };
 
     const handleOpenReviewModal = (review = null) => {
@@ -321,15 +362,30 @@ const ClinicDetail = () => {
         if (review) {
             setCurrentReviewId(review._id);
             setReviewForm({
-                fakeAuthorName: review.authName || "", fakeAvatarUrl: review.authAvatar || "", fakeAvatarFile: null, previewUrl: "",
-                rating: review.rating || 5, content: review.content || "", fakeDate: review.reviewDate ? new Date(review.reviewDate) : null,
-                oldReviewImageUrls: review.imageUrls || [], reviewImageFiles: [], reviewImagePreviews: [],
+                fakeAuthorName: review.authName || "",
+                fakeAvatarUrl: review.authAvatar || "",
+                fakeAvatarFile: null,
+                previewUrl: "",
+                rating: review.rating || 5,
+                content: review.content || "",
+                fakeDate: review.reviewDate ? new Date(review.reviewDate) : null,
+                oldReviewImageUrls: review.imageUrls || [],
+                reviewImageFiles: [],
+                reviewImagePreviews: [],
             });
         } else {
             setCurrentReviewId(null);
             setReviewForm({
-                fakeAuthorName: "", fakeAvatarUrl: "", fakeAvatarFile: null, previewUrl: "", rating: 5, content: "", fakeDate: null,
-                oldReviewImageUrls: [], reviewImageFiles: [], reviewImagePreviews: [],
+                fakeAuthorName: "",
+                fakeAvatarUrl: "",
+                fakeAvatarFile: null,
+                previewUrl: "",
+                rating: 5,
+                content: "",
+                fakeDate: null,
+                oldReviewImageUrls: [],
+                reviewImageFiles: [],
+                reviewImagePreviews: [],
             });
         }
         setIsReviewModalOpen(true);
@@ -337,9 +393,21 @@ const ClinicDetail = () => {
 
     const handleReviewSubmit = (e) => {
         if (e) e.preventDefault();
+
+        // 🟢 Validate và show Toast Error
+        if (!reviewForm.fakeAuthorName.trim()) {
+            return showToast("Vui lòng nhập tên khách hàng.", "error");
+        }
+
+        if (reviewForm.content.trim().length < 10) {
+            return showToast("Nội dung đánh giá phải có ít nhất 10 ký tự.", "error");
+        }
+
         const payload = new FormData();
-        payload.append("branchId", id); payload.append("fakeAuthorName", reviewForm.fakeAuthorName);
-        payload.append("rating", Number(reviewForm.rating)); payload.append("content", reviewForm.content);
+        payload.append("branchId", id);
+        payload.append("fakeAuthorName", reviewForm.fakeAuthorName);
+        payload.append("rating", Number(reviewForm.rating));
+        payload.append("content", reviewForm.content);
         const dateStr = reviewForm.fakeDate ? reviewForm.fakeDate.toISOString() : new Date().toISOString();
         payload.append("fakeDate", dateStr);
 
@@ -353,15 +421,15 @@ const ClinicDetail = () => {
         saveReviewMutation.mutate({ reviewId: currentReviewId, payload });
     };
 
-    // FIX 3: Luôn đảm bảo districts/managers là mảng để tránh lỗi .map()
     const districtOptions = (districts || []).map((d) => ({ value: d._id, label: d.name }));
     const adminOptions = (managers || []).map((admin) => ({ value: admin.userId || admin._id, label: `${admin.fullName || admin.username || "Chưa có tên"} - ${admin.email || admin.phone || ""}` }));
-    
+
     const customSelectStyles = {
         control: (provided, state) => ({ ...provided, minHeight: "38px", borderRadius: "6px", fontSize: "14px", borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db", boxShadow: "none", "&:hover": { borderColor: "var(--primary-color)" }, backgroundColor: "#fff" }),
         input: (provided) => ({ ...provided, margin: 0, padding: 0, fontSize: "14px" }),
         option: (provided, state) => ({ ...provided, backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white", color: state.isSelected ? "var(--primary-color)" : "#374151", cursor: "pointer", margin: "4px", borderRadius: "6px", fontSize: "14px", width: "96%" }),
-        menu: (provided) => ({ ...provided, zIndex: 9999 }), menuList: (provided) => ({ ...provided, overflowX: "hidden" }),
+        menu: (provided) => ({ ...provided, zIndex: 9999 }),
+        menuList: (provided) => ({ ...provided, overflowX: "hidden" }),
     };
 
     const currentManagerId = clinic?.managerId?._id || clinic?.managerId;
@@ -380,23 +448,34 @@ const ClinicDetail = () => {
                 {/* CARD THÔNG TIN PHÒNG KHÁM */}
                 <div className="z-clinic-detail-card">
                     <div className="z-clinic-detail-layout">
-                        {/* CỘT TRÁI (HÌNH ẢNH) */}
                         <div className="z-clinic-detail-left">
                             <div className="z-clinic-detail-main-img-container">
-                                <img src={images[activeImage]} alt={clinic.name} className="z-clinic-detail-main-img" onError={(e) => { e.target.src = FALLBACK_IMG; }} />
+                                <img
+                                    src={images[activeImage]}
+                                    alt={clinic.name}
+                                    className="z-clinic-detail-main-img"
+                                    onError={(e) => {
+                                        e.target.src = FALLBACK_IMG;
+                                    }}
+                                />
                             </div>
                             {images.length > 1 && (
                                 <div className="z-clinic-detail-thumb-list">
                                     {images.map((img, index) => (
                                         <div key={index} className={`z-clinic-detail-thumb-item ${activeImage === index ? "active" : ""}`} onClick={() => setActiveImage(index)}>
-                                            <img src={img} alt={`thumb-${index}`} onError={(e) => { e.target.src = FALLBACK_IMG; }} />
+                                            <img
+                                                src={img}
+                                                alt={`thumb-${index}`}
+                                                onError={(e) => {
+                                                    e.target.src = FALLBACK_IMG;
+                                                }}
+                                            />
                                         </div>
                                     ))}
                                 </div>
                             )}
                         </div>
 
-                        {/* CỘT PHẢI (THÔNG TIN) */}
                         <div className="z-clinic-detail-right">
                             <div className="z-clinic-detail-header-info">
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
@@ -419,11 +498,15 @@ const ClinicDetail = () => {
                                 <ul className="z-clinic-detail-specs-list">
                                     <li>
                                         <span className="spec-label">Địa chỉ:</span>
-                                        <span className="spec-value" style={{ textAlign: "right" }}>{clinic.address || "Đang cập nhật"}</span>
+                                        <span className="spec-value" style={{ textAlign: "right" }}>
+                                            {clinic.address || "Đang cập nhật"}
+                                        </span>
                                     </li>
                                     <li>
                                         <span className="spec-label">Giờ hoạt động:</span>
-                                        <span className="spec-value">{clinic.openingHours?.openTime || "07:30"} - {clinic.openingHours?.closeTime || "19:30"}</span>
+                                        <span className="spec-value">
+                                            {clinic.openingHours?.openTime || "07:30"} - {clinic.openingHours?.closeTime || "19:30"}
+                                        </span>
                                     </li>
                                     <li>
                                         <span className="spec-label">Quản lý (Admin):</span>
@@ -446,9 +529,14 @@ const ClinicDetail = () => {
                             </div>
 
                             <div className="z-clinic-detail-actions">
-                                <button className="z-clinic-detail-btn-back" onClick={() => navigate("/clinics")}>Quay lại danh sách</button>
+                                <button className="z-clinic-detail-btn-back" onClick={() => navigate("/clinics")}>
+                                    Quay lại danh sách
+                                </button>
                                 <button className="z-clinic-detail-btn-primary" onClick={handleEditClick}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                    </svg>
                                     Chỉnh sửa
                                 </button>
                             </div>
@@ -470,7 +558,12 @@ const ClinicDetail = () => {
                             <table className="z-clinic-detail-table">
                                 <thead>
                                     <tr>
-                                        <th>Khách hàng</th><th>Đánh giá</th><th>Nội dung</th><th>Ngày tạo</th><th>Trạng thái</th><th style={{ textAlign: "center" }}>Thao tác</th>
+                                        <th>Khách hàng</th>
+                                        <th>Đánh giá</th>
+                                        <th>Nội dung</th>
+                                        <th>Ngày tạo</th>
+                                        <th>Trạng thái</th>
+                                        <th style={{ textAlign: "center" }}>Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -478,32 +571,57 @@ const ClinicDetail = () => {
                                         <tr key={r._id}>
                                             <td>
                                                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                                    <img src={r.authAvatar || AVATAR_PLACEHOLDER} alt="avatar" className="z-clinic-detail-avatar" onError={(e) => { e.target.src = AVATAR_PLACEHOLDER; }} />
+                                                    <img
+                                                        src={r.authAvatar || AVATAR_PLACEHOLDER}
+                                                        alt="avatar"
+                                                        className="z-clinic-detail-avatar"
+                                                        onError={(e) => {
+                                                            e.target.src = AVATAR_PLACEHOLDER;
+                                                        }}
+                                                    />
                                                     <div style={{ fontWeight: "600", color: "#111827" }}>{r.authName}</div>
                                                 </div>
                                             </td>
                                             <td style={{ color: "#d97706", fontWeight: "bold" }}>⭐ {r.rating}</td>
                                             <td style={{ maxWidth: "300px" }}>
-                                                <div className="z-clinic-detail-text-clamp" title={r.content}>{r.content}</div>
+                                                <div className="z-clinic-detail-text-clamp" title={r.content}>
+                                                    {r.content}
+                                                </div>
                                             </td>
-                                            {/* FIX 4: Check tồn tại ngày để tránh văng RangeError trắng màn hình */}
                                             <td>{r.reviewDate ? new Date(r.reviewDate).toLocaleDateString("vi-VN") : "---"}</td>
                                             <td>
                                                 <span className={r.isHidden ? "z-clinic-detail-badge-inactive" : "z-clinic-detail-badge-active"}>{r.isHidden ? "Đang ẩn" : "Hiển thị"}</span>
                                             </td>
                                             <td style={{ textAlign: "center" }}>
                                                 <div className="z-clinic-detail-dropdown-actions" onClick={(e) => e.stopPropagation()}>
-                                                    <button className="z-clinic-detail-more-btn"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368"><path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" /></svg></button>
+                                                    <button className="z-clinic-detail-more-btn">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
+                                                            <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
+                                                        </svg>
+                                                    </button>
                                                     <div className="z-clinic-detail-action-menu">
                                                         <EditButton onClick={() => handleOpenReviewModal(r)} />
-                                                        <Button variant="outline" onClick={() => toggleHideReviewMutation.mutate(r._id)} disabled={toggleHideReviewMutation.isPending}>{r.isHidden ? "Hiện đánh giá" : "Ẩn đánh giá"}</Button>
-                                                        <DeleteButton onClick={() => { setReviewToDelete(r); setIsDeleteReviewModalOpen(true); }} />
+                                                        <Button variant="outline" onClick={() => toggleHideReviewMutation.mutate(r._id)} disabled={toggleHideReviewMutation.isPending}>
+                                                            {r.isHidden ? "Hiện đánh giá" : "Ẩn đánh giá"}
+                                                        </Button>
+                                                        <DeleteButton
+                                                            onClick={() => {
+                                                                setReviewToDelete(r);
+                                                                setIsDeleteReviewModalOpen(true);
+                                                            }}
+                                                        />
                                                     </div>
                                                 </div>
                                             </td>
                                         </tr>
                                     ))}
-                                    {reviews.length === 0 && <tr><td colSpan="6"><div className="z-clinic-detail-state">Chưa có đánh giá nào.</div></td></tr>}
+                                    {reviews.length === 0 && (
+                                        <tr>
+                                            <td colSpan="6">
+                                                <div className="z-clinic-detail-state">Chưa có đánh giá nào.</div>
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -516,7 +634,9 @@ const ClinicDetail = () => {
                         <div className="z-clinic-form-grid">
                             <div className="z-clinic-form-column">
                                 <div className="z-clinic-form-group">
-                                    <label>Tên Phòng Khám <span className="z-clinic-required">*</span></label>
+                                    <label>
+                                        Tên Phòng Khám <span className="z-clinic-required">*</span>
+                                    </label>
                                     <input type="text" name="name" className="z-clinic-input" required value={formData.name} onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))} disabled={isSubmitting} />
                                 </div>
                                 <div className="z-clinic-form-group">
@@ -525,7 +645,9 @@ const ClinicDetail = () => {
                                 </div>
                                 <div className="z-clinic-form-row">
                                     <div className="z-clinic-form-group z-clinic-flex-1">
-                                        <label>Hotline <span className="z-clinic-required">*</span></label>
+                                        <label>
+                                            Hotline <span className="z-clinic-required">*</span>
+                                        </label>
                                         <input type="text" name="hotline" className="z-clinic-input" required value={formData.hotline} onChange={(e) => setFormData((prev) => ({ ...prev, hotline: e.target.value }))} disabled={isSubmitting} />
                                     </div>
                                     <div className="z-clinic-form-group z-clinic-flex-1">
@@ -534,11 +656,15 @@ const ClinicDetail = () => {
                                     </div>
                                 </div>
                                 <div className="z-clinic-form-group">
-                                    <label>Thuộc Quận/Huyện <span className="z-clinic-required">*</span></label>
+                                    <label>
+                                        Thuộc Quận/Huyện <span className="z-clinic-required">*</span>
+                                    </label>
                                     <ReactSelect options={districtOptions} value={districtOptions.find((option) => option.value === formData.districtId) || null} onChange={(selected) => setFormData((prev) => ({ ...prev, districtId: selected ? selected.value : "" }))} placeholder="-- Gõ để tìm Phường/Xã --" isSearchable={true} isDisabled={isSubmitting} styles={customSelectStyles} noOptionsMessage={() => "Không tìm thấy Phường/Xã"} menuPosition="fixed" />
                                 </div>
                                 <div className="z-clinic-form-group">
-                                    <label>Địa chỉ chi tiết <span className="z-clinic-required">*</span></label>
+                                    <label>
+                                        Địa chỉ chi tiết <span className="z-clinic-required">*</span>
+                                    </label>
                                     <textarea name="address" className="z-clinic-textarea" rows="2" required value={formData.address} onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))} disabled={isSubmitting}></textarea>
                                 </div>
                                 <div className="z-clinic-form-group">
@@ -565,11 +691,15 @@ const ClinicDetail = () => {
                                 <h3 className="z-clinic-form-section-title z-clinic-mt-16">Hoạt động & Dịch vụ</h3>
                                 <div className="z-clinic-form-row">
                                     <div className="z-clinic-form-group z-clinic-flex-1">
-                                        <label>Giờ mở cửa <span className="z-clinic-required">*</span></label>
+                                        <label>
+                                            Giờ mở cửa <span className="z-clinic-required">*</span>
+                                        </label>
                                         <ReactSelect options={TIME_OPTIONS} value={TIME_OPTIONS.find((opt) => opt.value === formData.openTime)} onChange={(sel) => setFormData((prev) => ({ ...prev, openTime: sel.value }))} isDisabled={isSubmitting} styles={customSelectStyles} menuPosition="fixed" />
                                     </div>
                                     <div className="z-clinic-form-group z-clinic-flex-1">
-                                        <label>Giờ đóng cửa <span className="z-clinic-required">*</span></label>
+                                        <label>
+                                            Giờ đóng cửa <span className="z-clinic-required">*</span>
+                                        </label>
                                         <ReactSelect options={TIME_OPTIONS} value={TIME_OPTIONS.find((opt) => opt.value === formData.closeTime)} onChange={(sel) => setFormData((prev) => ({ ...prev, closeTime: sel.value }))} isDisabled={isSubmitting} styles={customSelectStyles} menuPosition="fixed" />
                                     </div>
                                 </div>
@@ -584,7 +714,8 @@ const ClinicDetail = () => {
                                         )}
                                         {safeServices.map((srv) => (
                                             <label key={srv._id} className="z-clinic-service-item">
-                                                <input type="checkbox" checked={formData.availableServiceIds.includes(srv._id)} onChange={() => handleServiceCheckbox(srv._id)} disabled={isSubmitting} /><span>{srv.name}</span>
+                                                <input type="checkbox" checked={formData.availableServiceIds.includes(srv._id)} onChange={() => handleServiceCheckbox(srv._id)} disabled={isSubmitting} />
+                                                <span>{srv.name}</span>
                                             </label>
                                         ))}
                                     </div>
@@ -599,17 +730,23 @@ const ClinicDetail = () => {
                                         {oldImageUrls.map((url, i) => (
                                             <div key={`old-${i}`} className="z-clinic-image-box">
                                                 <img src={url} alt={`old-${i}`} className="z-clinic-preview-img" />
-                                                <button type="button" className="z-clinic-remove-btn" onClick={() => removeOldImage(i)}>×</button>
+                                                <button type="button" className="z-clinic-remove-btn" onClick={() => removeOldImage(i)}>
+                                                    ×
+                                                </button>
                                             </div>
                                         ))}
                                         {imagePreviews.map((src, i) => (
                                             <div key={`new-${i}`} className="z-clinic-image-box">
                                                 <img src={src} alt={`new-${i}`} className="z-clinic-preview-img" />
-                                                <button type="button" className="z-clinic-remove-btn" onClick={() => removeNewImage(i)}>×</button>
+                                                <button type="button" className="z-clinic-remove-btn" onClick={() => removeNewImage(i)}>
+                                                    ×
+                                                </button>
                                             </div>
                                         ))}
                                         {oldImageUrls.length + imagePreviews.length < 5 && (
-                                            <div className="z-clinic-add-img-btn" onClick={() => clinicImagesInputRef.current.click()}>+ Ảnh</div>
+                                            <div className="z-clinic-add-img-btn" onClick={() => clinicImagesInputRef.current.click()}>
+                                                + Ảnh
+                                            </div>
                                         )}
                                     </div>
                                     <input ref={clinicImagesInputRef} type="file" multiple accept="image/*" style={{ display: "none" }} onChange={handleImageChange} disabled={isSubmitting} />
@@ -623,13 +760,17 @@ const ClinicDetail = () => {
                 <Modal isOpen={isReviewModalOpen} onClose={() => !isSubmitting && setIsReviewModalOpen(false)} title={currentReviewId ? "Cập nhật Review" : "Thêm Review Seeding"} maxWidth="600px" onSave={handleReviewSubmit} saveText={isSubmitting ? "Đang xử lý..." : "Lưu Đánh Giá"}>
                     <div className="z-clinic-detail-form">
                         <div className="z-clinic-detail-form-group">
-                            <label>Tên khách hàng ảo <span className="z-clinic-detail-required">*</span></label>
-                            <input type="text" name="fakeAuthorName" className="z-clinic-detail-input" required placeholder="VD: Chị Mai - Quận 1" value={reviewForm.fakeAuthorName} onChange={(e) => setReviewForm(prev => ({ ...prev, fakeAuthorName: e.target.value }))} disabled={isSubmitting} />
+                            <label>
+                                Tên khách hàng ảo <span className="z-clinic-detail-required">*</span>
+                            </label>
+                            <input type="text" name="fakeAuthorName" className="z-clinic-detail-input" required placeholder="VD: Chị Mai - Quận 1" value={reviewForm.fakeAuthorName} onChange={(e) => setReviewForm((prev) => ({ ...prev, fakeAuthorName: e.target.value }))} disabled={isSubmitting} />
                         </div>
                         <div className="z-clinic-detail-form-row">
                             <div className="z-clinic-detail-form-group" style={{ flex: 1 }}>
-                                <label>Số Sao (1 - 5) <span className="z-clinic-detail-required">*</span></label>
-                                <input type="number" name="rating" className="z-clinic-detail-input" min="1" max="5" required value={reviewForm.rating} onChange={(e) => setReviewForm(prev => ({ ...prev, rating: e.target.value }))} disabled={isSubmitting} />
+                                <label>
+                                    Số Sao (1 - 5) <span className="z-clinic-detail-required">*</span>
+                                </label>
+                                <input type="number" name="rating" className="z-clinic-detail-input" min="1" max="5" required value={reviewForm.rating} onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: e.target.value }))} disabled={isSubmitting} />
                             </div>
                             <div className="z-clinic-detail-form-group" style={{ flex: 1 }}>
                                 <label>Ngày đánh giá ảo</label>
@@ -642,42 +783,91 @@ const ClinicDetail = () => {
                                 {reviewForm.previewUrl || reviewForm.fakeAvatarUrl ? (
                                     <div className="z-clinic-detail-img-box avatar-box">
                                         <img src={reviewForm.previewUrl || reviewForm.fakeAvatarUrl} alt="Avatar preview" />
-                                        <button type="button" className="z-clinic-detail-remove-btn" onClick={() => { if (reviewForm.previewUrl) URL.revokeObjectURL(reviewForm.previewUrl); setReviewForm(prev => ({ ...prev, fakeAvatarFile: null, previewUrl: "", fakeAvatarUrl: "" })) }}>×</button>
+                                        <button
+                                            type="button"
+                                            className="z-clinic-detail-remove-btn"
+                                            onClick={() => {
+                                                if (reviewForm.previewUrl) URL.revokeObjectURL(reviewForm.previewUrl);
+                                                setReviewForm((prev) => ({ ...prev, fakeAvatarFile: null, previewUrl: "", fakeAvatarUrl: "" }));
+                                            }}
+                                        >
+                                            ×
+                                        </button>
                                     </div>
                                 ) : (
-                                    <div className="z-clinic-detail-add-img-btn avatar-add" onClick={() => avatarInputRef.current.click()}>+ Tải ảnh</div>
+                                    <div className="z-clinic-detail-add-img-btn avatar-add" onClick={() => avatarInputRef.current.click()}>
+                                        + Tải ảnh
+                                    </div>
                                 )}
-                                <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files[0]; if (f) { setReviewForm(prev => ({ ...prev, fakeAvatarFile: f, previewUrl: URL.createObjectURL(f) })) }; e.target.value = null; }} disabled={isSubmitting} />
+                                <input
+                                    ref={avatarInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    style={{ display: "none" }}
+                                    onChange={(e) => {
+                                        const f = e.target.files[0];
+                                        if (f) setReviewForm((prev) => ({ ...prev, fakeAvatarFile: f, previewUrl: URL.createObjectURL(f) }));
+                                        e.target.value = null;
+                                    }}
+                                    disabled={isSubmitting}
+                                />
                             </div>
                         </div>
+
                         <div className="z-clinic-detail-form-group">
-                            <label>Nội dung đánh giá <span className="z-clinic-detail-required">*</span></label>
-                            <textarea name="content" className="z-clinic-detail-textarea" rows="4" required placeholder="Nhận xét của khách hàng... (ít nhất 10 ký tự) ..." value={reviewForm.content} onChange={(e) => setReviewForm(prev => ({ ...prev, content: e.target.value }))} disabled={isSubmitting}></textarea>
+                            <label style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                                <span>
+                                    Nội dung đánh giá <span className="z-clinic-detail-required">*</span>
+                                </span>
+                                <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: "normal" }}>(Ít nhất 10 ký tự)</span>
+                            </label>
+
+                            <textarea name="content" className="z-clinic-detail-textarea" rows="4" required placeholder="Nhận xét của khách hàng..." value={reviewForm.content} onChange={(e) => setReviewForm((prev) => ({ ...prev, content: e.target.value }))} disabled={isSubmitting}></textarea>
                         </div>
+
                         <div className="z-clinic-detail-form-group">
                             <label>Hình ảnh thực tế kèm theo (Tùy chọn)</label>
                             <div className="z-clinic-detail-upload-wrapper">
                                 {reviewForm.reviewImagePreviews.map((src, index) => (
                                     <div key={`rev-img-${index}`} className="z-clinic-detail-img-box">
                                         <img src={src} alt="Review attachment" />
-                                        <button type="button" className="z-clinic-detail-remove-btn" onClick={() => {
-                                            const newFiles = [...reviewForm.reviewImageFiles]; const newPreviews = [...reviewForm.reviewImagePreviews];
-                                            URL.revokeObjectURL(newPreviews[index]); newFiles.splice(index, 1); newPreviews.splice(index, 1);
-                                            setReviewForm(prev => ({ ...prev, reviewImageFiles: newFiles, reviewImagePreviews: newPreviews }));
-                                        }}>×</button>
+                                        <button
+                                            type="button"
+                                            className="z-clinic-detail-remove-btn"
+                                            onClick={() => {
+                                                const newFiles = [...reviewForm.reviewImageFiles];
+                                                const newPreviews = [...reviewForm.reviewImagePreviews];
+                                                URL.revokeObjectURL(newPreviews[index]);
+                                                newFiles.splice(index, 1);
+                                                newPreviews.splice(index, 1);
+                                                setReviewForm((prev) => ({ ...prev, reviewImageFiles: newFiles, reviewImagePreviews: newPreviews }));
+                                            }}
+                                        >
+                                            ×
+                                        </button>
                                     </div>
                                 ))}
                                 {reviewForm.reviewImagePreviews.length < 3 && (
-                                    <div className="z-clinic-detail-add-img-btn" onClick={() => reviewImagesInputRef.current.click()}>+ Thêm ảnh</div>
+                                    <div className="z-clinic-detail-add-img-btn" onClick={() => reviewImagesInputRef.current.click()}>
+                                        + Thêm ảnh
+                                    </div>
                                 )}
                             </div>
-                            <input ref={reviewImagesInputRef} type="file" multiple accept="image/*" style={{ display: "none" }} onChange={(e) => {
-                                const files = Array.from(e.target.files);
-                                if (reviewForm.oldReviewImageUrls.length + reviewForm.reviewImageFiles.length + files.length > 3) return showToast("Mỗi review tối đa 3 ảnh!", "error");
-                                const newPreviews = files.map((file) => URL.createObjectURL(file));
-                                setReviewForm(prev => ({ ...prev, reviewImageFiles: [...prev.reviewImageFiles, ...files], reviewImagePreviews: [...prev.reviewImagePreviews, ...newPreviews] }));
-                                e.target.value = null;
-                            }} disabled={isSubmitting} />
+                            <input
+                                ref={reviewImagesInputRef}
+                                type="file"
+                                multiple
+                                accept="image/*"
+                                style={{ display: "none" }}
+                                onChange={(e) => {
+                                    const files = Array.from(e.target.files);
+                                    if (reviewForm.oldReviewImageUrls.length + reviewForm.reviewImageFiles.length + files.length > 3) return showToast("Mỗi review tối đa 3 ảnh!", "error");
+                                    const newPreviews = files.map((file) => URL.createObjectURL(file));
+                                    setReviewForm((prev) => ({ ...prev, reviewImageFiles: [...prev.reviewImageFiles, ...files], reviewImagePreviews: [...prev.reviewImagePreviews, ...newPreviews] }));
+                                    e.target.value = null;
+                                }}
+                                disabled={isSubmitting}
+                            />
                         </div>
                     </div>
                 </Modal>
@@ -685,9 +875,15 @@ const ClinicDetail = () => {
                 {/* MODAL XÓA REVIEW */}
                 <Modal isOpen={isDeleteReviewModalOpen} onClose={() => !isSubmitting && setIsDeleteReviewModalOpen(false)} title="Xác nhận xóa" maxWidth="500px" onSave={() => deleteReviewMutation.mutate(reviewToDelete?._id)} saveText={isSubmitting ? "Đang xóa..." : "Xác nhận xóa"}>
                     <div style={{ textAlign: "center", padding: "20px 0" }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: "16px" }}><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: "16px" }}>
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                        </svg>
                         <h3 style={{ fontSize: "18px", marginBottom: "8px", color: "#111827" }}>Xóa đánh giá?</h3>
-                        <p style={{ color: "#4b5563" }}>Bạn có chắc chắn muốn xóa vĩnh viễn đánh giá của khách hàng <strong>{reviewToDelete?.authName}</strong> không? Hành động này không thể hoàn tác.</p>
+                        <p style={{ color: "#4b5563" }}>
+                            Bạn có chắc chắn muốn xóa vĩnh viễn đánh giá của khách hàng <strong>{reviewToDelete?.authName}</strong> không? Hành động này không thể hoàn tác.
+                        </p>
                     </div>
                 </Modal>
             </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // 🟢 THÊM IMPORT REACT QUERY
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { serviceApi, categoryApi } from "../../api/axiosApi";
 import PageHeader from "../../ui/PageHeader/PageHeader";
 import ToastMessage from "../../ui/ToastMessage/ToastMessage";
@@ -31,6 +31,26 @@ const getActiveCategoryFromStorage = () => {
     } catch (err) {
         return null;
     }
+};
+
+// 🟢 HÀM MAPPING LỖI TỪ BACKEND
+const translateErrorMessage = (errorMsg) => {
+    if (!errorMsg) return "Có lỗi xảy ra, vui lòng thử lại!";
+    
+    const msg = errorMsg.toLowerCase();
+
+    // Mapping dựa theo các throw error trong serviceVariant.service.js
+    if (msg.includes("service, name and price are required")) return "Vui lòng nhập đầy đủ Dịch vụ, Tên và Giá sản phẩm!";
+    if (msg.includes("service not found")) return "Không tìm thấy dịch vụ gốc của sản phẩm này!";
+    if (msg.includes("cannot add variant to inactive service")) return "Không thể thêm sản phẩm vào Dịch vụ đang bị vô hiệu hóa!";
+    if (msg.includes("price cannot be negative")) return "Giá sản phẩm không được là số âm!";
+    if (msg.includes("variant not found")) return "Không tìm thấy thông tin sản phẩm này!";
+    if (msg.includes("cannot delete variant with") && msg.includes("booking")) return "Không thể xóa sản phẩm này vì đã có khách hàng đặt lịch. Vui lòng chuyển sang trạng thái Ẩn thay vì xóa!";
+    if (msg.includes("updates array is required")) return "Danh sách cập nhật thứ tự không hợp lệ!";
+    if (msg.includes("file too large") || msg.includes("large")) return "Kích thước ảnh quá lớn! Vui lòng chọn ảnh dung lượng nhỏ hơn.";
+    
+    // Fallback cho các lỗi chưa handle
+    return errorMsg;
 };
 
 const Services = () => {
@@ -149,7 +169,11 @@ const Services = () => {
             setProductToDelete(null);
             queryClient.invalidateQueries({ queryKey: ["servicesAndVariants", activeParentId] });
         },
-        onError: (err) => showToast(err.response?.data?.message || "Không thể xóa sản phẩm lúc này", "error")
+        // 🟢 MAPPING LỖI KHI XÓA
+        onError: (err) => {
+            const serverMsg = err.response?.data?.error || err.response?.data?.message || err.message;
+            showToast(translateErrorMessage(serverMsg), "error");
+        }
     });
 
     // 2. MUTATION: THÊM / CẬP NHẬT SẢN PHẨM (Dùng chung cho Form)
@@ -207,7 +231,11 @@ const Services = () => {
             setIsModalOpen(false);
             queryClient.invalidateQueries({ queryKey: ["servicesAndVariants", activeParentId] });
         },
-        onError: (err) => showToast(err.response?.data?.message || "Lỗi xử lý sản phẩm", "error")
+        // 🟢 MAPPING LỖI KHI LƯU
+        onError: (err) => {
+            const serverMsg = err.response?.data?.error || err.response?.data?.message || err.message;
+            showToast(translateErrorMessage(serverMsg), "error");
+        }
     });
 
     const isSubmitting = deleteMutation.isPending || saveProductMutation.isPending;
@@ -267,7 +295,11 @@ const Services = () => {
 
     const handleSubmitForm = (e) => {
         e.preventDefault();
+        
+        // Frontend Validate nhẹ
         if (!formData.serviceId) return showToast("Vui lòng chọn Danh mục dịch vụ!", "error");
+        if (!formData.name) return showToast("Vui lòng nhập tên sản phẩm!", "error");
+        if (!formData.price || Number(formData.price) < 0) return showToast("Giá sản phẩm không hợp lệ!", "error");
 
         const submitData = new FormData();
         Object.keys(formData).forEach((key) => {
@@ -437,6 +469,10 @@ const Services = () => {
 
                 <Modal isOpen={isModalOpen} onClose={() => !isSubmitting && setIsModalOpen(false)} title={isEditMode ? "Cập nhật Sản phẩm" : "Thêm Sản phẩm mới"} size="lg" onSave={handleSubmitForm} saveText={isSubmitting ? "Đang xử lý..." : isEditMode ? "Lưu thay đổi" : "Tạo Sản phẩm"}>
                     <div className="z-services-form">
+                    <div style={{ marginTop: "-15px", paddingBottom: "6px", borderBottom: "1px dashed #e5e7eb" }}>
+                            <span style={{ color: "red", fontWeight: "bold", fontSize: "16px" }}>*</span>
+                            <span style={{ color: "#6b7280", fontSize: "12px", fontStyle: "italic", marginLeft: "4px" }}>: Các trường có dấu sao là bắt buộc. Vui lòng nhập đầy đủ thông tin.</span>
+                        </div>
                         <div className="z-services-form-grid">
                             <div className="z-services-form-column">
                                 <div className="z-services-form-group">

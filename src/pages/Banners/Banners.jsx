@@ -34,12 +34,12 @@ const POSITION_LABELS = {
 
 const DEFAULT_LINKS = {
     MIDDLE: "/(tabs)/index",
-    BOTTOM: "/promotion/Promotions", 
+    BOTTOM: "/promotion/Promotions",
     ABOUT_HERO: "/dentistry/Intro",
     ABOUT_MIDDLE: "/dentistry/Intro",
-    EDU: "/intro/SGTD", 
-    MEKONG: "/intro/Mekong", 
-    PCDA: "/intro/PDCA", 
+    EDU: "/intro/SGTD",
+    MEKONG: "/intro/Mekong",
+    PCDA: "/intro/PDCA",
 };
 
 const LINK_LABELS = {
@@ -81,7 +81,12 @@ const Banners = () => {
     const [editBannerId, setEditBannerId] = useState(null);
 
     const initialForm = {
-        title: "", subtitle: "", description: "", position: "MIDDLE", displayOrder: 0, status: "PUBLISHED",
+        title: "",
+        subtitle: "",
+        description: "",
+        position: "MIDDLE",
+        displayOrder: 0,
+        status: "PUBLISHED",
     };
     const [formData, setFormData] = useState(initialForm);
     const [imageFile, setImageFile] = useState(null);
@@ -91,14 +96,18 @@ const Banners = () => {
     // ==========================================
     // 1. DÙNG USEQUERY THAY CHO USEEFFECT ĐỂ FETCH DATA
     // ==========================================
-    const { data: banners = [], isLoading, error } = useQuery({
+    const {
+        data: banners = [],
+        isLoading,
+        error,
+    } = useQuery({
         queryKey: ["banners"],
         queryFn: async () => {
             const res = await bannerApi.getAllBanners({ limit: 100 });
             if (res && res.success) return res.data.banners || [];
             throw new Error("Không thể tải danh sách banner.");
         },
-        staleTime: 5 * 60 * 1000 // Cache dữ liệu 5 phút
+        staleTime: 5 * 60 * 1000, // Cache dữ liệu 5 phút
     });
 
     useEffect(() => {
@@ -111,15 +120,15 @@ const Banners = () => {
 
     // Mutation Thêm / Sửa Banner
     const saveBannerMutation = useMutation({
-        mutationFn: ({ id, submitData }) => id ? bannerApi.updateBanner(id, submitData) : bannerApi.createBanner(submitData),
+        mutationFn: ({ id, submitData }) => (id ? bannerApi.updateBanner(id, submitData) : bannerApi.createBanner(submitData)),
         onSuccess: (res, variables) => {
             const updatedBanner = res.data?.banner || res.data || res;
-            
+
             // Cập nhật Cache UI ngay lập tức
             queryClient.setQueryData(["banners"], (old) => {
                 if (!old) return [];
                 if (variables.id) {
-                    return old.map(b => b._id === variables.id ? { ...b, ...updatedBanner } : b);
+                    return old.map((b) => (b._id === variables.id ? { ...b, ...updatedBanner } : b));
                 }
                 return [updatedBanner, ...old];
             });
@@ -136,21 +145,21 @@ const Banners = () => {
                 message: isSizeError ? "Kích thước ảnh quá lớn! Vui lòng chọn ảnh có dung lượng nhỏ hơn." : serverMessage || "Có lỗi xảy ra!",
                 type: "error",
             });
-        }
+        },
     });
 
     // Mutation Xóa Banner
     const deleteBannerMutation = useMutation({
         mutationFn: (id) => bannerApi.deleteBanner(id),
         onSuccess: (res, deletedId) => {
-            queryClient.setQueryData(["banners"], (old) => old.filter(b => b._id !== deletedId));
+            queryClient.setQueryData(["banners"], (old) => old.filter((b) => b._id !== deletedId));
             setToast({ show: true, message: "Xóa banner thành công!", type: "success" });
             setIsDeleteModalOpen(false);
             setBannerToDelete(null);
         },
         onError: (err) => {
             setToast({ show: true, message: err.response?.data?.message || "Không thể xóa banner lúc này", type: "error" });
-        }
+        },
     });
 
     // Mutation Đổi trạng thái (Optimistic Update)
@@ -161,9 +170,7 @@ const Banners = () => {
             const previousBanners = queryClient.getQueryData(["banners"]);
 
             // Đổi UI ngay lập tức trước khi gọi API
-            queryClient.setQueryData(["banners"], (old) =>
-                old.map(b => b._id === id ? { ...b, status: newStatus } : b)
-            );
+            queryClient.setQueryData(["banners"], (old) => old.map((b) => (b._id === id ? { ...b, status: newStatus } : b)));
             return { previousBanners };
         },
         onSuccess: (_, variables) => {
@@ -173,7 +180,7 @@ const Banners = () => {
             queryClient.setQueryData(["banners"], context.previousBanners); // Rollback nếu lỗi
             setToast({ show: true, message: err.response?.data?.message || "Lỗi khi cập nhật trạng thái", type: "error" });
         },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: ["banners"] }) // Đồng bộ ngầm lại để chắc chắn
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ["banners"] }), // Đồng bộ ngầm lại để chắc chắn
     });
 
     const isSubmitting = saveBannerMutation.isPending || deleteBannerMutation.isPending || toggleStatusMutation.isPending;
@@ -205,8 +212,12 @@ const Banners = () => {
         setIsEditMode(true);
         setEditBannerId(banner._id);
         setFormData({
-            title: banner.title || "", subtitle: banner.subtitle || "", description: banner.description || "",
-            position: banner.position || "MIDDLE", displayOrder: banner.displayOrder || 0, status: banner.status || "DRAFT",
+            title: banner.title || "",
+            subtitle: banner.subtitle || "",
+            description: banner.description || "",
+            position: banner.position || "MIDDLE",
+            displayOrder: banner.displayOrder || 0,
+            status: banner.status || "DRAFT",
         });
         setImageFile(null);
         setImagePreview(banner.imageUrl || null);
@@ -220,7 +231,10 @@ const Banners = () => {
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
-        if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)); }
+        if (file) {
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
         e.target.value = null;
     };
 
@@ -255,7 +269,7 @@ const Banners = () => {
         const newStatus = banner.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
         const submitData = new FormData();
         submitData.append("status", newStatus);
-        
+
         toggleStatusMutation.mutate({ id: banner._id, submitData, newStatus });
     };
 
@@ -277,11 +291,11 @@ const Banners = () => {
         .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
 
     const MathCeil = Math.ceil(allFilteredBanners.length / itemsPerPage);
-    const totalPages = MathCeil > 0 ? MathCeil : 1; 
-    
+    const totalPages = MathCeil > 0 ? MathCeil : 1;
+
     // Đảm bảo currentPage không vượt quá totalPages khi search/filter
     const validCurrentPage = currentPage > totalPages ? totalPages : currentPage;
-    
+
     const indexOfLastItem = validCurrentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentItems = allFilteredBanners.slice(indexOfFirstItem, indexOfLastItem);
@@ -329,9 +343,33 @@ const Banners = () => {
                         </button>
                         {showFilterDropdown && (
                             <div className="z-banner-dropdown-menu">
-                                <div className={`z-banner-dropdown-item ${filterStatus === "all" ? "active" : ""}`} onClick={() => { setFilterStatus("all"); setShowFilterDropdown(false); }}>Tất cả trạng thái</div>
-                                <div className={`z-banner-dropdown-item ${filterStatus === "published" ? "active" : ""}`} onClick={() => { setFilterStatus("published"); setShowFilterDropdown(false); }}>Đang hoạt động</div>
-                                <div className={`z-banner-dropdown-item ${filterStatus === "draft" ? "active" : ""}`} onClick={() => { setFilterStatus("draft"); setShowFilterDropdown(false); }}>Đang ẩn</div>
+                                <div
+                                    className={`z-banner-dropdown-item ${filterStatus === "all" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("all");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
+                                    Tất cả trạng thái
+                                </div>
+                                <div
+                                    className={`z-banner-dropdown-item ${filterStatus === "published" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("published");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
+                                    Đang hoạt động
+                                </div>
+                                <div
+                                    className={`z-banner-dropdown-item ${filterStatus === "draft" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("draft");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
+                                    Đang ẩn
+                                </div>
                             </div>
                         )}
                     </div>
@@ -363,7 +401,9 @@ const Banners = () => {
                                             src={banner.imageUrl ? `${banner.imageUrl}?t=${new Date(banner.updatedAt || banner.createdAt || Date.now()).getTime()}` : FALLBACK_IMG}
                                             alt={banner.title}
                                             className="z-banner-img-preview"
-                                            onError={(e) => { e.target.src = FALLBACK_IMG; }}
+                                            onError={(e) => {
+                                                e.target.src = FALLBACK_IMG;
+                                            }}
                                         />
                                     </td>
                                     <td>
@@ -388,9 +428,9 @@ const Banners = () => {
                                                 </button>
 
                                                 <div className="z-banner-action-menu">
-                                                    <Button variant="outline" onClick={(e) => handleTogglePublishStatus(e, banner)} disabled={toggleStatusMutation.isPending}>
+                                                    {/* <Button variant="outline" onClick={(e) => handleTogglePublishStatus(e, banner)} disabled={toggleStatusMutation.isPending}>
                                                         {banner.status === "PUBLISHED" ? "Ẩn Banner" : "Hoạt động"}
-                                                    </Button>
+                                                    </Button> */}
                                                     <EditButton onClick={(e) => openEditModal(e, banner)} />
                                                     <DeleteButton onClick={(e) => handleDeleteClick(e, banner._id, banner.title)} />
                                                 </div>
@@ -425,8 +465,14 @@ const Banners = () => {
                 {/* MODAL THÊM/SỬA */}
                 <Modal isOpen={isFormModalOpen} onClose={() => !isSubmitting && setIsFormModalOpen(false)} title={isEditMode ? "Cập nhật Banner" : "Thêm Banner mới"} size="lg" onSave={handleSaveBanner} saveText={saveBannerMutation.isPending ? "Đang xử lý..." : isEditMode ? "Lưu thay đổi" : "Tạo Banner"}>
                     <div className="z-banner-form">
+                        <div style={{ marginTop: "-15px", borderBottom: "1px dashed #e5e7eb" }}>
+                            <span style={{ color: "red", fontWeight: "bold", fontSize: "16px" }}>*</span>
+                            <span style={{ color: "#6b7280", fontSize: "12px", fontStyle: "italic", marginLeft: "4px" }}>: Các trường có dấu sao là bắt buộc. Vui lòng nhập đầy đủ thông tin.</span>
+                        </div>
                         <div className="z-banner-form-group">
-                            <label>Tiêu đề <span className="z-banner-required">*</span></label>
+                            <label>
+                                Tiêu đề <span className="z-banner-required">*</span>
+                            </label>
                             <input type="text" name="title" value={formData.title} onChange={handleInputChange} placeholder="Nhập tiêu đề..." disabled={isSubmitting} className="z-banner-input" />
                         </div>
                         <div className="z-banner-form-group">
@@ -456,13 +502,17 @@ const Banners = () => {
                             <textarea name="description" value={formData.description} onChange={handleInputChange} placeholder="Nhập mô tả..." rows="3" disabled={isSubmitting} className="z-banner-textarea" />
                         </div>
                         <div className="z-banner-form-group">
-                            <label>Hình ảnh Banner Desktop <span className="z-banner-required">*</span></label>
+                            <label>
+                                Hình ảnh Banner Desktop <span className="z-banner-required">*</span>
+                            </label>
                             <div className="z-banner-upload-wrapper">
                                 <input type="file" accept="image/*" ref={fileInputRef} style={{ display: "none" }} onChange={handleImageChange} disabled={isSubmitting} />
                                 {imagePreview ? (
                                     <div className="z-banner-image-preview-box">
                                         <img src={imagePreview} alt="Preview" />
-                                        <button type="button" className="z-banner-remove-img-btn" onClick={removeImage}>×</button>
+                                        <button type="button" className="z-banner-remove-img-btn" onClick={removeImage}>
+                                            ×
+                                        </button>
                                     </div>
                                 ) : (
                                     <div className="z-banner-image-upload-btn" onClick={() => fileInputRef.current.click()}>
@@ -478,10 +528,15 @@ const Banners = () => {
                 <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmitting && setIsDeleteModalOpen(false)} title="Xác nhận xóa" size="sm" onSave={confirmDelete} saveText={deleteBannerMutation.isPending ? "Đang xóa..." : "Xác nhận xóa"}>
                     <div className="z-banner-delete-content">
                         <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
                         </svg>
                         <h3>Xác nhận xóa</h3>
-                        <p>Bạn có chắc chắn muốn xóa Banner <br /><strong>"{bannerToDelete?.title}"</strong> không?</p>
+                        <p>
+                            Bạn có chắc chắn muốn xóa Banner <br />
+                            <strong>"{bannerToDelete?.title}"</strong> không?
+                        </p>
                     </div>
                 </Modal>
             </div>
