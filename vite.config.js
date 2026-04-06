@@ -5,13 +5,13 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   preview: {
-    allowedHosts: ['admin-sgtd.congtyeon.com'],
+    allowedHosts: ['admin-sgtd.eonsr.com'],
   },
   server: {
     port: 5174,
     proxy: {
       '/api/v1': {
-        target: 'https://api-sgtd.congtyeon.com',
+        target: 'https://api-sgtd.eonsr.com',
         changeOrigin: true,
         secure: false,
       }

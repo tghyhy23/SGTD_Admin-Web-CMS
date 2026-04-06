@@ -1,383 +1,339 @@
-import React, { useEffect, useState } from 'react';
-import { notificationApi } from '../../api/axiosApi';
-import './Notifications.css';
+import React, { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // 🟢 THÊM IMPORT
+import { notificationApi } from "../../api/axiosApi";
+import PageHeader from "../../ui/PageHeader/PageHeader";
+import ToastMessage from "../../ui/ToastMessage/ToastMessage";
+import Modal from "../../ui/Modal/Modal";
+import { AddButton } from "../../ui/Button/Button";
+import ReactSelect from "react-select";
+import "./Notifications.css";
+
+// ================= OPTIONS CHO REACT-SELECT =================
+const filterTypeOptions = [
+    { value: "", label: "Tất cả loại" },
+    { value: "SYSTEM", label: "Hệ thống" },
+    { value: "PROMOTION", label: "Khuyến mãi" },
+    { value: "BOOKING_REMINDER", label: "Nhắc lịch" },
+    { value: "BOOKING_CONFIRMED", label: "Xác nhận lịch" },
+];
+
+const filterReadOptions = [
+    { value: "", label: "Tất cả trạng thái" },
+    { value: "true", label: "Đã đọc" },
+    { value: "false", label: "Chưa đọc" },
+];
+
+const formTypeOptions = [
+    { value: "SYSTEM", label: "Hệ thống" },
+    { value: "PROMOTION", label: "Khuyến mãi" },
+];
+
+const formPriorityOptions = [
+    { value: "LOW", label: "Thấp" },
+    { value: "MEDIUM", label: "Trung bình" },
+    { value: "HIGH", label: "Cao" },
+];
 
 export default function Notifications() {
-    // ==========================================
-    // 1. STATE QUẢN LÝ DỮ LIỆU
-    // ==========================================
-    const [notifications, setNotifications] = useState([]);
-    const [stats, setStats] = useState({ total: 0, totalRead: 0, totalUnread: 0, readRate: "0%" });
-    const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
 
     // ==========================================
-    // 2. STATE LỌC, TÌM KIẾM & PHÂN TRANG
+    // 1. STATE LỌC, TÌM KIẾM & PHÂN TRANG
     // ==========================================
     const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState(""); // 🟢 Tách riêng search delay
     const [filterType, setFilterType] = useState("");
     const [filterIsRead, setFilterIsRead] = useState("");
-    
-    // Toggles cho Custom Dropdowns (Bộ lọc)
-    const [showFilterTypeDropdown, setShowFilterTypeDropdown] = useState(false);
-    const [showFilterStatusDropdown, setShowFilterStatusDropdown] = useState(false);
 
     const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
     const limit = 10;
 
     // ==========================================
-    // 3. STATE MODAL (GỬI THÔNG BÁO)
+    // 2. STATE MODAL (GỬI THÔNG BÁO)
     // ==========================================
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
-    // Toggles cho Custom Dropdowns (Trong Form)
-    const [showFormTypeDropdown, setShowFormTypeDropdown] = useState(false);
-    const [showFormPriorityDropdown, setShowFormPriorityDropdown] = useState(false);
-
-    const initialForm = {
-        title_msg: "",
-        content_msg: "",
-        type: "SYSTEM",
-        priority: "MEDIUM",
-    };
+    const initialForm = { title_msg: "", content_msg: "", type: "SYSTEM", priority: "MEDIUM" };
     const [formData, setFormData] = useState(initialForm);
 
     // ==========================================
-    // 4. FETCH DATA TỪ API
+    // DEBOUNCE TÌM KIẾM
     // ==========================================
-    const fetchStats = async () => {
-        try {
-            const res = await notificationApi.getNotificationStats();
-            if (res && res.success) {
-                setStats(res.data);
-            }
-        } catch (error) {
-            console.error("Lỗi lấy thống kê:", error);
-        }
-    };
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+            setPage(1); // Trở về trang 1 khi gõ tìm kiếm
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
-    const fetchNotifications = async () => {
-        setIsLoading(true);
-        try {
+    // ==========================================
+    // 3. REACT QUERY: FETCH DỮ LIỆU
+    // ==========================================
+    const { data, isLoading, error } = useQuery({
+        queryKey: ["notifications", page, limit, debouncedSearch, filterType, filterIsRead],
+        queryFn: async () => {
             const params = { page, limit };
-            if (searchTerm) params.search = searchTerm;
+            if (debouncedSearch) params.search = debouncedSearch;
             if (filterType) params.type = filterType;
             if (filterIsRead !== "") params.isRead = filterIsRead;
 
             const res = await notificationApi.getAllNotifications(params);
             if (res && res.success) {
-                setNotifications(res.data.notifications || []);
-                setTotalPages(res.data.pagination?.pages || 1);
+                return {
+                    notifications: res.data.notifications || [],
+                    totalPages: res.data.pagination?.pages || 1,
+                };
             }
-        } catch (error) {
-            console.error("Lỗi lấy danh sách thông báo:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+            throw new Error("Không thể tải danh sách thông báo.");
+        },
+        staleTime: 1 * 60 * 1000, // Cache trong 1 phút
+    });
 
-    useEffect(() => {
-        fetchStats();
-    }, []);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchNotifications();
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [page, searchTerm, filterType, filterIsRead]);
+    const notifications = data?.notifications || [];
+    const totalPages = data?.totalPages || 1;
 
     // ==========================================
-    // 5. HELPER & HANDLERS
+    // 4. REACT QUERY: MUTATION (GỬI BROADCAST)
+    // ==========================================
+    const broadcastMutation = useMutation({
+        mutationFn: (payload) => notificationApi.broadcastNotification(payload),
+        onSuccess: () => {
+            showToast("Đã gửi thông báo hàng loạt thành công!");
+            setIsModalOpen(false);
+            setFormData(initialForm);
+            setPage(1); // Chuyển về trang 1 để thấy thông báo mới nhất
+            queryClient.invalidateQueries({ queryKey: ["notifications"] }); // Làm mới danh sách
+        },
+        onError: (err) => {
+            showToast(err.response?.data?.message || "Lỗi kết nối hoặc xử lý từ server", "error");
+        },
+    });
+
+    const isSubmitting = broadcastMutation.isPending;
+
+    // ==========================================
+    // 5. HANDLERS
     // ==========================================
     const showToast = (message, type = "success") => {
         setToast({ show: true, message, type });
-        setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000);
+        setTimeout(() => setToast((prev) => ({ ...prev, show: false })), 3000);
     };
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleDropdownSelect = (field, value) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
-        setShowFormTypeDropdown(false);
-        setShowFormPriorityDropdown(false);
-    };
-
-    const handleSendBroadcast = async (e) => {
+    const handleSendBroadcast = (e) => {
         e.preventDefault();
-        setIsSubmitting(true);
-        try {
-            const res = await notificationApi.broadcastNotification(formData);
-            if (res && res.success) {
-                showToast("Đã gửi thông báo hàng loạt thành công!");
-                setIsModalOpen(false);
-                setFormData(initialForm);
-                setPage(1);
-                fetchNotifications(); 
-                fetchStats(); 
-            } else {
-                showToast(res?.message || "Có lỗi xảy ra", "error");
-            }
-        } catch (error) {
-            showToast(error.response?.data?.message || "Lỗi kết nối", "error");
-        } finally {
-            setIsSubmitting(false);
+        if (!formData.title_msg || !formData.content_msg) {
+            return showToast("Vui lòng nhập đủ Tiêu đề và Nội dung!", "error");
         }
+        broadcastMutation.mutate(formData);
     };
 
-    // UI Helpers cho Dropdowns
-    const getTypeLabel = (val) => {
-        switch(val) {
-            case "SYSTEM": return "Hệ thống (SYSTEM)";
-            case "PROMOTION": return "Khuyến mãi (PROMOTION)";
-            case "BOOKING_REMINDER": return "Nhắc lịch (REMINDER)";
-            case "BOOKING_CONFIRMED": return "Xác nhận lịch (CONFIRMED)";
-            default: return "Tất cả loại (Type)";
-        }
-    };
-
-    const getStatusLabel = (val) => {
-        if(val === "true") return "Đã đọc";
-        if(val === "false") return "Chưa đọc";
-        return "Tất cả trạng thái";
-    };
-
-    const getPriorityLabel = (val) => {
-        switch(val) {
-            case "LOW": return "Thấp (LOW)";
-            case "MEDIUM": return "Trung bình (MEDIUM)";
-            case "HIGH": return "Cao (HIGH)";
-            default: return "Chọn mức độ";
-        }
+    // 🟢 STYLE ĐỒNG BỘ CHO REACT-SELECT
+    const customSelectStyles = {
+        control: (provided, state) => ({
+            ...provided,
+            minHeight: "38px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db",
+            boxShadow: "none",
+            "&:hover": { borderColor: "var(--primary-color)" },
+            backgroundColor: "#fff",
+        }),
+        input: (provided) => ({ ...provided, margin: 0, padding: 0, fontSize: "14px" }),
+        option: (provided, state) => ({
+            ...provided,
+            backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white",
+            color: state.isSelected ? "var(--primary-color)" : "#374151",
+            cursor: "pointer",
+            margin: "4px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            width: "96%",
+        }),
+        menu: (provided) => ({ ...provided, zIndex: 9999 }),
+        menuList: (provided) => ({ ...provided, overflowX: "hidden" }),
     };
 
     // ==========================================
     // RENDER
     // ==========================================
     return (
-        <div className="services-container">
-            {toast.show && (
-                <div className={`toast-message fixed-toast ${toast.type}`} style={{ zIndex: 9999 }}>
-                    <span>{toast.message}</span>
-                    <button className="toast-close" onClick={() => setToast({ ...toast, show: false })}>×</button>
-                </div>
-            )}
+        <>
+            <PageHeader breadcrumbs={[{ label: "Quản lý Thông báo" }]} title="Quản lí thông báo" description="Theo dõi lịch sử thông báo hệ thống và gửi thông báo hàng loạt tới người dùng." />
 
-            <div className="services-header-bar">
-                <h1 className="services-title">Quản lý Thông báo</h1>
-                <button className="add-btn" onClick={() => setIsModalOpen(true)}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
-                        <path d="M5 12h14"></path><path d="M12 5v14"></path>
-                    </svg>
-                    <span>Gửi thông báo (Broadcast)</span>
-                </button>
-            </div>
+            <div className="z-notification-container">
+                <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
 
-            {/* THỐNG KÊ */}
-            <div className="stats-grid">
-                <div className="stat-card">
-                    <div className="stat-value">{stats.total}</div>
-                    <div className="stat-label">Tổng thông báo</div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-value text-green">{stats.totalRead}</div>
-                    <div className="stat-label">Đã đọc</div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-value text-orange">{stats.totalUnread}</div>
-                    <div className="stat-label">Chưa đọc</div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-value text-blue">{stats.readRate}</div>
-                    <div className="stat-label">Tỷ lệ đọc</div>
-                </div>
-            </div>
-
-            {/* BỘ LỌC TÌM KIẾM */}
-            <div className="services-tools" style={{ marginBottom: '20px' }}>
-                <div className="search-box" style={{ flex: 1 }}>
-                    <input 
-                        type="text" 
-                        placeholder="Tìm tiêu đề, nội dung..." 
-                        value={searchTerm}
-                        onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-                    />
-                </div>
-                
-                {/* Custom Filter Type */}
-                <div className="filter-dropdown-container" style={{ position: 'relative' }}>
-                    <button className="btn-filter" onClick={() => { setShowFilterTypeDropdown(!showFilterTypeDropdown); setShowFilterStatusDropdown(false); }}>
-                        <span>{getTypeLabel(filterType)}</span>
-                        <span className="dropdown-arrow">▼</span>
-                    </button>
-                    {showFilterTypeDropdown && (
-                        <div className="filter-dropdown-menu">
-                            <div className={`filter-option ${filterType === "" ? "active" : ""}`} onClick={() => { setFilterType(""); setPage(1); setShowFilterTypeDropdown(false); }}>Tất cả loại (Type)</div>
-                            <div className={`filter-option ${filterType === "SYSTEM" ? "active" : ""}`} onClick={() => { setFilterType("SYSTEM"); setPage(1); setShowFilterTypeDropdown(false); }}>Hệ thống (SYSTEM)</div>
-                            <div className={`filter-option ${filterType === "PROMOTION" ? "active" : ""}`} onClick={() => { setFilterType("PROMOTION"); setPage(1); setShowFilterTypeDropdown(false); }}>Khuyến mãi (PROMOTION)</div>
-                            <div className={`filter-option ${filterType === "BOOKING_REMINDER" ? "active" : ""}`} onClick={() => { setFilterType("BOOKING_REMINDER"); setPage(1); setShowFilterTypeDropdown(false); }}>Nhắc lịch (REMINDER)</div>
-                            <div className={`filter-option ${filterType === "BOOKING_CONFIRMED" ? "active" : ""}`} onClick={() => { setFilterType("BOOKING_CONFIRMED"); setPage(1); setShowFilterTypeDropdown(false); }}>Xác nhận lịch (CONFIRMED)</div>
-                        </div>
-                    )}
+                <div className="z-notification-header">
+                    <h1 className="z-notification-title">Lịch sử Thông báo</h1>
                 </div>
 
-                {/* Custom Filter Status */}
-                <div className="filter-dropdown-container" style={{ position: 'relative' }}>
-                    <button className="btn-filter" onClick={() => { setShowFilterStatusDropdown(!showFilterStatusDropdown); setShowFilterTypeDropdown(false); }}>
-                        <span>{getStatusLabel(filterIsRead)}</span>
-                        <span className="dropdown-arrow">▼</span>
-                    </button>
-                    {showFilterStatusDropdown && (
-                        <div className="filter-dropdown-menu">
-                            <div className={`filter-option ${filterIsRead === "" ? "active" : ""}`} onClick={() => { setFilterIsRead(""); setPage(1); setShowFilterStatusDropdown(false); }}>Tất cả trạng thái</div>
-                            <div className={`filter-option ${filterIsRead === "true" ? "active" : ""}`} onClick={() => { setFilterIsRead("true"); setPage(1); setShowFilterStatusDropdown(false); }}>Đã đọc</div>
-                            <div className={`filter-option ${filterIsRead === "false" ? "active" : ""}`} onClick={() => { setFilterIsRead("false"); setPage(1); setShowFilterStatusDropdown(false); }}>Chưa đọc</div>
-                        </div>
-                    )}
-                </div>
-            </div>
+                <div className="z-notification-tools">
+                    <div className="z-notification-search">
+                        <input type="text" placeholder="Tìm tiêu đề, nội dung..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    </div>
 
-            {/* BẢNG DỮ LIỆU */}
-            <div className="table-wrapper">
-                <table className="services-table">
-                    <thead>
-                        <tr>
-                            <th>Người nhận</th>
-                            <th>Tiêu đề & Nội dung</th>
-                            <th>Loại</th>
-                            <th>Thời gian</th>
-                            <th>Trạng thái</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {isLoading && notifications.length === 0 ? (
-                            <tr><td colSpan="5" className="state-message">Đang tải dữ liệu...</td></tr>
-                        ) : notifications.length === 0 ? (
-                            <tr><td colSpan="5" className="state-message">Không tìm thấy thông báo nào.</td></tr>
-                        ) : (
-                            notifications.map((notif) => (
-                                <tr key={notif._id}>
-                                    <td>
-                                        <div className="product-name">{notif.userId?.fullName || "Người dùng ẩn"}</div>
-                                        <div className="product-desc">{notif.userId?.phoneNumber || ""}</div>
-                                    </td>
-                                    <td style={{ maxWidth: '300px' }}>
-                                        <div className="product-name">{notif.title_msg}</div>
-                                        <div className="product-desc" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{notif.content_msg}</div>
-                                    </td>
-                                    <td>
-                                        <span className="category-badge" style={{ backgroundColor: '#f3f4f6', color: '#4b5563', border: '1px solid #d1d5db' }}>
-                                            {notif.type}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div style={{ fontSize: '14px', color: '#111827' }}>{new Date(notif.createdAt).toLocaleDateString('vi-VN')}</div>
-                                        <div style={{ fontSize: '12px', color: '#6b7280' }}>{notif.time_msg}</div>
-                                    </td>
-                                    <td>
-                                        {notif.isRead ? (
-                                            <span className="category-badge" style={{ backgroundColor: '#dcfce7', color: '#059669', borderColor: '#059669' }}>Đã đọc</span>
-                                        ) : (
-                                            <span className="category-badge" style={{ backgroundColor: '#fef3c7', color: '#d97706', borderColor: '#d97706' }}>Chưa đọc</span>
-                                        )}
+                    <div style={{ minWidth: "220px", zIndex: 11 }}>
+                        <ReactSelect
+                            options={filterTypeOptions}
+                            value={filterTypeOptions.find((opt) => opt.value === filterType) || filterTypeOptions[0]}
+                            onChange={(selected) => {
+                                setFilterType(selected ? selected.value : "");
+                                setPage(1);
+                            }}
+                            styles={customSelectStyles}
+                            isSearchable={false}
+                            placeholder="Loại thông báo"
+                        />
+                    </div>
+
+                    <div style={{ minWidth: "180px", zIndex: 10 }}>
+                        <ReactSelect
+                            options={filterReadOptions}
+                            value={filterReadOptions.find((opt) => opt.value === filterIsRead) || filterReadOptions[0]}
+                            onChange={(selected) => {
+                                setFilterIsRead(selected ? selected.value : "");
+                                setPage(1);
+                            }}
+                            styles={customSelectStyles}
+                            isSearchable={false}
+                            placeholder="Trạng thái"
+                        />
+                    </div>
+
+                    <AddButton style={{ marginLeft: "auto" }} onClick={() => setIsModalOpen(true)}>
+                        Gửi Thông báo
+                    </AddButton>
+                </div>
+
+                <div className="z-notification-table-wrapper">
+                    <table className="z-notification-table">
+                        <thead>
+                            <tr>
+                                <th style={{ width: "50px", textAlign: "center" }}>STT</th>
+                                <th style={{ width: "200px" }}>Người nhận</th>
+                                <th>Tiêu đề & Nội dung</th>
+                                <th>Loại</th>
+                                <th>Thời gian</th>
+                                <th>Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {isLoading && notifications.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6">
+                                        <div className="z-notification-state">Đang tải dữ liệu...</div>
                                     </td>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* PHÂN TRANG */}
-            {totalPages > 1 && (
-                <div style={{ display: "flex", justifyContent: "center", marginTop: "20px", gap: "10px" }}>
-                    <button className="btn-secondary" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Trang trước</button>
-                    <span style={{ padding: "8px 12px", fontWeight: "500", color: "#374151" }}>Trang {page} / {totalPages}</span>
-                    <button className="btn-secondary" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Trang sau</button>
+                            ) : error ? (
+                                <tr>
+                                    <td colSpan="6">
+                                        <div className="z-notification-state z-notification-error">{error.message}</div>
+                                    </td>
+                                </tr>
+                            ) : notifications.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6">
+                                        <div className="z-notification-state">Không tìm thấy thông báo nào.</div>
+                                    </td>
+                                </tr>
+                            ) : (
+                                notifications.map((notif, index) => (
+                                    <tr key={notif._id}>
+                                        <td style={{ textAlign: "center", fontWeight: "600", color: "#6b7280" }}>{(page - 1) * limit + index + 1}</td>
+                                        <td>
+                                            <div className="z-notification-text-bold">{notif.userId?.fullName || "Người dùng ẩn"}</div>
+                                            <div className="z-notification-subtext">{notif.userId?.phoneNumber || "Chưa có SĐT"}</div>
+                                        </td>
+                                        <td style={{ maxWidth: "350px" }}>
+                                            <div className="z-notification-text-bold" style={{ marginBottom: "4px" }}>
+                                                {notif.title_msg}
+                                            </div>
+                                            <div className="z-notification-text-clamp" title={notif.content_msg}>
+                                                {notif.content_msg}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span className="z-notification-badge-gray">{notif.type}</span>
+                                        </td>
+                                        <td>
+                                            <div className="z-notification-text-normal">{new Date(notif.createdAt).toLocaleDateString("vi-VN")}</div>
+                                            <div className="z-notification-subtext">{notif.time_msg}</div>
+                                        </td>
+                                        <td>{notif.isRead ? <span className="z-notification-badge-green">Đã đọc</span> : <span className="z-notification-badge-orange">Chưa đọc</span>}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
                 </div>
-            )}
 
-            {/* MODAL GỬI BROADCAST */}
-            {isModalOpen && (
-                <div className="modal-overlay">
-                    <div className="modal-content-clinics" style={{ maxWidth: '550px' }}>
-                        <div className="modal-header">
-                            <h2>Gửi Thông báo Hàng loạt</h2>
-                            <button type="button" className="close-modal-btn" onClick={() => !isSubmitting && setIsModalOpen(false)}>×</button>
-                        </div>
-                        
-                        <form className="modal-form" onSubmit={handleSendBroadcast} style={{ overflow: 'visible' }}>
-                            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                
-                                <div className="form-group">
-                                    <label>Tiêu đề thông báo <span className="required">*</span></label>
-                                    <input type="text" name="title_msg" required value={formData.title_msg} onChange={handleInputChange} disabled={isSubmitting} placeholder="VD: Khuyến mãi sốc tháng này..." style={{ width: '100%' }}/>
-                                </div>
-                                
-                                <div className="form-group">
-                                    <label>Nội dung chi tiết <span className="required">*</span></label>
-                                    <textarea name="content_msg" required rows="4" value={formData.content_msg} onChange={handleInputChange} disabled={isSubmitting} placeholder="Nhập nội dung..."></textarea>
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '16px' }}>
-                                    {/* Custom Dropdown Loại Thông Báo */}
-                                    <div className="form-group" style={{ flex: 1, position: 'relative' }}>
-                                        <label>Loại thông báo</label>
-                                        <div className="filter-dropdown-container" style={{ width: '100%', margin: 0 }}>
-                                            <button type="button" className="btn-filter" style={{ width: '100%', justifyContent: 'space-between' }} onClick={() => { setShowFormTypeDropdown(!showFormTypeDropdown); setShowFormPriorityDropdown(false); }}>
-                                                <span>{getTypeLabel(formData.type)}</span>
-                                                <span className="dropdown-arrow">▼</span>
-                                            </button>
-                                            {showFormTypeDropdown && (
-                                                <div className="filter-dropdown-menu" style={{ width: '100%' }}>
-                                                    <div className={`filter-option ${formData.type === "SYSTEM" ? "active" : ""}`} onClick={() => handleDropdownSelect("type", "SYSTEM")}>Hệ thống (SYSTEM)</div>
-                                                    <div className={`filter-option ${formData.type === "PROMOTION" ? "active" : ""}`} onClick={() => handleDropdownSelect("type", "PROMOTION")}>Khuyến mãi (PROMOTION)</div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Custom Dropdown Mức độ ưu tiên */}
-                                    <div className="form-group" style={{ flex: 1, position: 'relative' }}>
-                                        <label>Mức độ ưu tiên</label>
-                                        <div className="filter-dropdown-container" style={{ width: '100%', margin: 0 }}>
-                                            <button type="button" className="btn-filter" style={{ width: '100%', justifyContent: 'space-between' }} onClick={() => { setShowFormPriorityDropdown(!showFormPriorityDropdown); setShowFormTypeDropdown(false); }}>
-                                                <span>{getPriorityLabel(formData.priority)}</span>
-                                                <span className="dropdown-arrow">▼</span>
-                                            </button>
-                                            {showFormPriorityDropdown && (
-                                                <div className="filter-dropdown-menu" style={{ width: '100%' }}>
-                                                    <div className={`filter-option ${formData.priority === "LOW" ? "active" : ""}`} onClick={() => handleDropdownSelect("priority", "LOW")}>Thấp (LOW)</div>
-                                                    <div className={`filter-option ${formData.priority === "MEDIUM" ? "active" : ""}`} onClick={() => handleDropdownSelect("priority", "MEDIUM")}>Trung bình (MEDIUM)</div>
-                                                    <div className={`filter-option ${formData.priority === "HIGH" ? "active" : ""}`} onClick={() => handleDropdownSelect("priority", "HIGH")}>Cao (HIGH)</div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div style={{ background: '#fef3c7', padding: '12px', borderRadius: '6px', borderLeft: '4px solid #d97706' }}>
-                                    <p style={{ margin: 0, fontSize: '13px', color: '#92400e' }}>
-                                        <strong>Lưu ý:</strong> Chức năng Broadcast sẽ gửi thông báo này tới chuông thông báo của <b>TẤT CẢ người dùng</b> đang có trong hệ thống ứng dụng.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="modal-footer">
-                                <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}>Hủy bỏ</button>
-                                <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                                    {isSubmitting ? "Đang xử lý..." : "Gửi thông báo"}
+                {totalPages > 1 && (
+                    <div className="z-notification-pagination">
+                        <button className="z-pagination-btn" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+                            Trước
+                        </button>
+                        <div className="z-pagination-numbers">
+                            {[...Array(totalPages)].map((_, i) => (
+                                <button key={i + 1} className={`z-pagination-number ${page === i + 1 ? "active" : ""}`} onClick={() => setPage(i + 1)}>
+                                    {i + 1}
                                 </button>
-                            </div>
-                        </form>
+                            ))}
+                        </div>
+                        <button className="z-pagination-btn" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>
+                            Sau
+                        </button>
                     </div>
-                </div>
-            )}
-        </div>
+                )}
+
+                {/* MODAL GỬI BROADCAST */}
+                <Modal isOpen={isModalOpen} onClose={() => !isSubmitting && setIsModalOpen(false)} title="Gửi Thông báo Hàng loạt (Broadcast)" size="md" onSave={handleSendBroadcast} saveText={isSubmitting ? "Đang xử lý..." : "Gửi thông báo"}>
+                    <div className="z-notification-form">
+                        <div className="z-notification-info-box">
+                            <p style={{ fontStyle: "italic" }}>
+                                <strong style={{ color: "var(--error)" }}>Lưu ý:</strong> Chức năng Broadcast sẽ gửi thông báo này tới chuông thông báo của <b>TẤT CẢ người dùng</b> đang có trong hệ thống ứng dụng.
+                            </p>
+                            <div style={{ paddingBottom: "10px", borderBottom: "1px dashed #e5e7eb" }}>
+                                <span style={{ color: "red", fontWeight: "bold", fontSize: "16px" }}>*</span>
+                                <span style={{ color: "#6b7280", fontSize: "12px", fontStyle: "italic", marginLeft: "4px" }}>: Các trường có dấu sao là bắt buộc. Vui lòng nhập đầy đủ thông tin.</span>
+                            </div>
+                        </div>
+
+                        <div className="z-notification-form-group">
+                            <label>
+                                Tiêu đề thông báo <span className="z-notification-required">*</span>
+                            </label>
+                            <input type="text" name="title_msg" required value={formData.title_msg} onChange={handleInputChange} disabled={isSubmitting} className="z-notification-input" placeholder="VD: Khuyến mãi sốc tháng này..." />
+                        </div>
+
+                        <div className="z-notification-form-group">
+                            <label>
+                                Nội dung chi tiết <span className="z-notification-required">*</span>
+                            </label>
+                            <textarea name="content_msg" required rows="4" value={formData.content_msg} onChange={handleInputChange} disabled={isSubmitting} className="z-notification-textarea" placeholder="Nhập nội dung..."></textarea>
+                        </div>
+
+                        <div className="z-notification-form-row">
+                            <div className="z-notification-form-group" style={{ flex: 1 }}>
+                                <label>Loại thông báo</label>
+                                <ReactSelect options={formTypeOptions} value={formTypeOptions.find((opt) => opt.value === formData.type) || formTypeOptions[0]} onChange={(selected) => setFormData((prev) => ({ ...prev, type: selected.value }))} isDisabled={isSubmitting} styles={customSelectStyles} isSearchable={false} menuPosition="fixed" />
+                            </div>
+
+                            <div className="z-notification-form-group" style={{ flex: 1 }}>
+                                <label>Mức độ ưu tiên</label>
+                                <ReactSelect options={formPriorityOptions} value={formPriorityOptions.find((opt) => opt.value === formData.priority) || formPriorityOptions[1]} onChange={(selected) => setFormData((prev) => ({ ...prev, priority: selected.value }))} isDisabled={isSubmitting} styles={customSelectStyles} isSearchable={false} menuPosition="fixed" />
+                            </div>
+                        </div>
+                    </div>
+                </Modal>
+            </div>
+        </>
     );
 }

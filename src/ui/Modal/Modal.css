@@ -63,6 +63,7 @@
 /* ================= BODY (MAIN) ================= */
 .z-modal-body {
     padding: 24px;
+    padding-bottom: 120px;
     overflow-y: auto; /* Cho phép cuộn nếu nội dung form quá dài */
     flex-grow: 1; /* Chiếm phần không gian còn lại */
 }

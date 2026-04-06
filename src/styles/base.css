@@ -11,10 +11,14 @@
   --text-main: #424242;
   --white: #ffffff;
   --border-color: #e5e7eb;
+  --super-admin: #CB30E0;
+  --admin: #357cfa;
+  --base-admin: rgb(53, 124, 250, 0.1);
+  --base-super-admin: rgb(203, 48, 224, 0.1);
   --error: #dd2c2c;
   --base-error: rgba(221, 44, 44, 0.1);
-  --warning: #EDA145;
-  --base-warning: rgba(237, 161, 69, 0.2);
+  --warning: #ffb331; 
+  --base-warning: rgb(255, 179, 49, 0.1);
   --edit: #357cfa;
   --base-edit: rgb(53, 124, 250, 0.1);
   --outline: #374151;

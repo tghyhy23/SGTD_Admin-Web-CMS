@@ -9,11 +9,11 @@
 .z-banner-state {
     text-align: center;
     padding: 40px;
-    color: #6b7280;
+    color: var(--gray500);
     font-size: 16px;
 }
 .z-banner-error {
-    color: #ef4444;
+    color: var(--error);
 }
 
 /* Header Bar */
@@ -36,7 +36,7 @@
 
 /* Tools Bar (Search + Filters + Add Btn) */
 .z-banner-tools {
-    margin-bottom: 12px;
+    margin-bottom: 16px;
     display: flex;
     gap: 12px;
     align-items: center;
@@ -49,11 +49,16 @@
     border-radius: 6px;
     outline: none;
     font-size: 14px;
-    width: 250px;
+    width: 300px;
 }
 
 .z-banner-search input:focus {
     border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(49, 46, 129, 0.1);
+}
+
+.z-banner-search input::placeholder {
+    font-size: 14px;
 }
 
 /* Filters */
@@ -108,33 +113,6 @@
     font-weight: 500;
 }
 
-/* Toast */
-.z-banner-toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 12px 20px;
-    border-radius: 6px;
-    color: white;
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-.z-banner-toast.success {
-    background-color: #10b981;
-}
-.z-banner-toast.error {
-    background-color: #ef4444;
-}
-.z-banner-toast-close {
-    background: none;
-    border: none;
-    color: white;
-    cursor: pointer;
-    font-size: 18px;
-}
 
 /* Table Wrapper */
 .z-banner-table-wrapper {
@@ -149,18 +127,20 @@
     border-collapse: collapse;
 }
 
-.z-banner-table th,
-.z-banner-table td {
+.z-banner-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
     padding: 12px 16px;
     border-bottom: 1px solid #e5e7eb;
     text-align: left;
     font-size: 14px;
 }
-
-.z-banner-table th {
-    background: #f9fafb;
-    font-weight: 600;
-    color: #374151;
+.z-banner-table td {
+    padding: 18px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    font-size: 14px;
 }
 
 /* Cột dữ liệu Table */
@@ -183,24 +163,24 @@
 .z-banner-badge-gray {
     background: #f3f4f6;
     color: #4b5563;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
 }
 
 .z-banner-badge-blue {
     background: var(--base-edit);
     color: var(--edit);
-    padding: 4px 12px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
     border: 1px solid var(--edit);
     font-weight: bold;
 }
 
 .z-banner-status-badge {
-    padding: 4px 12px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-size: 12px;
     font-weight: 600;
     border: 1px solid transparent;
@@ -208,12 +188,12 @@
 .z-banner-status-badge.published {
     background: var(--base-primary);
     color: var(--primary-color);
-    border-color: var(--primary-color);
+    /* border-color: var(--primary-color); */
 }
 .z-banner-status-badge.draft {
     background: var(--inactive-bg);
     color: var(--inactive-color);
-    border-color: var(--inactive-border);
+    /* border-color: var(--inactive-border); */
 }
 
 /* Table Actions - Adjusted for the reusable buttons */
@@ -270,6 +250,7 @@
 .z-banner-input:focus,
 .z-banner-textarea:focus {
     border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(49, 46, 129, 0.1);
 }
 
 .z-banner-upload-wrapper {
@@ -309,9 +290,9 @@
     position: absolute;
     top: -6px;
     right: -6px;
-    background: #ef4444;
+    background: var(--error);
     color: white;
-    border: none;
+    border: 2px solid white;
     border-radius: 50%;
     width: 22px;
     height: 22px;
@@ -320,7 +301,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+    transition: transform 0.1s;
 }
+
+.z-banner-remove-img-btn:hover {
+    transform: scale(1.1);
+    background: var(--error);
+}
+
 
 /* Modal Xóa */
 .z-banner-delete-content {
@@ -339,7 +328,7 @@
 .z-banner-tabs {
     display: flex;
     gap: 8px;
-    margin-bottom: 10px;
+    margin-bottom: 16px;
     border-bottom: 1px solid #e5e7eb;
 }
 .z-banner-tab-item {
@@ -419,4 +408,70 @@
 /* Để menu không bị cắt bởi overflow của table-wrapper */
 .z-banner-table-wrapper {
     overflow: visible;
+}
+
+.z-banner-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 25px;
+    padding-bottom: 20px;
+}
+
+.z-pagination-btn {
+    padding: 6px 14px;
+    border: 1px solid #d1d5db;
+    background-color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.z-pagination-btn:disabled {
+    background-color: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.z-pagination-btn:not(:disabled):hover {
+    background-color: var(--base-primary);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.z-pagination-numbers {
+    display: flex;
+    gap: 5px;
+}
+
+.z-pagination-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background-color: white;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.z-pagination-number.active {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.z-pagination-number:hover:not(.active) {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+/* Đảm bảo table-wrapper không che mất menu action khi có ít dòng */
+.z-banner-table-wrapper {
+    min-height: 300px;
 }

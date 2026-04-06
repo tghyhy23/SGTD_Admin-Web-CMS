@@ -1,0 +1,366 @@
+/* Tùy chỉnh Checkbox */
+.z-user-checkbox {
+    margin-left: 40px;
+    margin-top: 8px;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--primary-color);
+}
+
+/* Email phụ dưới tên */
+.z-user-sub-email {
+    font-size: 13px;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
+/* Ngày sinh */
+.z-user-birthday {
+    color: #4b5563;
+    font-size: 14px;
+}
+
+/* Status Badge kiểu mới (Không dùng dot) */
+.z-user-status-badge {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.z-user-status-badge.active {
+    background: var(--base-primary);
+    color: var(--primary-color);
+}
+
+.z-user-status-badge.inactive {
+    background: var(--base-error);
+    color: var(--error);
+}
+
+/* Giữ nguyên các style cũ của bạn */
+.z-user-container {
+    padding: 20px;
+    background: var(--bg-color);
+    border-radius: 12px;
+}
+.z-user-header {
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+.z-user-title {
+    padding-bottom: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #111827;
+    margin: 0;
+}
+.z-user-state {
+    text-align: center;
+    padding: 40px;
+    color: #6b7280;
+}
+.z-user-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.z-user-tab-item {
+    padding: 10px 20px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+}
+.z-user-tab-item.active {
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
+    font-weight: 600;
+}
+.z-user-tools {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+.z-user-search input {
+    padding: 8px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    width: 300px;
+    outline: none;
+}
+.z-user-search input {
+    padding: 8px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    outline: none;
+    font-size: 14px;
+    width: 300px;
+}
+
+.z-user-search input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(49, 46, 129, 0.1);
+}
+
+.z-user-search input::placeholder {
+    font-size: 14px;
+}
+.z-user-btn-filter {
+    font-size: 14px;
+    padding: 8px 14px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.z-user-filter {
+    position: relative; /* CỰC KỲ QUAN TRỌNG */
+}
+.z-user-dropdown-menu {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    min-width: 200px;
+    padding: 4px;
+}
+.z-user-dropdown-item {
+    padding: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 4px;
+}
+.z-user-dropdown-item:hover,
+.z-user-dropdown-item.active {
+    background: var(--base-primary);
+    color: var(--primary-color);
+}
+.z-user-table-wrapper {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: visible;
+}
+.z-user-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.z-user-table th,
+.z-user-table td {
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    font-size: 14px;
+}
+.z-user-table th {
+    background: #f9fafb;
+    color: #374151;
+    font-weight: 600;
+}
+.z-user-table th:nth-child(2), 
+.z-user-table td:nth-child(2) {
+    width: 400px; /* Thiết lập độ rộng cố định bạn mong muốn */
+    max-width: 400px;
+    min-width: 250px;
+}
+.z-user-info-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.z-user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #e5e7eb;
+}
+.z-user-name {
+    font-weight: 600;
+    color: #111827;
+}
+.z-user-role-badge {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+.z-user-role-badge.superadmin {
+    background: var(--base-super-admin);
+    color: var(--super-admin);
+}
+
+.z-user-role-badge.admin {
+    background: var(--base-admin);
+    color: var(--admin);
+}
+.z-user-role-badge.user {
+    background: var(--base-primary);
+    color: var(--primary-color);
+}
+
+
+.z-user-dropdown-actions {
+    position: relative;
+    display: inline-block;
+}
+.z-user-name, 
+.z-user-sub-email {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Hiện dấu ... nếu quá dài */
+    display: block;
+    width: 100%;
+}
+.z-user-more-btn {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+}
+.z-user-action-menu {
+    position: absolute;
+    right: 0;
+    top: 0;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    z-index: 110;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.2s ease;
+}
+.z-user-dropdown-actions:hover .z-user-action-menu {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+}
+.z-user-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 25px;
+    padding-bottom: 20px;
+}
+.z-pagination-btn {
+    padding: 6px 14px;
+    border: 1px solid #d1d5db;
+    background-color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+.z-pagination-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background-color: white;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+.z-pagination-number.active {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+/* ================= MODAL FORMS ================= */
+.z-user-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* Khoảng cách rộng rãi chuẩn như Banners */
+    min-height: 250px;
+}
+
+.z-user-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Khoảng cách giữa label và input */
+}
+
+.z-user-form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151; /* Màu chữ tiêu chuẩn */
+    margin: 0;
+}
+
+.z-user-input {
+    width: 100%;
+    padding: 12px 14px; /* Form control to hơn, click dễ hơn */
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px; /* Bo góc 8px chuẩn UI */
+    font-size: 14px;
+    color: #111827;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.2s ease-in-out;
+}
+
+.z-user-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(18, 145, 90, 0.1); /* Hiệu ứng focus xanh đồng bộ */
+}
+
+/* Style riêng cho input bị disable (Họ và tên) */
+.z-user-input.readonly,
+.z-user-input:disabled {
+    background-color: #f3f4f6;
+    color: #6b7280;
+    cursor: not-allowed;
+    border-color: #e5e7eb;
+}
+
+/* ================= MODAL DELETE ================= */
+.z-user-delete-content {
+    text-align: center;
+    padding: 10px 0;
+}
+
+.z-user-delete-content h3 { 
+    margin: 16px 0 8px 0; 
+    color: #111827; 
+    font-size: 18px;
+}
+
+.z-user-delete-content p {
+    color: #4b5563;
+    line-height: 1.5;
+    font-size: 14px;
+    margin: 0;
+}

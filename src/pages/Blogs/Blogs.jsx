@@ -1,15 +1,24 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { postApi } from "../../api/axiosApi";
 import Modal from "../../ui/Modal/Modal";
 import { Button, AddButton, EditButton, DeleteButton } from "../../ui/Button/Button";
 import { Select } from "../../ui/Select/Select";
 import PageHeader from "../../ui/PageHeader/PageHeader";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // 🟢 THÊM IMPORT
+
 import "./Blogs.css";
+import ToastMessage from "../../ui/ToastMessage/ToastMessage";
 
 const removeVietnameseTones = (str) => {
     if (!str) return "";
-    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().trim();
+    return str
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d")
+        .replace(/Đ/g, "D")
+        .toLowerCase()
+        .trim();
 };
 
 const FALLBACK_IMG = "https://via.placeholder.com/150?text=No+Image";
@@ -32,22 +41,35 @@ const postTypeOptions = [
     { value: "Khuyến mãi", label: "Khuyến mãi" },
 ];
 
+const translateError = (errorMsg) => {
+    if (!errorMsg) return "Có lỗi xảy ra, vui lòng thử lại!";
+
+    const errorTranslations = {
+        "Title, external URL and service type are required!": "Vui lòng nhập đầy đủ tiêu đề, đường dẫn (URL) và loại dịch vụ!",
+        "This URL already exists!": "Đường dẫn (URL) này đã tồn tại trên hệ thống, vui lòng chọn đường dẫn khác!",
+        "Post not found!": "Không tìm thấy bài viết này trên hệ thống!",
+        "Posts array is required!": "Danh sách bài viết không hợp lệ!",
+        "Internal Server Error": "Lỗi máy chủ nội bộ, vui lòng thử lại sau!",
+    };
+
+    return errorTranslations[errorMsg] || errorMsg;
+};
+
 const Blogs = () => {
     const navigate = useNavigate();
-    const [posts, setPosts] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const queryClient = useQueryClient(); // 🟢 Dùng để quản lý Cache
+
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState("all");
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-    const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
+    // State Toast & Modals
+    const [toast, setToast] = useState({ show: false, message: "", type: "success" });
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [postToDelete, setPostToDelete] = useState(null);
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editPostId, setEditPostId] = useState(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const initialForm = {
         title: "",
@@ -59,32 +81,121 @@ const Blogs = () => {
         isFeatured: false,
         isPinned: false,
     };
+
     const [formData, setFormData] = useState(initialForm);
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
     const fileInputRef = useRef(null);
 
-    const fetchAllPosts = async () => {
-        setIsLoading(true);
-        try {
+    // ==========================================
+    // 1. USEQUERY: LẤY DỮ LIỆU BÀI VIẾT (CACHE 5 PHÚT)
+    // ==========================================
+    const {
+        data: posts = [],
+        isLoading,
+        error,
+    } = useQuery({
+        queryKey: ["posts"],
+        queryFn: async () => {
             const res = await postApi.getAllPosts({ limit: 100 });
-            if (res && res.success) {
-                setPosts(res.data.posts || []);
-            } else {
-                setError("Không thể tải danh sách bài viết.");
-            }
-        } catch (err) {
-            setError("Lỗi kết nối đến máy chủ.");
-        } finally {
-            setIsLoading(false);
+            if (res && res.success) return res.data.posts || [];
+            throw new Error("Không thể tải danh sách bài viết.");
+        },
+        staleTime: 5 * 60 * 1000, // Cache trong 5 phút
+    });
+
+    // ==========================================
+    // 2. USEMUTATION: THÊM / SỬA BÀI VIẾT
+    // ==========================================
+    const savePostMutation = useMutation({
+        mutationFn: ({ id, submitData }) => (id ? postApi.updatePost(id, submitData) : postApi.createPost(submitData)),
+        onSuccess: (res, variables) => {
+            const updatedPost = res.data?.post || res.data || res;
+
+            // Ép Cache UI cập nhật lập tức
+            queryClient.setQueryData(["posts"], (old) => {
+                if (!old) return [];
+                if (variables.id) {
+                    return old.map((p) => (p._id === variables.id ? { ...p, ...updatedPost } : p));
+                }
+                return [updatedPost, ...old];
+            });
+
+            setToast({ show: true, message: variables.id ? "Cập nhật bài viết thành công!" : "Thêm mới bài viết thành công!", type: "success" });
+            setIsFormModalOpen(false);
+        },
+        onError: (err) => {
+            const backendMsg = err.response?.data?.error || err.response?.data?.message || err.message;
+            setToast({ show: true, message: translateError(backendMsg), type: "error" });
+        },
+    });
+
+    // ==========================================
+    // 3. USEMUTATION: ĐỔI TRẠNG THÁI (OPTIMISTIC UPDATE)
+    // ==========================================
+    const toggleStatusMutation = useMutation({
+        mutationFn: (id) => postApi.toggleStatus(id),
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: ["posts"] });
+            const previousPosts = queryClient.getQueryData(["posts"]);
+
+            // Đổi UI ngay lập tức trước khi gọi API
+            queryClient.setQueryData(["posts"], (old) => old.map((p) => (p._id === id ? { ...p, status: p.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" } : p)));
+            return { previousPosts };
+        },
+        onSuccess: () => {
+            setToast({ show: true, message: "Cập nhật trạng thái thành công", type: "success" });
+        },
+        onError: (err, id, context) => {
+            queryClient.setQueryData(["posts"], context.previousPosts); // Phục hồi nếu API lỗi
+            const backendMsg = err.response?.data?.error || err.response?.data?.message || err.message;
+            setToast({ show: true, message: translateError(backendMsg), type: "error" });
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
+    });
+
+    // ==========================================
+    // 4. USEMUTATION: XÓA BÀI VIẾT
+    // ==========================================
+    const deletePostMutation = useMutation({
+        mutationFn: (id) => postApi.deletePost(id),
+        onSuccess: (res, deletedId) => {
+            queryClient.setQueryData(["posts"], (old) => old.filter((p) => p._id !== deletedId));
+            setToast({ show: true, message: "Xóa bài viết thành công", type: "success" });
+            setIsDeleteModalOpen(false);
+            setPostToDelete(null);
+        },
+        onError: (err) => {
+            const backendMsg = err.response?.data?.error || err.response?.data?.message || err.message;
+            setToast({ show: true, message: translateError(backendMsg), type: "error" });
+        },
+    });
+
+    const isSubmitting = savePostMutation.isPending || toggleStatusMutation.isPending || deletePostMutation.isPending;
+
+    // ==========================================
+    // HANDLERS
+    // ==========================================
+    const handleSavePost = () => {
+        if (!formData.title || !formData.externalUrl) {
+            return setToast({ show: true, message: "Vui lòng nhập đủ Tiêu đề và Link URL!", type: "error" });
         }
+
+        const submitData = new FormData();
+        Object.keys(formData).forEach((key) => submitData.append(key, formData[key]));
+        if (imageFile) submitData.append("image", imageFile);
+        if (!isEditMode) submitData.append("contentType", "Post"); // Backend req cho Thêm mới
+
+        savePostMutation.mutate({ id: isEditMode ? editPostId : null, submitData });
     };
 
-    useEffect(() => { fetchAllPosts(); }, []);
+    const confirmDelete = () => {
+        if (postToDelete) deletePostMutation.mutate(postToDelete.id);
+    };
 
-    const showToast = (message, type = "success") => {
-        setToast({ show: true, message, type });
-        setTimeout(() => setToast((prev) => ({ ...prev, show: false })), 3000);
+    const handleToggleStatus = (e, id) => {
+        e.stopPropagation();
+        toggleStatusMutation.mutate(id);
     };
 
     const openAddModal = () => {
@@ -134,84 +245,7 @@ const Blogs = () => {
         setImagePreview(null);
     };
 
-    const handleSavePost = async () => {
-        if (!formData.title || !formData.externalUrl) {
-            return showToast("Vui lòng nhập đủ Tiêu đề và Link URL!", "error");
-        }
-        setIsSubmitting(true);
-        try {
-            const submitData = new FormData();
-            Object.keys(formData).forEach((key) => submitData.append(key, formData[key]));
-            if (imageFile) submitData.append("image", imageFile);
-
-            let response;
-            if (isEditMode) {
-                response = await postApi.updatePost(editPostId, submitData);
-            } else {
-                submitData.append("contentType", "Post");
-                response = await postApi.createPost(submitData);
-            }
-
-            if (response && response.success) {
-                showToast(isEditMode ? "Cập nhật thành công!" : "Thêm mới thành công!");
-                
-                // CẬP NHẬT STATE TRỰC TIẾP GIỐNG BANNER (KHÔNG GỌI fetchAllPosts)
-                if (isEditMode) {
-                    setPosts((prev) => prev.map((p) => p._id === editPostId ? { 
-                        ...p, 
-                        ...formData, 
-                        thumbnailUrl: imagePreview || p.thumbnailUrl 
-                    } : p));
-                } else {
-                    const newPost = response.data?.post || response.data || { _id: Date.now().toString(), ...formData, thumbnailUrl: imagePreview };
-                    setPosts((prev) => [newPost, ...prev]);
-                }
-                setIsFormModalOpen(false);
-            }
-        } catch (error) {
-            showToast("Lỗi hệ thống, vui lòng thử lại", "error");
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const handleToggleStatus = async (e, id) => {
-        e.stopPropagation();
-        const originalPosts = [...posts];
-        // Optimistic Update: Cập nhật UI trước
-        setPosts((prev) => prev.map((p) => (p._id === id ? { ...p, status: p.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" } : p)));
-        
-        try {
-            const res = await postApi.toggleStatus(id);
-            if (!res || !res.success) {
-                setPosts(originalPosts);
-                showToast("Lỗi khi thay đổi trạng thái", "error");
-            } else {
-                showToast("Cập nhật trạng thái thành công");
-            }
-        } catch (err) {
-            setPosts(originalPosts);
-            showToast("Lỗi kết nối", "error");
-        }
-    };
-
-    const confirmDelete = async () => {
-        setIsSubmitting(true);
-        try {
-            const res = await postApi.deletePost(postToDelete.id);
-            if (res.success) {
-                showToast("Xóa bài viết thành công");
-                // CẬP NHẬT STATE TRỰC TIẾP
-                setPosts((prev) => prev.filter((p) => p._id !== postToDelete.id));
-                setIsDeleteModalOpen(false);
-            }
-        } catch (err) {
-            showToast("Không thể xóa bài viết", "error");
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
+    // Lọc dữ liệu hiển thị (Lọc trên Cache có sẵn, không gọi API)
     const filteredPosts = posts.filter((post) => {
         const matchesSearch = removeVietnameseTones(post.title).includes(removeVietnameseTones(searchTerm));
         const matchesStatus = filterStatus === "all" || post.status === filterStatus.toUpperCase();
@@ -219,20 +253,19 @@ const Blogs = () => {
     });
 
     if (isLoading) return <div className="z-blog-state">Đang tải dữ liệu...</div>;
+    if (error) return <div className="z-blog-state z-blog-error">Lỗi: {error.message}</div>;
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý bài viết Blogs" }]} title="Quản lý bài viết Blogs" description="Quản lý các bài viết tin tức, bài SEO và khuyến mãi." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý bài viết tin tức" }]} title="Quản lý bài viết tin tức" description="Quản lý các bài viết tin tức theo loại hình SEO, thiết lập đường dẫn nội dung tin tức." />
+
             <div className="z-blog-container">
-                {toast.show && (
-                    <div className={`z-blog-toast ${toast.type}`}>
-                        <span>{toast.message}</span>
-                        <button onClick={() => setToast({ ...toast, show: false })}>×</button>
-                    </div>
-                )}
+                <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
+
                 <div className="z-blog-header">
                     <h1 className="z-blog-title">Danh sách bài viết</h1>
                 </div>
+
                 <div className="z-blog-tools">
                     <div className="z-blog-search">
                         <input type="text" placeholder="Tìm tiêu đề bài viết..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
@@ -240,18 +273,47 @@ const Blogs = () => {
                     <div className="z-blog-filter">
                         <button className="z-blog-btn-filter" onClick={() => setShowFilterDropdown(!showFilterDropdown)}>
                             <span>{filterStatus === "all" ? "Tất cả trạng thái" : filterStatus === "active" ? "Đang hoạt động" : "Đang ẩn"}</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151"><path d="M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151">
+                                <path d="M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z" />
+                            </svg>
                         </button>
                         {showFilterDropdown && (
                             <div className="z-blog-dropdown-menu">
-                                <div className={`z-blog-dropdown-item ${filterStatus === "all" ? "active" : ""}`} onClick={() => { setFilterStatus("all"); setShowFilterDropdown(false) }}>Tất cả trạng thái</div>
-                                <div className={`z-blog-dropdown-item ${filterStatus === "active" ? "active" : ""}`} onClick={() => { setFilterStatus("active"); setShowFilterDropdown(false) }}>Đang hoạt động</div>
-                                <div className={`z-blog-dropdown-item ${filterStatus === "inactive" ? "active" : ""}`} onClick={() => { setFilterStatus("inactive"); setShowFilterDropdown(false) }}>Đang ẩn</div>
+                                <div
+                                    className={`z-blog-dropdown-item ${filterStatus === "all" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("all");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
+                                    Tất cả trạng thái
+                                </div>
+                                <div
+                                    className={`z-blog-dropdown-item ${filterStatus === "active" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("active");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
+                                    Đang hoạt động
+                                </div>
+                                <div
+                                    className={`z-blog-dropdown-item ${filterStatus === "inactive" ? "active" : ""}`}
+                                    onClick={() => {
+                                        setFilterStatus("inactive");
+                                        setShowFilterDropdown(false);
+                                    }}
+                                >
+                                    Đang ẩn
+                                </div>
                             </div>
                         )}
                     </div>
-                    <AddButton onClick={openAddModal}>Thêm bài viết</AddButton>
+                    <AddButton style={{ marginLeft: "auto" }} onClick={openAddModal}>
+                        Thêm bài viết
+                    </AddButton>
                 </div>
+
                 <div className="z-blog-table-wrapper">
                     <table className="z-blog-table">
                         <thead>
@@ -266,28 +328,41 @@ const Blogs = () => {
                         </thead>
                         <tbody>
                             {filteredPosts.map((post, index) => (
-                                <tr key={post._id} className="z-blog-clickable-row" onClick={() => navigate(`/blog-detail/${post._id}`)}>
+                                <tr key={post._id} className="z-blog-clickable-row" onClick={(e) => openEditModal(e, post)}>
                                     <td>{index + 1}</td>
-                                    <td><img src={post.thumbnailUrl || FALLBACK_IMG} alt="" className="z-blog-img-preview" /></td>
                                     <td>
-                                        <div className="z-blog-text-clamp"><strong>{post.title}</strong></div>
+                                        {/* 🟢 CACHE-BUSTING: Tránh hiện ảnh cũ sau khi cập nhật */}
+                                        <img src={post.thumbnailUrl ? `${post.thumbnailUrl}?t=${new Date(post.updatedAt || Date.now()).getTime()}` : FALLBACK_IMG} alt="" className="z-blog-img-preview" />
+                                    </td>
+                                    <td>
+                                        <div className="z-blog-text-clamp">{post.title}</div>
                                         <div className="z-blog-subtext">{post.externalUrl}</div>
                                     </td>
                                     <td>
                                         <span className="z-blog-badge-gray">{post.postType}</span>
                                         {post.isFeatured && <div className="z-blog-featured-tag">★ Nổi bật</div>}
                                     </td>
-                                    <td><span className={`z-blog-status-badge ${post.status === "ACTIVE" ? "active" : "inactive"}`}>{post.status === "ACTIVE" ? "Hoạt động" : "Đang ẩn"}</span></td>
+                                    <td>
+                                        <span className={`z-blog-status-badge ${post.status === "ACTIVE" ? "active" : "inactive"}`}>{post.status === "ACTIVE" ? "Đang hoạt động" : "Đang ẩn"}</span>
+                                    </td>
                                     <td>
                                         <div className="z-blog-actions-cell" onClick={(e) => e.stopPropagation()}>
                                             <div className="z-blog-kebab-menu">
                                                 <button className="z-blog-kebab-btn">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368"><path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" /></svg>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
+                                                        <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
+                                                    </svg>
                                                 </button>
                                                 <div className="z-blog-action-dropdown">
-                                                    <Button variant="outline" onClick={(e) => handleToggleStatus(e, post._id)}>{post.status === "ACTIVE" ? "Ẩn bài" : "Hiện bài"}</Button>
+                                                    {/* <Button variant="outline" onClick={(e) => handleToggleStatus(e, post._id)} disabled={toggleStatusMutation.isPending}>{post.status === "ACTIVE" ? "Ẩn bài" : "Hiện bài"}</Button> */}
                                                     <EditButton onClick={(e) => openEditModal(e, post)} />
-                                                    <DeleteButton onClick={(e) => { e.stopPropagation(); setPostToDelete({ id: post._id, title: post.title }); setIsDeleteModalOpen(true); }} />
+                                                    <DeleteButton
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setPostToDelete({ id: post._id, title: post.title });
+                                                            setIsDeleteModalOpen(true);
+                                                        }}
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
@@ -296,18 +371,28 @@ const Blogs = () => {
                             ))}
                         </tbody>
                     </table>
+                    {filteredPosts.length === 0 && <div className="z-blog-state">Không tìm thấy bài viết nào phù hợp.</div>}
                 </div>
 
-                <Modal isOpen={isFormModalOpen} onClose={() => !isSubmitting && setIsFormModalOpen(false)} title={isEditMode ? "Cập nhật bài viết" : "Thêm bài viết mới"} size="lg" onSave={handleSavePost} saveText={isSubmitting ? "Đang xử lý..." : isEditMode ? "Lưu thay đổi" : "Lưu bài viết"}>
+                {/* MODAL FORM */}
+                <Modal isOpen={isFormModalOpen} onClose={() => !isSubmitting && setIsFormModalOpen(false)} title={isEditMode ? "Cập nhật bài viết" : "Thêm bài viết mới"} size="lg" onSave={handleSavePost} saveText={savePostMutation.isPending ? "Đang xử lý..." : "Lưu thay đổi"}>
                     <div className="z-blog-form">
+                        <div style={{ marginBottom: "10px", marginTop: "-15px", paddingBottom: "6px", borderBottom: "1px dashed #e5e7eb" }}>
+                            <span style={{ color: "red", fontWeight: "bold", fontSize: "16px" }}>*</span>
+                            <span style={{ color: "#6b7280", fontSize: "12px", fontStyle: "italic", marginLeft: "4px" }}>: Các trường có dấu sao là bắt buộc. Vui lòng nhập đầy đủ thông tin.</span>
+                        </div>
                         <div className="z-blog-form-grid">
                             <div className="z-blog-form-column">
                                 <div className="z-blog-form-group">
-                                    <label>Tiêu đề bài viết <span className="z-blog-required">*</span></label>
+                                    <label>
+                                        Tiêu đề bài viết <span className="z-blog-required">*</span>
+                                    </label>
                                     <input type="text" name="title" value={formData.title} onChange={handleInputChange} className="z-blog-input" placeholder="Nhập tiêu đề..." disabled={isSubmitting} />
                                 </div>
                                 <div className="z-blog-form-group">
-                                    <label>Đường dẫn (URL) <span className="z-blog-required">*</span></label>
+                                    <label>
+                                        Đường dẫn (URL) <span className="z-blog-required">*</span>
+                                    </label>
                                     <input type="text" name="externalUrl" value={formData.externalUrl} onChange={handleInputChange} className="z-blog-input" placeholder="https://..." disabled={isSubmitting} />
                                 </div>
                                 <div className="z-blog-form-group">
@@ -316,33 +401,47 @@ const Blogs = () => {
                                 </div>
                             </div>
                             <div className="z-blog-form-column">
-                                <div className="z-blog-form-group"><label>Dịch vụ</label><Select name="serviceType" options={serviceOptions} value={formData.serviceType} onChange={handleInputChange} disabled={isSubmitting} /></div>
-                                <div className="z-blog-form-group"><label>Loại bài</label><Select name="postType" options={postTypeOptions} value={formData.postType} onChange={handleInputChange} disabled={isSubmitting} /></div>
-                                <div className="z-blog-form-group"><label>Trạng thái</label><Select name="status" options={statusOptions} value={formData.status} onChange={handleInputChange} disabled={isSubmitting} /></div>
+                                <div className="z-blog-form-group">
+                                    <label>Loại bài</label>
+                                    <Select name="postType" options={postTypeOptions} value={formData.postType} onChange={handleInputChange} disabled={isSubmitting} />
+                                </div>
+                                <div className="z-blog-form-group">
+                                    <label>Trạng thái</label>
+                                    <Select name="status" options={statusOptions} value={formData.status} onChange={handleInputChange} disabled={isSubmitting} />
+                                </div>
                                 <div className="z-blog-checkbox-group">
-                                    <label><input type="checkbox" name="isFeatured" checked={formData.isFeatured} onChange={handleInputChange} disabled={isSubmitting} /> Bài nổi bật</label>
-                                    <label><input type="checkbox" name="isPinned" checked={formData.isPinned} onChange={handleInputChange} disabled={isSubmitting} /> Ghim đầu</label>
+                                    <label>
+                                        <input type="checkbox" name="isFeatured" checked={formData.isFeatured} onChange={handleInputChange} disabled={isSubmitting} /> Bài nổi bật
+                                    </label>
+                                    <label>
+                                        <input type="checkbox" name="isPinned" checked={formData.isPinned} onChange={handleInputChange} disabled={isSubmitting} /> Ghim đầu
+                                    </label>
                                 </div>
                             </div>
                         </div>
                         <div className="z-blog-form-group">
-                            <label>Hình ảnh đại diện <span className="z-blog-required">*</span></label>
+                            <label>Hình ảnh đại diện</label>
                             <div className="z-blog-upload-wrapper">
                                 <input type="file" accept="image/*" ref={fileInputRef} style={{ display: "none" }} onChange={handleImageChange} disabled={isSubmitting} />
                                 {imagePreview ? (
                                     <div className="z-blog-image-preview-box">
                                         <img src={imagePreview} alt="Preview" />
-                                        <button type="button" className="z-blog-remove-img-btn" onClick={removeImage}>×</button>
+                                        <button type="button" className="z-blog-remove-img-btn" onClick={removeImage}>
+                                            ×
+                                        </button>
                                     </div>
                                 ) : (
-                                    <div className="z-blog-image-upload-btn" onClick={() => fileInputRef.current.click()}><span>+ Tải ảnh lên</span></div>
+                                    <div className="z-blog-image-upload-btn" onClick={() => fileInputRef.current.click()}>
+                                        <span>+ Tải ảnh lên</span>
+                                    </div>
                                 )}
                             </div>
                         </div>
                     </div>
                 </Modal>
 
-                <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmitting && setIsDeleteModalOpen(false)} title="Xác nhận xóa" size="sm" onSave={confirmDelete} saveText={isSubmitting ? "Đang xóa..." : "Xác nhận xóa"}>
+                {/* MODAL DELETE */}
+                <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmitting && setIsDeleteModalOpen(false)} title="Xác nhận xóa" size="sm" onSave={confirmDelete} saveText={deletePostMutation.isPending ? "Đang xóa..." : "Xác nhận xóa"}>
                     <div className="z-blog-delete-confirm">
                         <p>Bạn có chắc chắn muốn xóa bài viết:</p>
                         <strong>{postToDelete?.title}</strong>

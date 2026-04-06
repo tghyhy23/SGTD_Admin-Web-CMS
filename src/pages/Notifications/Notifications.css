@@ -1,12 +1,27 @@
+/* Container chính */
+.z-notification-container {
+    padding: 20px;
+    background: var(--bg-color);
+    border-radius: 12px;
+}
+
+/* Các trạng thái Loading / Error */
+.z-notification-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--gray500);
+    font-size: 16px;
+}
+
 /* Bảng thống kê (Stats Grid) */
-.stats-grid {
+.z-notification-stats-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 16px;
     margin-bottom: 24px;
 }
 
-.stat-card {
+.z-notification-stat-card {
     background: #fff;
     padding: 24px 20px;
     border-radius: 12px;
@@ -16,20 +31,20 @@
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.stat-card:hover {
+.z-notification-stat-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 15px rgba(0, 0, 0, 0.05);
 }
 
-.stat-value {
+.z-notification-stat-value {
     font-size: 32px;
     font-weight: 700;
     color: #111827;
     margin-bottom: 6px;
-    font-family: monospace; /* Giúp các con số hiển thị đều đặn hơn */
+    font-family: monospace;
 }
 
-.stat-label {
+.z-notification-stat-label {
     font-size: 13px;
     color: #6b7280;
     font-weight: 600;
@@ -41,26 +56,272 @@
 .text-green { color: #10b981; }
 .text-orange { color: #f59e0b; }
 .text-blue { color: #3b82f6; }
-.text-red { color: #ef4444; }
 
-/* * Để fix lỗi form không xổ dropdown được nếu bị thuộc tính overflow-y: auto cắt mất
- * ta sử dụng overfow: visible cho form tạo thông báo
- */
-.modal-form {
-    max-height: calc(100vh - 120px);
-    overflow-y: auto;
+/* Header Bar */
+.z-notification-header {
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
 }
 
-/* Tinh chỉnh cho Custom Dropdown bên trong Modal Form không bị ẩn */
-.filter-dropdown-menu {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    background: white;
-    border: 1px solid var(--border-color, #e5e7eb);
+.z-notification-title {
+    padding-bottom: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #111827;
+    margin: 0;
+}
+
+/* Tools Bar (Search + Filters + Add Btn) */
+.z-notification-tools {
+    margin-bottom: 16px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.z-notification-search input {
+    padding: 8px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    outline: none;
+    font-size: 14px;
+    width: 300px;
+    transition: all 0.2s ease-in-out;
+}
+
+.z-notification-search input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(18, 145, 90, 0.1);
+}
+
+.z-notification-search input::placeholder {
+    font-size: 14px;
+}
+
+/* Table Wrapper */
+.z-notification-table-wrapper {
+    background: #fff;
     border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-    z-index: 50; /* Z-index cao để đè lên các thành phần khác */
-    width: auto;
-    min-width: 100%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+    min-height: 300px;
+}
+
+.z-notification-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.z-notification-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    font-size: 14px;
+}
+
+.z-notification-table td {
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    font-size: 14px;
+    vertical-align: middle;
+}
+
+.z-notification-table tbody tr {
+    transition: background-color 0.2s;
+}
+
+.z-notification-table tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+/* Text Styles inside Table */
+.z-notification-text-bold {
+    font-weight: 600;
+    color: #111827;
+}
+
+.z-notification-text-normal {
+    font-weight: 500;
+    color: #374151;
+}
+
+.z-notification-subtext {
+    font-size: 13px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+.z-notification-text-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: #4b5563;
+    line-height: 1.5;
+}
+
+/* Status Badges */
+[class^="z-notification-badge-"] {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.z-notification-badge-gray {
+    background: var(--inactive-bg);
+    color: var(--inactive-color);
+    border-color: var(--inactive-border);
+}
+
+.z-notification-badge-green {
+    background: var(--base-primary);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.z-notification-badge-orange {
+    background: var(--base-warning);
+    color: var(--warning);
+    border-color: var(--warning);
+}
+
+/* Pagination (Đồng bộ với Promotions) */
+.z-notification-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 25px;
+    padding-bottom: 20px;
+}
+
+.z-pagination-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--border-color);
+    background-color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.z-pagination-btn:disabled {
+    background-color: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+    border-color: #e5e7eb;
+}
+
+.z-pagination-btn:not(:disabled):hover {
+    background-color: var(--base-primary);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.z-pagination-numbers {
+    display: flex;
+    gap: 5px;
+}
+
+.z-pagination-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background-color: white;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.z-pagination-number.active {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.z-pagination-number:hover:not(.active) {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+/* ================= MODAL FORMS ================= */
+.z-notification-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.z-notification-form-row {
+    display: flex;
+    gap: 16px;
+}
+
+.z-notification-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.z-notification-form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.z-notification-required {
+    color: var(--error);
+}
+
+.z-notification-input,
+.z-notification-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #111827;
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: all 0.2s ease-in-out;
+}
+
+.z-notification-input:focus,
+.z-notification-textarea:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(18, 145, 90, 0.1);
+}
+
+.z-notification-input:disabled,
+.z-notification-textarea:disabled {
+    background: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.z-notification-textarea {
+    resize: vertical;
+}
+
+
+
+.z-notification-info-box p {
+    margin: 0;
+    font-size: 12px;
+    color: rgb(107, 114, 128);
+    line-height: 1.5;
 }

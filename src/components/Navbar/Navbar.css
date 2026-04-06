@@ -70,37 +70,11 @@
   border: 1px solid var(--primary-color, #312e81);
   font-weight: 600;
 }
-
-/* =========================================
-   PHẦN BÊN PHẢI (ROLE NGƯỜI DÙNG)
-   ========================================= */
-.navbar-right {
-  display: flex;
-  align-items: center;
-}
 .nav-fixed-title {
-  font-size: 18px;
+  color: var(--primary-color);
   font-weight: 600;
-  color: var(--primary-color); /* Dùng màu chủ đạo của app */
-  letter-spacing: 0.5px;
+  font-size: 16px;
 }
-
-.nav-user-role {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background-color: var(--primary-color);
-  border-radius: 8px; /* Bo góc tròn trịa giống thẻ tag */
-  font-size: 12px;
-}
-
-.role-value {
-  font-weight: 600;
-  color: #fff;
-  text-transform: uppercase;
-}
-
 /* Các css Toast cũ của bạn giữ nguyên bên dưới */
 .navbar-toast {
   position: fixed;

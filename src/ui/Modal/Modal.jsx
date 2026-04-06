@@ -11,7 +11,7 @@ const Modal = ({
     maxWidth = '700px', 
     onSave, // Hàm xử lý khi nhấn "Lưu"
     saveText = "Lưu thay đổi", 
-    cancelText = "Hủy bỏ" 
+    cancelText = "Hủy bỏ",
 }) => {
     // Nhấn phím ESC để đóng Modal
     useEffect(() => {

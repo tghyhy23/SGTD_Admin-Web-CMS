@@ -1,124 +1,534 @@
-.modal-content-promotion {
-  background-color: #ffffff;
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  width: 95%;
-   max-width: 1200px;
-    max-height: 80vh;
-    overflow-y: hidden;
+/* Container chính */
+.z-promo-container {
+    padding: 20px;
+    background: var(--bg-color);
+    border-radius: 12px;
 }
 
-/* =========================================
-   CSS CHO PHẦN CHECKBOX DỊCH VỤ
-========================================= */
-.checkbox-list-container {
-    max-height: 180px; /* Giới hạn chiều cao và hiển thị thanh cuộn */
-    overflow-y: auto;
+/* Header */
+.z-promo-header {
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.z-promo-title {
+    padding-bottom: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #111827;
+    margin: 0;
+}
+
+.z-promo-state {
+    text-align: center;
+    padding: 40px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.z-promo-error {
+    color: var(--error);
+}
+
+/* Tools (Search & Filter) */
+.z-promo-tools {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.z-promo-search input {
+    padding: 8px 14px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
-    padding: 10px;
-    background-color: #f9fafb;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.checkbox-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
+    width: 300px;
+    outline: none;
     font-size: 14px;
-    color: #374151;
-    padding: 4px;
-    border-radius: 4px;
-    transition: background-color 0.2s;
+    transition: all 0.2s ease-in-out;
 }
 
-.checkbox-item:hover {
-    background-color: #f3f4f6;
+.z-promo-search input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(18, 145, 90, 0.1); /* Xanh chủ đạo */
 }
 
-.checkbox-item input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-    accent-color: var(--primary-color, #0284c7); /* Màu chủ đạo của bạn */
-}
-
-/* =========================================
-   CSS CHO PHẦN UPLOAD ẢNH
-========================================= */
-.image-upload-wrapper {
-    margin-top: 5px;
-}
-
-.upload-btn-wrapper {
+/* Filter Dropdown */
+.z-promo-filter {
     position: relative;
-    overflow: hidden;
     display: inline-block;
 }
 
-.btn-upload {
-    border: 1px dashed #9ca3af;
-    color: #4b5563;
-    background-color: #f9fafb;
-    padding: 10px 20px;
+.z-promo-btn-filter {
+    padding: 8px 14px;
+    background: #fff;
+    border: 1px solid #d1d5db;
     border-radius: 6px;
+    cursor: pointer;
     font-size: 14px;
-    cursor: pointer;
-    width: 100%;
-    text-align: center;
-    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #374151;
 }
 
-.btn-upload:hover {
-    background-color: #f3f4f6;
-    border-color: #6b7280;
-}
-
-.upload-btn-wrapper input[type=file] {
-    font-size: 100px;
-    position: absolute;
-    left: 0;
-    top: 0;
-    opacity: 0;
-    cursor: pointer;
-    height: 100%;
-}
-
-.image-preview-container {
+.z-promo-dropdown-menu {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-    border: 1px solid #e5e7eb;
-    padding: 10px;
+    gap: 4px;
+    position: absolute;
+    top: calc(100% + 5px);
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    z-index: 1000;
+    min-width: 200px;
+    padding: 6px;
+}
+
+.z-promo-dropdown-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: 14px;
     border-radius: 6px;
-    background-color: #f9fafb;
+    color: var(--text-main);
+    transition: all 0.2s ease;
 }
 
-.image-preview {
-    max-width: 100%;
-    max-height: 150px;
-    object-fit: contain;
-    border-radius: 4px;
-    border: 1px solid #d1d5db;
+.z-promo-dropdown-item:hover,
+.z-promo-dropdown-item.active {
+    background: var(--base-primary);
+    color: var(--primary-color);
+    font-weight: 500;
 }
 
-.btn-remove-image {
-    background-color: #fee2e2;
-    color: #ef4444;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 4px;
-    font-size: 13px;
+/* Table */
+.z-promo-table-wrapper {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: visible;
+    min-height: 300px;
+}
+
+.z-promo-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.z-promo-table th,
+.z-promo-table td {
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    font-size: 14px;
+}
+
+.z-promo-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+}
+
+/* Hiệu ứng click dòng để mở Edit */
+.z-promo-clickable-row {
     cursor: pointer;
     transition: background-color 0.2s;
 }
 
-.btn-remove-image:hover {
-    background-color: #fecaca;
+.z-promo-clickable-row:hover {
+    background-color: #f8fafc;
 }
 
+/* Text Styles inside Table */
+.z-promo-text-bold {
+    font-weight: 600;
+    color: #111827;
+}
+
+.z-promo-text-normal {
+    font-weight: 500;
+    color: #374151;
+}
+
+.z-promo-subtext {
+    font-size: 14px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+.z-promo-text-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Status Badges */
+[class^="z-promo-badge-"] {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.z-promo-badge-active { background-color: var(--base-primary); color: var(--primary-color); }
+.z-promo-badge-inactive { background-color: var(--inactive-bg); color: var(--inactive-color); }
+.z-promo-badge-upcoming { background-color: var(--base-edit); color: var(--edit); }
+.z-promo-badge-expired { background-color: var(--base-error); color: var(--error); }
+
+/* Action Menu (Kebab) */
+.z-promo-dropdown-actions {
+    position: relative;
+    display: inline-block;
+}
+
+.z-promo-more-btn {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    transition: background 0.2s;
+}
+
+.z-promo-more-btn:hover {
+    background-color: #e5e7eb; /* Nhấn mạnh hơn tý cho tương phản */
+}
+
+.z-promo-action-menu {
+    position: absolute;
+    right: 0;
+    top: 0;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    z-index: 110;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.2s ease;
+    min-width: 140px;
+}
+
+.z-promo-dropdown-actions:hover .z-promo-action-menu {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.z-promo-action-menu button {
+    width: 100%;
+}
+
+/* Pagination */
+.z-promo-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 25px;
+    padding-bottom: 20px;
+}
+
+.z-pagination-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--border-color);
+    background-color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.z-pagination-btn:disabled {
+    background-color: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+    border-color: #e5e7eb;
+}
+
+.z-pagination-btn:not(:disabled):hover {
+    background-color: var(--base-primary);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.z-pagination-numbers {
+    display: flex;
+    gap: 5px;
+}
+
+.z-pagination-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background-color: white;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.z-pagination-number.active {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.z-pagination-number:hover:not(.active) {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+
+/* =========================================
+   MODAL FORM GRID STYLES
+========================================= */
+.z-promo-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.z-promo-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px; /* Tách 2 cột xa ra chút */
+}
+
+/* Responsive cho màn hình nhỏ */
+@media (max-width: 860px) {
+    .z-promo-form-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}
+
+.z-promo-form-column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px; /* Khoảng cách dọc giữa các block */
+}
+
+.z-promo-form-row {
+    display: flex;
+    gap: 16px; /* Hàng ngang chứa 2 input */
+}
+
+.z-promo-form-subtitle {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin: 0 0 4px 0;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 8px;
+}
+
+.z-promo-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.z-promo-form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.z-promo-required {
+    color: #ef4444;
+}
+
+/* Inputs */
+.z-promo-input,
+.z-promo-textarea {
+    width: 100%;
+    padding: 10px 16px;
+    background: #f9fafb;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #111827;
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: all 0.2s ease-in-out;
+}
+
+.z-promo-input:focus,
+.z-promo-textarea:focus {
+    background: #fff;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(18, 145, 90, 0.1);
+}
+
+.z-promo-input:disabled,
+.z-promo-textarea:disabled {
+    background: #e5e7eb;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.z-promo-textarea {
+    resize: vertical;
+    min-height: 200px;
+}
+
+/* Checkbox List Dịch Vụ */
+.z-promo-checkbox-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 12px;
+    background-color: #f9fafb;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Thanh cuộn đẹp */
+.z-promo-checkbox-list::-webkit-scrollbar { width: 6px; }
+.z-promo-checkbox-list::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 4px; }
+
+.z-promo-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #374151;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+    font-weight: 500 !important; /* Ghi đè label bọc ngoài */
+}
+
+.z-promo-checkbox-item:hover {
+    background-color: #e5e7eb;
+}
+
+.z-promo-checkbox-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary-color);
+}
+
+/* Upload Image Banner */
+.z-promo-upload-wrapper {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.z-promo-image-upload-btn {
+    width: 100%;
+    height: 140px;
+    border-radius: 8px;
+    border: 2px dashed #cbd5e1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #64748b;
+    background: #f8fafc;
+    transition: all 0.2s;
+}
+
+.z-promo-image-upload-btn:hover {
+    border-color: var(--primary-color);
+    background: #f0fdf4;
+    color: var(--primary-color);
+}
+
+.z-promo-image-preview-box {
+    position: relative;
+    width: 100%;
+    height: 140px;
+    border-radius: 8px;
+    padding: 4px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+}
+
+.z-promo-image-preview-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Banner không bị cắt */
+    border-radius: 4px;
+}
+
+.z-promo-remove-img-btn {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: var(--error);
+    color: white;
+    border: 2px solid white;
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+    transition: transform 0.1s;
+}
+
+.z-promo-remove-img-btn:hover {
+    transform: scale(1.1);
+    background: var(--error);
+}
+
+/* Modal Delete Content */
+.z-promo-delete-content {
+    text-align: center;
+    padding: 10px 0;
+}
+
+.z-promo-delete-content h3 {
+    margin: 16px 0 8px 0;
+    color: #111827;
+    font-size: 18px;
+}
+
+.z-promo-delete-content p {
+    color: var(--text-main);
+    line-height: 1.5;
+    margin: 0;
+    font-size: 16px;
+}
+/* --- REACT DATEPICKER TWEAKS --- */
+.react-datepicker-wrapper {
+    width: 100%;
+}
+.react-datepicker__input-container {
+    width: 100%;
+}
+.react-datepicker-popper {
+    z-index: 9999 !important; /* Đảm bảo lịch nổi lên trên cùng */
+}
+/* Tuỳ chọn: Đổi màu xanh mặc định của lịch sang màu hệ thống của bạn */
+.react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item--selected,
+.react-datepicker__day--selected, .react-datepicker__day--keyboard-selected {
+    background-color: var(--primary-color) !important;
+}

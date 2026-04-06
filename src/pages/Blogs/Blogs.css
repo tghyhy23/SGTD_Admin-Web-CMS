@@ -7,7 +7,7 @@
 .z-blog-header {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -25,12 +25,23 @@
     align-items: center;
     flex-wrap: wrap;
 }
-
+.z-blog-search input::placeholder {
+    font-size: 14px;
+}
 .z-blog-search input {
     padding: 8px 14px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
     width: 280px;
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: all 0.2s ease-in-out;
+}
+
+.z-blog-search input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(49, 46, 129, 0.1);
 }
 
 /* Filter */
@@ -39,6 +50,7 @@
 }
 .z-blog-btn-filter {
     padding: 8px 14px;
+    font-size: 14px;
     background: #fff;
     border: 1px solid #d1d5db;
     border-radius: 6px;
@@ -86,11 +98,42 @@
     width: 100%;
     border-collapse: collapse;
 }
-.z-blog-table th,
-.z-blog-table td {
+.z-blog-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
     padding: 12px 16px;
     border-bottom: 1px solid #e5e7eb;
     text-align: left;
+    font-size: 14px;
+}
+.z-blog-table th:nth-child(3),
+.z-blog-table td:nth-child(3) {
+    padding-right: 100px; /* Thêm khoảng đệm 40px bên phải */
+}
+
+.z-blog-table th:nth-child(2) {
+    width: 120px; 
+    padding-right: 120px;
+}
+.z-blog-table th:nth-child(3) {
+    width: 500px; /* Thiết lập độ rộng cố định bạn mong muốn */
+    max-width: 550px;
+    min-width: 250px;
+}
+.z-blog-table td {
+    padding: 18px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+}
+.z-blog-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--gray500);
+    font-size: 16px;
+}
+.z-blog-error {
+    color: var(--error);
 }
 .z-blog-clickable-row {
     cursor: pointer;
@@ -101,14 +144,14 @@
 }
 
 .z-blog-img-preview {
-    width: 80px;
-    height: 50px;
+    width: 100px;
+    height: 80px;
     object-fit: cover;
     border-radius: 4px;
 }
 .z-blog-status-badge {
-    padding: 4px 12px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-size: 12px;
     font-weight: 600;
     border: 1px solid transparent;
@@ -116,18 +159,47 @@
 .z-blog-status-badge.active {
     background: var(--base-primary);
     color: var(--primary-color);
-    border: 1px solid var(--primary-color);
+    /* border: 1px solid var(--primary-color); */
 }
 .z-blog-status-badge.inactive {
     background: var(--inactive-bg);
     color: var(--inactive-color);
-    border-color: var(--inactive-border)
+    /* border-color: var(--inactive-border) */
+}
+.z-blog-text-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: var(--text-main);
+    margin-bottom: 6px;
+    font-weight: 600;
+    line-height: 1.4;
+    font-size: 14px;
+    word-break: break-word; /* Giúp ngắt từ dài để không tràn bảng */
+}
+.z-blog-featured-tag {
+   font-size: 12px;
+}
+.z-blog-badge-gray{
+    font-size: 14px;
 }
 
+/* Giới hạn Link URL / Mô tả tối đa 2 dòng */
+.z-blog-subtext {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-all; /* Link URL thường dính liền nhau nên cần break-all */
+}
 /* Kebab Menu (3 chấm) */
 .z-blog-actions-cell {
     position: relative;
-    text-align: center;
+    /* text-align: center; */
 }
 .z-blog-kebab-menu {
     position: relative;
@@ -197,6 +269,16 @@
     padding: 10px;
     border: 1px solid var(--border-color);
     border-radius: 6px;
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: all 0.2s ease-in-out;
+}
+
+.z-blog-input:focus,
+.z-blog-textarea:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(49, 46, 129, 0.1);
 }
 .z-blog-checkbox-group {
     display: flex;
@@ -241,9 +323,9 @@
     position: absolute;
     top: -8px;
     right: -8px;
-    background: #ef4444;
+    background: var(--error);
     color: white;
-    border: none;
+    border: 2px solid white;
     border-radius: 50%;
     width: 22px;
     height: 22px;
@@ -252,6 +334,13 @@
     align-items: center;
     justify-content: center;
     z-index: 10;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+    transition: transform 0.1s;
+}
+
+.z-blog-remove-img-btn:hover {
+    transform: scale(1.1);
+    background: var(--error);
 }
 
 .z-blog-delete-confirm {
@@ -264,19 +353,3 @@
     margin-top: 10px;
 }
 
-/* Toast */
-.z-blog-toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 12px 20px;
-    border-radius: 6px;
-    color: white;
-    z-index: 9999;
-}
-.z-blog-toast.success {
-    background: var(--primary-color);
-}
-.z-blog-toast.error {
-    background: var(--error);
-}

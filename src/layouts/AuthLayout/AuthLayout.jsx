@@ -30,7 +30,7 @@ const AuthLayout = () => {
                     </div>
                     <div className="auth-content">
                         <h1 className="auth-welcome-title">Xin chào Admin!</h1>
-                        <p className="auth-subtitle">Chào mừng bạn đến với hệ thống quản lí của Sài Gòn Tâm Đức.</p>
+                        <p className="auth-subtitle">Chào mừng bạn đến với hệ thống quản lý của Sài Gòn Tâm Đức.</p>
                     </div>
                 </div>
 

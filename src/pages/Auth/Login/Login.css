@@ -27,13 +27,14 @@
 }
 
 .error-message {
-  background-color: rgba(255, 77, 79, 0.2);
-  color: #ff4d4f;
+  background-color: var(--base-error);
+  color: var(--error);
   padding: 10px;
   border-radius: 8px;
   text-align: center;
   margin-bottom: 20px;
   font-size: 14px;
+  font-weight: 500;
 }
 
 .form-login {
@@ -89,7 +90,8 @@
 }
 
 .input-group input:focus {
-  border-color: var(--primary-color)
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(49, 46, 129, 0.1);
 }
 
 .btn-submit {

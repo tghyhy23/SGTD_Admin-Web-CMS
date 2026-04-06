@@ -21,11 +21,18 @@ axiosApi.interceptors.request.use(
 
 // Response Interceptor: Xử lý lỗi chung & Refresh Token
 axiosApi.interceptors.response.use(
-    (response) => response.data,
+    (response) => {
+        console.log("This is from success req");
+        console.log("1", response.data);
+        console.log("2", response);
+        return response.data;
+    },
     async (error) => {
+        console.log("Response");
         const originalRequest = error.config;
 
         if (error.response && error.response.status === 401 && !originalRequest._retry && !originalRequest.url.includes("/login")) {
+            console.log("401 ERROR FORM BE");
             originalRequest._retry = true;
 
             try {
@@ -34,13 +41,16 @@ axiosApi.interceptors.response.use(
                     throw new Error("No refresh token available");
                 }
 
+                console.log("HAVE REFRESH TOKEN");
                 // Chú ý URL API có thể khác tùy backend của bạn
                 const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/auth/refresh-token`, {
                     refreshToken,
                 });
 
+                console.log("REFRESH TOKEN RESPONSE", response);
+
                 if (response.data && response.data.success) {
-                    const newAccessToken = response.data.data.accessToken;
+                    const newAccessToken = response.data.accessToken;
 
                     localStorage.setItem("accessToken", newAccessToken);
 
@@ -63,7 +73,7 @@ axiosApi.interceptors.response.use(
 
 export const authApi = {
     login: (identifier, password) => {
-        return axiosApi.post("/auth/login", { identifier, password });
+        return axiosApi.post("/auth/login", { identifier, password, clientType: "web" });
     },
     forgotPassword: (identifier) => {
         return axiosApi.post("/auth/forgot-password", { identifier });
@@ -107,19 +117,21 @@ export const serviceApi = {
 export const clinicApi = {
     // 1. Lấy danh sách phòng khám (kèm filter, search, phân trang)
     getAllClinics: (params) => axiosApi.get("/branch", { params }),
-    
+
     // 2. Lấy chi tiết 1 phòng khám
     getClinicById: (id) => axiosApi.get(`/branch/${id}`),
-    
+
     // 3. Tạo phòng khám mới (Gửi FormData vì có file ảnh)
-    createClinic: (formData) => axiosApi.post("/branch", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-    }),
+    createClinic: (formData) =>
+        axiosApi.post("/branch", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        }),
 
     // 4. Cập nhật phòng khám (Gửi FormData)
-    updateClinic: (id, formData) => axiosApi.put(`/branch/${id}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-    }),
+    updateClinic: (id, formData) =>
+        axiosApi.put(`/branch/${id}`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        }),
 
     // 5. Bật/tắt trạng thái hoạt động
     toggleStatus: (id) => axiosApi.patch(`/branch/${id}/toggle-status`),
@@ -133,24 +145,26 @@ export const clinicApi = {
 
 export const postApi = {
     // 1. Lấy danh sách cho Admin
-    getAllPosts: (params) => axiosApi.get("/post/manage/list", { params }), 
+    getAllPosts: (params) => axiosApi.get("/post/manage/list", { params }),
 
     // 2. Xem chi tiết bài viết
     getPostById: (id) => axiosApi.get(`/post/${id}`),
 
     // 3. Tạo mới bài viết (Hỗ trợ upload file)
-    createPost: (formData) => axiosApi.post("/post", formData, {
-        headers: {
-            "Content-Type": "multipart/form-data",
-        },
-    }),
+    createPost: (formData) =>
+        axiosApi.post("/post", formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        }),
 
     // 4. Cập nhật bài viết (Hỗ trợ upload file)
-    updatePost: (id, formData) => axiosApi.put(`/post/${id}`, formData, {
-        headers: {
-            "Content-Type": "multipart/form-data",
-        },
-    }),
+    updatePost: (id, formData) =>
+        axiosApi.put(`/post/${id}`, formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        }),
 
     // 5. Bật/Tắt trạng thái
     toggleStatus: (id) => axiosApi.patch(`/post/toggle-status/${id}`),
@@ -161,27 +175,29 @@ export const postApi = {
 
 export const bannerApi = {
     // Lấy danh sách banner (dành cho Admin)
-    getAllBanners: (params) => axiosApi.get("/banner", { params }), 
-    
+    getAllBanners: (params) => axiosApi.get("/banner", { params }),
+
     // Lấy chi tiết 1 banner
     getBannerById: (id) => axiosApi.get(`/banner/${id}`),
-    
+
     // Tạo banner mới (hỗ trợ upload file)
-    createBanner: (formData) => axiosApi.post("/banner", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-    }),
-    
+    createBanner: (formData) =>
+        axiosApi.post("/banner", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        }),
+
     // Cập nhật banner
-    updateBanner: (id, formData) => axiosApi.put(`/banner/${id}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-    }),
-    
+    updateBanner: (id, formData) =>
+        axiosApi.put(`/banner/${id}`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        }),
+
     // Xóa banner
     deleteBanner: (id) => axiosApi.delete(`/banner/${id}`),
-    
+
     // Thay đổi trạng thái (Active/Inactive)
     toggleStatus: (id) => axiosApi.patch(`/banner/${id}/toggle-status`),
-    
+
     // Cập nhật thứ tự hiển thị hàng loạt
     bulkUpdateOrder: (updates) => axiosApi.patch("/banner/bulk-update-order", { updates }),
 };
@@ -189,14 +205,16 @@ export const bannerApi = {
 export const categoryApi = {
     // Lấy danh sách danh mục (đang gọi vào route /service theo ý bạn)
     getRealCategories: () => axiosApi.get("/category"),
-    getAllCategories: (params) => axiosApi.get("/service", { params }), 
+    getAllCategories: (params) => axiosApi.get("/service", { params }),
     getCategoryById: (id) => axiosApi.get(`/service/${id}`),
-    createCategory: (formData) => axiosApi.post("/service", formData, {
-        headers: { "Content-Type": "multipart/form-data" }, 
-    }),
-    updateCategory: (id, formData) => axiosApi.put(`/service/${id}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-    }),
+    createCategory: (formData) =>
+        axiosApi.post("/service", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        }),
+    updateCategory: (id, formData) =>
+        axiosApi.put(`/service/${id}`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        }),
     deleteCategory: (id) => axiosApi.delete(`/service/${id}`),
     toggleStatus: (id) => axiosApi.patch(`/service/${id}/toggle-status`),
 };
@@ -204,22 +222,24 @@ export const categoryApi = {
 export const reviewApi = {
     // Lấy danh sách review cho Admin (Có filter, phân trang)
     getAdminReviewsByBranch: (branchId, params) => axiosApi.get(`/review/branch/${branchId}`, { params }),
-    
+
     // Tạo review seeding
-    createSeedReview: (formData) => axiosApi.post(`/review`, formData , {
-        headers: { "Content-Type": "multipart/form-data" }, 
-    }),
-    
+    createSeedReview: (formData) =>
+        axiosApi.post(`/review`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        }),
+
     // Cập nhật review seeding
-    updateSeedReview: (id, formData) => axiosApi.put(`/review/${id}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-    }),
-    
+    updateSeedReview: (id, formData) =>
+        axiosApi.put(`/review/${id}`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        }),
+
     // Ẩn/Hiện review
     toggleHideReview: (id) => axiosApi.patch(`/review/${id}/toggle-hide`),
-    
+
     // Xóa review
-    deleteReview: (id) => axiosApi.delete(`/review/${id}`)
+    deleteReview: (id) => axiosApi.delete(`/review/${id}`),
 };
 
 export const promotionApi = {
@@ -238,9 +258,10 @@ export const promotionApi = {
     // ============================================
 
     // router.post("/", protectRoute(ROLE_GROUPS.ADMINS), createPromotion);
-    createPromotion: (formData) => axiosApi.post("/promotion", formData, {
-        headers: { "Content-Type": "multipart/form-data" } // QUAN TRỌNG
-    }),
+    createPromotion: (formData) =>
+        axiosApi.post("/promotion", formData, {
+            headers: { "Content-Type": "multipart/form-data" }, // QUAN TRỌNG
+        }),
 
     // router.get("/", protectRoute(ROLE_GROUPS.ADMINS), getAllPromotions);
     getAllPromotions: (params) => axiosApi.get("/promotion", { params }),
@@ -249,9 +270,10 @@ export const promotionApi = {
     getPromotionDetail: (id) => axiosApi.get(`/promotion/${id}`),
 
     // router.put("/:id", protectRoute(ROLE_GROUPS.ADMINS), updatePromotion);
-    updatePromotion: (id, formData) => axiosApi.put(`/promotion/${id}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" } // QUAN TRỌNG
-    }),
+    updatePromotion: (id, formData) =>
+        axiosApi.put(`/promotion/${id}`, formData, {
+            headers: { "Content-Type": "multipart/form-data" }, // QUAN TRỌNG
+        }),
 
     // router.patch("/:id/toggle-status", protectRoute(ROLE_GROUPS.ADMINS), togglePromotionStatus);
     togglePromotionStatus: (id) => axiosApi.patch(`/promotion/${id}/toggle-status`),
@@ -275,18 +297,17 @@ export const userApi = {
 
     // Xóa tài khoản của chính mình (Có sẵn)
     deleteAccount: () => axiosApi.delete("/auth/delete-account"),
-    
+
     // ==========================================
     // CÁC HÀM MỚI DÀNH CHO ADMIN QUẢN LÝ USER
     // ==========================================
-    
-    // Sửa thông tin user bất kỳ (Admin) - Gửi FormData vì backend hỗ trợ up avatar
-    updateUserByAdmin: (id, formData) => axiosApi.put(`/auth/edit-user/${id}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-    }),
 
+    // Sửa thông tin user bất kỳ (Admin) - Gửi FormData vì backend hỗ trợ up avatar
+    updateUserByAdmin: (id, data) => axiosApi.put(`/auth/edit-user/${id}`, data),
+    // Thêm user mới (Admin)
+    createUser: (data) => axiosApi.post("/auth/create-user", data),
     // Xóa user bất kỳ (Admin)
-    deleteUserByAdmin: (id) => axiosApi.delete(`/auth/delete-account/${id}`),
+    deleteUserByAdmin: () => axiosApi.delete("/auth/delete-account"),
 };
 
 export const locationApi = {
@@ -310,46 +331,45 @@ export const locationApi = {
     deleteDistrict: (id) => axiosApi.delete(`/location/districts/${id}`),
 };
 
-
 export const notificationApi = {
     // ============================================
     // USER ROUTES (Dành cho app/web của khách hàng)
     // ============================================
-    
+
     // Lấy danh sách thông báo của tôi (có phân trang, filter)
     getMyNotifications: (params) => axiosApi.get("/notification/my-notifications", { params }),
-    
+
     // Lấy số lượng thông báo chưa đọc
     getUnreadCount: () => axiosApi.get("/notification/unread-count"),
-    
+
     // Đánh dấu 1 thông báo là đã đọc
     markAsRead: (id) => axiosApi.patch(`/notification/${id}/read`),
-    
+
     // Đánh dấu tất cả là đã đọc
     markAllAsRead: () => axiosApi.patch("/notification/mark-all-read"),
-    
+
     // Xóa thông báo (soft delete)
     deleteNotification: (id) => axiosApi.delete(`/notification/${id}`),
 
     // ============================================
     // ADMIN ROUTES (Dành cho trang Quản trị)
     // ============================================
-    
+
     // Lấy thống kê tổng quan (Tổng, đã đọc, chưa đọc, tỷ lệ...)
     getNotificationStats: () => axiosApi.get("/notification/stats"),
-    
+
     // Lấy toàn bộ thông báo trong hệ thống (có filter, search, phân trang)
     getAllNotifications: (params) => axiosApi.get("/notification", { params }),
-    
+
     // Tạo thông báo cho 1 user cụ thể
     createForUser: (data) => axiosApi.post("/notification/create-for-user", data),
-    
+
     // Tạo thông báo cho một danh sách user
     createForMultipleUsers: (data) => axiosApi.post("/notification/create-for-multiple", data),
-    
+
     // Gửi thông báo cho TẤT CẢ user (Broadcast)
     broadcastNotification: (data) => axiosApi.post("/notification/broadcast", data),
-    
+
     // Xóa các thông báo quá cũ để dọn dẹp DB (truyền { days: 90 } vào data)
     cleanOldNotifications: (data) => axiosApi.post("/notification/clean-old", data),
 };
@@ -357,13 +377,13 @@ export const notificationApi = {
 export const bookingApi = {
     // Lấy tất cả danh sách booking cho Admin (có phân trang, filter)
     getAllBookingsAdmin: (params) => axiosApi.get("/booking/admin/all", { params }),
-    
+
     // Admin xác nhận lịch
-    confirmBooking: (id) => axiosApi.post(`/booking/${id}/confirm`),
-    
+    confirmBooking: (id) => axiosApi.patch(`/booking/${id}/confirm`),
+
     // Admin đánh dấu đã hoàn thành sau khi khách khám xong
-    completeBooking: (id) => axiosApi.post(`/booking/${id}/complete`),
-    
+    completeBooking: (id) => axiosApi.patch(`/booking/${id}/complete`),
+
     // Admin xóa lịch
     deleteBooking: (id) => axiosApi.delete(`/booking/${id}`),
 
@@ -383,16 +403,16 @@ export const warrantyApi = {
     getAllWarranties: (params) => axiosApi.get("/warranty", { params }),
     getWarrantyStats: () => axiosApi.get("/warranty/stats"),
     getWarrantyDetail: (id) => axiosApi.get(`/warranty/${id}`),
-    
+
     // FORM DATA / JSON
     createWarranty: (data) => axiosApi.post("/warranty", data),
     updateWarranty: (id, data) => axiosApi.put(`/warranty/${id}`, data),
-    
+
     // ACTIONS
     useWarranty: (id, data) => axiosApi.patch(`/warranty/${id}/use`, data),
     cancelWarranty: (id, data) => axiosApi.patch(`/warranty/${id}/cancel`, data),
     deleteWarranty: (id) => axiosApi.delete(`/warranty/${id}`),
-    
+
     // CRON
     updateExpiredWarranties: () => axiosApi.post("/warranty/update-expired"),
 };
