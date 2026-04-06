@@ -190,9 +190,8 @@ const Clinics = () => {
         isLoading: isLoadingClinics,
         error: clinicsError,
     } = useQuery({
-        queryKey: ["clinics", activeParentCategory?.title, user?.email, isSuperAdmin],
+        queryKey: ["clinics", activeParentCategory?.title, user?.user?.id, isSuperAdmin],
         queryFn: async () => {
-            // 🟢 FIX: Thêm tham số status: "all" để yêu cầu Backend trả về CẢ phòng khám đã ẩn
             const apiParams = { limit: 100, status: "all" };
 
             if (activeParentCategory?.title) {
@@ -200,14 +199,9 @@ const Clinics = () => {
             }
 
             const res = await clinicApi.getAllClinics(apiParams);
-            let allClinics = res?.data?.branches || [];
 
-            // Lọc theo phân quyền ngay từ Client nếu là Admin thường
-            if (!isSuperAdmin && user?.email) {
-                allClinics = allClinics.filter((b) => b.managerId?.email === user.email);
-            }
-
-            return allClinics;
+            // Trả thẳng dữ liệu, bỏ đoạn IF (!isSuperAdmin) filter đi
+            return res?.data?.branches || [];
         },
         staleTime: 1 * 60 * 1000,
     });
@@ -221,7 +215,7 @@ const Clinics = () => {
     const deleteMutation = useMutation({
         mutationFn: (id) => clinicApi.deleteClinic(id),
         onSuccess: (res, deletedId) => {
-            queryClient.setQueryData(["clinics", activeParentCategory?.title, user?.email, isSuperAdmin], (old) => old?.filter((c) => c._id !== deletedId));
+            queryClient.setQueryData(["clinics", activeParentCategory?.title, user?.id, isSuperAdmin, "admin-filter"], (old) => old?.filter((c) => c._id !== deletedId));
             showToast("Xóa phòng khám thành công!");
             setIsDeleteModalOpen(false);
             setClinicToDelete(null);
@@ -234,14 +228,14 @@ const Clinics = () => {
         mutationFn: (id) => clinicApi.toggleStatus(id),
         onMutate: async (id) => {
             await queryClient.cancelQueries({ queryKey: ["clinics"] });
-            const prevData = queryClient.getQueryData(["clinics", activeParentCategory?.title, user?.email, isSuperAdmin]);
-            queryClient.setQueryData(["clinics", activeParentCategory?.title, user?.email, isSuperAdmin], (old) => old?.map((c) => (c._id === id ? { ...c, isActive: !c.isActive } : c)));
+            const prevData = queryClient.getQueryData(["clinics", activeParentCategory?.title, user?._id, isSuperAdmin]);
+            queryClient.setQueryData(["clinics", activeParentCategory?.title, user?.id, isSuperAdmin, "admin-filter"], (old) => old?.map((c) => (c._id === id ? { ...c, isActive: !c.isActive } : c)));
             return { prevData };
         },
         onSuccess: () => showToast("Đã thay đổi trạng thái!"),
         onError: (err, id, context) => {
             showToast(translateErrorMessage(err.response?.data?.message) || "Lỗi thay đổi trạng thái", "error");
-            queryClient.setQueryData(["clinics", activeParentCategory?.title, user?.email, isSuperAdmin], context.prevData);
+            queryClient.setQueryData(["clinics", activeParentCategory?.title, user?.id, isSuperAdmin, "admin-filter"], context.prevData);
         },
         onSettled: () => queryClient.invalidateQueries({ queryKey: ["clinics"] }),
     });
@@ -253,7 +247,7 @@ const Clinics = () => {
             const selectedDistrict = districts.find((d) => d._id === formData.districtId) || { _id: formData.districtId, name: "..." };
 
             // Optimistic Update
-            queryClient.setQueryData(["clinics", activeParentCategory?.title, user?.email, isSuperAdmin], (old) => {
+            queryClient.setQueryData(["clinics", activeParentCategory?.title, user?.id, isSuperAdmin, "admin-filter"], (old) => {
                 if (!old) return old;
                 if (variables.id) {
                     return old.map((c) => {
@@ -482,9 +476,7 @@ const Clinics = () => {
     const uniqueProvinces = Array.from(new Map(districts.filter((d) => d.provinceId).map((d) => [d.provinceId._id, { _id: d.provinceId._id, name: d.provinceId.name }])).values());
     const provinceOptions = [{ value: "all", label: "Tất cả Tỉnh/Thành" }, ...uniqueProvinces.map((p) => ({ value: p._id, label: p.name }))];
     const districtOptions = districts.map((d) => ({ value: d._id, label: `${d.name} (${d.provinceId?.name})` }));
-    const assignedManagerIds = clinics
-        .map((c) => c.managerId?._id || c.managerId)
-        .filter(Boolean);
+    const assignedManagerIds = clinics.map((c) => c.managerId?._id || c.managerId).filter(Boolean);
 
     // Lọc ra các Admin hợp lệ
     const availableAdmins = admins.filter((admin) => {
@@ -650,7 +642,7 @@ const Clinics = () => {
                                                         </svg>
                                                     </button>
                                                     <div className="z-clinic-action-menu">
-                                                        {/* <Button
+                                                        <Button
                                                             variant="outline"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -659,7 +651,7 @@ const Clinics = () => {
                                                             disabled={toggleStatusMutation.isPending}
                                                         >
                                                             {clinic.isActive ? "Tạm dừng" : "Kích hoạt"}
-                                                        </Button> */}
+                                                        </Button>
                                                         <EditButton onClick={(e) => openEditModal(e, clinic)} />
                                                         {isSuperAdmin && <DeleteButton onClick={(e) => handleDeleteClick(e, clinic._id, clinic.name)} />}
                                                     </div>
@@ -689,7 +681,7 @@ const Clinics = () => {
                                     <label>
                                         Tên Phòng Khám <span className="z-clinic-required">*</span>
                                     </label>
-                                    <input type="text" name="name" className="z-clinic-input" required value={formData.name}  placeholder="VD: Nha Khoa Sài Gòn Tâm Đức - phường....." onChange={handleInputChange} disabled={isSubmitting} />
+                                    <input type="text" name="name" className="z-clinic-input" required value={formData.name} placeholder="VD: Nha Khoa Sài Gòn Tâm Đức - phường....." onChange={handleInputChange} disabled={isSubmitting} />
                                 </div>
                                 <div className="z-clinic-form-group">
                                     <label>Quản lí (Admin)</label>
@@ -700,7 +692,7 @@ const Clinics = () => {
                                         <label>
                                             Hotline <span className="z-clinic-required">*</span>
                                         </label>
-                                        <input type="text" name="hotline" className="z-clinic-input" placeholder="VD: 1900988973"required value={formData.hotline} onChange={handleInputChange} onKeyDown={handlePhoneKeyDown} disabled={isSubmitting} />
+                                        <input type="text" name="hotline" className="z-clinic-input" placeholder="VD: 1900988973" required value={formData.hotline} onChange={handleInputChange} onKeyDown={handlePhoneKeyDown} disabled={isSubmitting} />
                                     </div>
                                     <div className="z-clinic-form-group z-clinic-flex-1">
                                         <label>Email liên hệ</label>
@@ -717,7 +709,7 @@ const Clinics = () => {
                                     <label>
                                         Địa chỉ chi tiết <span className="z-clinic-required">*</span>
                                     </label>
-                                    <textarea name="address" rows="2" className="z-clinic-textarea" required value={formData.address}  placeholder="Nhập địa chỉ nha khoa..." onChange={handleInputChange} disabled={isSubmitting}></textarea>
+                                    <textarea name="address" rows="2" className="z-clinic-textarea" required value={formData.address} placeholder="Nhập địa chỉ nha khoa..." onChange={handleInputChange} disabled={isSubmitting}></textarea>
                                 </div>
                                 <div className="z-clinic-form-group">
                                     <label>Mô tả / Giới thiệu</label>

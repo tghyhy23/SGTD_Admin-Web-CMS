@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // 🟢 THÊM IMPORT
 import { categoryApi } from "../../api/axiosApi";
+import defaultImg from "../../assets/images/default_img.png";
 import Modal from "../../ui/Modal/Modal";
 import PageHeader from "../../ui/PageHeader/PageHeader";
 import ToastMessage from "../../ui/ToastMessage/ToastMessage";
@@ -18,7 +19,7 @@ const removeVietnameseTones = (str) => {
         .trim();
 };
 
-const FALLBACK_IMAGE = "https://via.placeholder.com/150";
+const FALLBACK_IMAGE = defaultImg;
 
 // Helper lấy danh mục từ LocalStorage
 const getActiveCategoryFromStorage = () => {
@@ -146,10 +147,21 @@ const Categories = () => {
             queryClient.setQueryData(["categories", activeParentId], (old) => {
                 if (!old) return old;
                 if (variables.isEdit) {
-                    return old.map((cat) => (cat._id === variables.id ? { ...cat, name: formData.name, description: formData.description, thumbnailUrl: imagePreview || cat.thumbnailUrl } : cat));
+                    return old.map((cat) => {
+                        if (cat._id === variables.id) {
+                            return {
+                                ...cat,
+                                name: formData.name,
+                                description: formData.description,
+                                // Ưu tiên ảnh vừa up -> ảnh từ server trả về -> ảnh cũ đang có
+                                thumbnailUrl: imagePreview || serverCategory?.thumbnailUrl || cat.thumbnailUrl,
+                            };
+                        }
+                        return cat;
+                    });
                 } else {
                     const newCategory = serverCategory || { ...variables.payload, _id: Date.now().toString(), isActive: true };
-                    if (imagePreview) newCategory.thumbnailUrl = imagePreview;
+                    newCategory.thumbnailUrl = imagePreview || serverCategory?.thumbnailUrl || FALLBACK_IMAGE;
                     return [newCategory, ...old];
                 }
             });
@@ -208,15 +220,19 @@ const Categories = () => {
         if (!formData.name) return showToast("Vui lòng nhập tên danh mục!", "error");
         if (!formData.categoryId) return showToast("Không tìm thấy Danh mục gốc từ Navbar!", "error");
 
-        let payload;
-        if (isEditMode) {
-            payload = formData; // Update cơ bản, nếu API hỗ trợ update ảnh dạng FormData thì sửa lại giống Create
-        } else {
-            payload = new FormData();
-            payload.append("categoryId", formData.categoryId);
-            payload.append("name", formData.name);
-            payload.append("description", formData.description);
-            if (imageFile) payload.append("image", imageFile);
+        // Khởi tạo FormData dùng chung cho cả Create và Update
+        const payload = new FormData();
+        payload.append("categoryId", formData.categoryId);
+        payload.append("name", formData.name);
+        payload.append("description", formData.description);
+
+        if (imageFile) {
+            // Nếu có tải ảnh mới lên thì đính kèm vào
+            payload.append("image", imageFile);
+        } else if (!isEditMode) {
+            // Chỉ gán ảnh mặc định nếu là Thêm mới và không chọn ảnh
+            // (Khi Edit mà không chọn ảnh mới thì cứ để trống, backend sẽ tự hiểu là giữ nguyên ảnh cũ)
+            payload.append("thumbnailUrl", FALLBACK_IMAGE);
         }
 
         saveMutation.mutate({ isEdit: isEditMode, id: editCategoryId, payload });

@@ -83,7 +83,7 @@ export default function Notifications() {
             if (res && res.success) {
                 return {
                     notifications: res.data.notifications || [],
-                    totalPages: res.data.pagination?.pages || 1
+                    totalPages: res.data.pagination?.pages || 1,
                 };
             }
             throw new Error("Không thể tải danh sách thông báo.");
@@ -108,7 +108,7 @@ export default function Notifications() {
         },
         onError: (err) => {
             showToast(err.response?.data?.message || "Lỗi kết nối hoặc xử lý từ server", "error");
-        }
+        },
     });
 
     const isSubmitting = broadcastMutation.isPending;
@@ -137,15 +137,25 @@ export default function Notifications() {
     // 🟢 STYLE ĐỒNG BỘ CHO REACT-SELECT
     const customSelectStyles = {
         control: (provided, state) => ({
-            ...provided, minHeight: "38px", borderRadius: "6px", fontSize: "14px",
-            borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db", boxShadow: "none",
-            "&:hover": { borderColor: "var(--primary-color)" }, backgroundColor: "#fff",
+            ...provided,
+            minHeight: "38px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db",
+            boxShadow: "none",
+            "&:hover": { borderColor: "var(--primary-color)" },
+            backgroundColor: "#fff",
         }),
         input: (provided) => ({ ...provided, margin: 0, padding: 0, fontSize: "14px" }),
         option: (provided, state) => ({
-            ...provided, backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white",
-            color: state.isSelected ? "var(--primary-color)" : "#374151", cursor: "pointer",
-            margin: "4px", borderRadius: "6px", fontSize: "14px", width: "96%",
+            ...provided,
+            backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white",
+            color: state.isSelected ? "var(--primary-color)" : "#374151",
+            cursor: "pointer",
+            margin: "4px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            width: "96%",
         }),
         menu: (provided) => ({ ...provided, zIndex: 9999 }),
         menuList: (provided) => ({ ...provided, overflowX: "hidden" }),
@@ -167,12 +177,7 @@ export default function Notifications() {
 
                 <div className="z-notification-tools">
                     <div className="z-notification-search">
-                        <input
-                            type="text"
-                            placeholder="Tìm tiêu đề, nội dung..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                        <input type="text" placeholder="Tìm tiêu đề, nội dung..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
 
                     <div style={{ minWidth: "220px", zIndex: 11 }}>
@@ -292,9 +297,13 @@ export default function Notifications() {
                 <Modal isOpen={isModalOpen} onClose={() => !isSubmitting && setIsModalOpen(false)} title="Gửi Thông báo Hàng loạt (Broadcast)" size="md" onSave={handleSendBroadcast} saveText={isSubmitting ? "Đang xử lý..." : "Gửi thông báo"}>
                     <div className="z-notification-form">
                         <div className="z-notification-info-box">
-                            <p>
-                                <strong>Lưu ý:</strong> Chức năng Broadcast sẽ gửi thông báo này tới chuông thông báo của <b>TẤT CẢ người dùng</b> đang có trong hệ thống ứng dụng.
+                            <p style={{ fontStyle: "italic" }}>
+                                <strong style={{ color: "var(--error)" }}>Lưu ý:</strong> Chức năng Broadcast sẽ gửi thông báo này tới chuông thông báo của <b>TẤT CẢ người dùng</b> đang có trong hệ thống ứng dụng.
                             </p>
+                            <div style={{ paddingBottom: "10px", borderBottom: "1px dashed #e5e7eb" }}>
+                                <span style={{ color: "red", fontWeight: "bold", fontSize: "16px" }}>*</span>
+                                <span style={{ color: "#6b7280", fontSize: "12px", fontStyle: "italic", marginLeft: "4px" }}>: Các trường có dấu sao là bắt buộc. Vui lòng nhập đầy đủ thông tin.</span>
+                            </div>
                         </div>
 
                         <div className="z-notification-form-group">
@@ -314,28 +323,12 @@ export default function Notifications() {
                         <div className="z-notification-form-row">
                             <div className="z-notification-form-group" style={{ flex: 1 }}>
                                 <label>Loại thông báo</label>
-                                <ReactSelect
-                                    options={formTypeOptions}
-                                    value={formTypeOptions.find((opt) => opt.value === formData.type) || formTypeOptions[0]}
-                                    onChange={(selected) => setFormData((prev) => ({ ...prev, type: selected.value }))}
-                                    isDisabled={isSubmitting}
-                                    styles={customSelectStyles}
-                                    isSearchable={false}
-                                    menuPosition="fixed"
-                                />
+                                <ReactSelect options={formTypeOptions} value={formTypeOptions.find((opt) => opt.value === formData.type) || formTypeOptions[0]} onChange={(selected) => setFormData((prev) => ({ ...prev, type: selected.value }))} isDisabled={isSubmitting} styles={customSelectStyles} isSearchable={false} menuPosition="fixed" />
                             </div>
 
                             <div className="z-notification-form-group" style={{ flex: 1 }}>
                                 <label>Mức độ ưu tiên</label>
-                                <ReactSelect
-                                    options={formPriorityOptions}
-                                    value={formPriorityOptions.find((opt) => opt.value === formData.priority) || formPriorityOptions[1]}
-                                    onChange={(selected) => setFormData((prev) => ({ ...prev, priority: selected.value }))}
-                                    isDisabled={isSubmitting}
-                                    styles={customSelectStyles}
-                                    isSearchable={false}
-                                    menuPosition="fixed"
-                                />
+                                <ReactSelect options={formPriorityOptions} value={formPriorityOptions.find((opt) => opt.value === formData.priority) || formPriorityOptions[1]} onChange={(selected) => setFormData((prev) => ({ ...prev, priority: selected.value }))} isDisabled={isSubmitting} styles={customSelectStyles} isSearchable={false} menuPosition="fixed" />
                             </div>
                         </div>
                     </div>

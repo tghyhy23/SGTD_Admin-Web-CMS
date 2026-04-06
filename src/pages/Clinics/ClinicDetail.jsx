@@ -106,7 +106,12 @@ const ClinicDetail = () => {
 
     const images = clinic?.imageUrls?.length > 0 ? clinic.imageUrls : [FALLBACK_IMG];
 
-    const { data: reviewsData, isLoading: isReviewsLoading } = useQuery({
+    const {
+        data: reviewsData,
+        isLoading: isReviewsLoading,
+        isFetching: isReviewsFetching, // 🟢 Trạng thái đang tải lại dữ liệu
+        refetch: refetchReviews, // 🟢 Hàm ép gọi lại API riêng cho phần Review
+    } = useQuery({
         queryKey: ["clinicReviews", id, reviewPage],
         queryFn: async () => {
             const res = await reviewApi.getAdminReviewsByBranch(id, { page: reviewPage, limit: 10, status: "all" });
@@ -128,6 +133,16 @@ const ClinicDetail = () => {
         },
         initialData: passedAdmins?.length ? passedAdmins : undefined,
         staleTime: 10 * 60 * 1000,
+    });
+
+    // 🟢 FIX: Fetch all clinics to get list of assigned managers for filtering
+    const { data: allClinics = [] } = useQuery({
+        queryKey: ["allClinicsForDetail", id],
+        queryFn: async () => {
+            const res = await clinicApi.getAllClinics({ limit: 500 });
+            return res?.data?.branches || res?.data || [];
+        },
+        staleTime: 5 * 60 * 1000,
     });
 
     const { data: districts = [] } = useQuery({
@@ -246,13 +261,28 @@ const ClinicDetail = () => {
     const deleteReviewMutation = useMutation({
         mutationFn: (reviewId) => reviewApi.deleteReview(reviewId),
         onSuccess: (res, reviewId) => {
+            // 1. Cập nhật danh sách review
             queryClient.setQueryData(["clinicReviews", id, reviewPage], (old) => {
                 if (!old) return old;
-                return { ...old, reviews: old.reviews.filter((r) => r._id !== reviewId), total: old.total - 1 };
+                return { ...old, reviews: old.reviews.filter((r) => r._id !== reviewId), total: Math.max(0, old.total - 1) };
             });
+
+            // 2. 🟢 CẬP NHẬT SỐ LƯỢNG ĐÁNH GIÁ TRÊN THÔNG TIN PHÒNG KHÁM
+            queryClient.setQueryData(["clinicDetail", id], (oldClinic) => {
+                if (!oldClinic) return oldClinic;
+                const newTotalReview = Math.max(0, (oldClinic.totalReview || 0) - 1);
+                return {
+                    ...oldClinic,
+                    totalReview: newTotalReview,
+                    // Nếu không còn review nào, ép sao về 0 để tránh lỗi backend
+                    totalRating: newTotalReview === 0 ? 0 : oldClinic.totalRating,
+                };
+            });
+
             showToast("Đã xóa đánh giá!");
             setIsDeleteReviewModalOpen(false);
             setReviewToDelete(null);
+
             queryClient.invalidateQueries({ queryKey: ["clinicReviews", id] });
             queryClient.invalidateQueries({ queryKey: ["clinicDetail", id] });
         },
@@ -261,8 +291,16 @@ const ClinicDetail = () => {
 
     const saveReviewMutation = useMutation({
         mutationFn: ({ reviewId, payload }) => (reviewId ? reviewApi.updateSeedReview(reviewId, payload) : reviewApi.createSeedReview(payload)),
-        onSuccess: () => {
-            showToast(currentReviewId ? "Cập nhật đánh giá thành công!" : "Tạo đánh giá thành công!");
+        onSuccess: (res, variables) => {
+            // 🟢 TĂNG SỐ LƯỢNG ĐÁNH GIÁ TRÊN THÔNG TIN PHÒNG KHÁM NẾU LÀ THÊM MỚI
+            if (!variables.reviewId) {
+                queryClient.setQueryData(["clinicDetail", id], (oldClinic) => {
+                    if (!oldClinic) return oldClinic;
+                    return { ...oldClinic, totalReview: (oldClinic.totalReview || 0) + 1 };
+                });
+            }
+
+            showToast(variables.reviewId ? "Cập nhật đánh giá thành công!" : "Tạo đánh giá thành công!");
             setIsReviewModalOpen(false);
             queryClient.invalidateQueries({ queryKey: ["clinicReviews", id] });
             queryClient.invalidateQueries({ queryKey: ["clinicDetail", id] });
@@ -324,9 +362,12 @@ const ClinicDetail = () => {
         submitData.append("openingHours", JSON.stringify({ openTime: formData.openTime, closeTime: formData.closeTime, breakStart: "12:00", breakEnd: "13:00" }));
         submitData.append("availableServiceIds", JSON.stringify(formData.availableServiceIds));
 
-        if (oldImageUrls.length === 0 && imageFiles.length === 0) submitData.append("images", "");
-        else if (oldImageUrls.length > 0) oldImageUrls.forEach((url) => submitData.append("images", url));
-        if (imageFiles.length > 0) imageFiles.forEach((file) => submitData.append("image", file));
+        // 🟢 FIX: Gửi đúng cấu trúc FormData - match Clinics.jsx
+        // Gửi file ảnh mới vào field "images"
+        imageFiles.forEach((file) => submitData.append("images", file));
+
+        // Gửi các URL ảnh cũ cần giữ lại vào field "imageUrls" (JSON format)
+        submitData.append("imageUrls", JSON.stringify(oldImageUrls.length === 0 && imageFiles.length === 0 ? [] : oldImageUrls));
 
         updateClinicMutation.mutate(submitData);
     };
@@ -394,7 +435,8 @@ const ClinicDetail = () => {
     const handleReviewSubmit = (e) => {
         if (e) e.preventDefault();
 
-        // 🟢 Validate và show Toast Error
+        if (saveReviewMutation.isPending || isSubmitting) return;
+
         if (!reviewForm.fakeAuthorName.trim()) {
             return showToast("Vui lòng nhập tên khách hàng.", "error");
         }
@@ -422,7 +464,17 @@ const ClinicDetail = () => {
     };
 
     const districtOptions = (districts || []).map((d) => ({ value: d._id, label: d.name }));
-    const adminOptions = (managers || []).map((admin) => ({ value: admin.userId || admin._id, label: `${admin.fullName || admin.username || "Chưa có tên"} - ${admin.email || admin.phone || ""}` }));
+
+    // 🟢 FIX: Filter to show only unassigned admins or the current clinic's manager
+    const assignedManagerIds = (allClinics || []).map((c) => c.managerId?._id || c.managerId).filter(Boolean);
+
+    const availableAdmins = (managers || []).filter((admin) => {
+        const adminId = admin.userId || admin._id;
+        // Show if admin hasn't been assigned to any clinic OR is the current clinic's manager
+        return !assignedManagerIds.includes(adminId) || adminId === formData.managerId;
+    });
+
+    const adminOptions = (availableAdmins || []).map((admin) => ({ value: admin.userId || admin._id, label: `${admin.fullName || admin.username || "Chưa có tên"} - ${admin.email || admin.phone || ""}` }));
 
     const customSelectStyles = {
         control: (provided, state) => ({ ...provided, minHeight: "38px", borderRadius: "6px", fontSize: "14px", borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db", boxShadow: "none", "&:hover": { borderColor: "var(--primary-color)" }, backgroundColor: "#fff" }),
@@ -481,7 +533,8 @@ const ClinicDetail = () => {
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
                                     <span className="z-clinic-detail-badge">Chi nhánh hệ thống</span>
                                     <span style={{ fontWeight: "600", fontSize: "14px", color: "var(--warning)" }}>
-                                        ⭐ {clinic.totalRating?.toFixed(1) || 0} <span style={{ color: "#6b7280", fontSize: "12px" }}>({clinic.totalReview || 0} đánh giá)</span>
+                                        {/* 🟢 Nếu số lượng review = 0 thì hiển thị 0 sao, ngược lại thì lấy số từ backend */}⭐ {clinic.totalReview === 0 ? 0 : clinic.totalRating?.toFixed(1) || 0}
+                                        <span style={{ color: "#6b7280", fontSize: "12px", marginLeft: "4px" }}>({clinic.totalReview || 0} đánh giá)</span>
                                     </span>
                                 </div>
                                 <h1 className="z-clinic-detail-title">{clinic.name}</h1>
@@ -547,7 +600,49 @@ const ClinicDetail = () => {
                 {/* QUẢN LÝ ĐÁNH GIÁ (REVIEWS) */}
                 <div className="z-clinic-detail-card" style={{ marginTop: "24px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-                        <h2 style={{ fontSize: "18px", margin: 0, color: "#111827" }}>Quản lý Đánh giá ({reviewTotal})</h2>
+                        {/* 🟢 KHU VỰC TIÊU ĐỀ & NÚT RELOAD CỤC BỘ */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <h2 style={{ fontSize: "18px", margin: 0, color: "#111827" }}>Quản lý Đánh giá ({reviewTotal})</h2>
+                            <button
+                                onClick={() => refetchReviews()}
+                                disabled={isReviewsFetching}
+                                title="Tải lại danh sách đánh giá"
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    width: "32px",
+                                    height: "32px",
+                                    borderRadius: "50%",
+                                    backgroundColor: isReviewsFetching ? "#e5e7eb" : "#f3f4f6",
+                                    border: "none",
+                                    cursor: isReviewsFetching ? "not-allowed" : "pointer",
+                                    color: "#4b5563",
+                                    transition: "all 0.2s",
+                                }}
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    style={{
+                                        transition: "transform 0.5s ease",
+                                        transform: isReviewsFetching ? "rotate(180deg)" : "rotate(0deg)", // Xoay nhẹ khi đang tải
+                                    }}
+                                >
+                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                                    <path d="M3 3v5h5"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        {/* -------------------------------------- */}
+
                         <AddButton onClick={() => handleOpenReviewModal(null)}>Thêm Seeding</AddButton>
                     </div>
 
