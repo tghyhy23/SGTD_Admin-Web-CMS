@@ -4,13 +4,29 @@ import { useContext, useState } from "react";
 import { AuthContext } from "../../../context/AuthContext";
 import "./Login.css";
 
+const translateLoginError = (errorMsg) => {
+    if (!errorMsg) return "Đăng nhập thất bại, vui lòng thử lại!";
+    const msg = errorMsg.toLowerCase();
+
+    // Dựa trên loginService từ backend
+    if (msg.includes("identifier and password are required")) return "Vui lòng nhập Email/Số điện thoại và Mật khẩu.";
+    if (msg.includes("too many login attempts")) return "Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.";
+    if (msg.includes("invalid identifier or password")) return "Tài khoản hoặc mật khẩu không chính xác!";
+    if (msg.includes("log in using your google account")) return "Tài khoản này được đăng ký bằng Google. Vui lòng đăng nhập bằng Google.";
+    if (msg.includes("inactive or has been suspended") || msg.includes("deleted")) return "Tài khoản của bạn đã bị khóa hoặc tạm ngưng hoạt động.";
+    if (msg.includes("not verified")) return "Tài khoản chưa được xác thực. Vui lòng kiểm tra email hoặc số điện thoại.";
+    if (msg.includes("user profile not found")) return "Dữ liệu hồ sơ bị lỗi, không tìm thấy người dùng.";
+    if (msg.includes("internal server error")) return "Lỗi máy chủ, vui lòng thử lại sau!";
+
+    return errorMsg; // Nếu có lỗi lạ chưa được map thì hiển thị text gốc
+};
+
 const Login = () => {
     const [identifier, setIdentifier] = useState("");
     const [password, setPassword] = useState("");
     const [errorMsg, setErrorMsg] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
-    // THÊM STATE ĐỂ TOGGLE MẬT KHẨU
     const [showPassword, setShowPassword] = useState(false);
 
     const { login } = useContext(AuthContext);
@@ -22,7 +38,8 @@ const Login = () => {
 
         const result = await login(identifier, password);
         if (!result.success) {
-            setErrorMsg(result.message);
+            // 🟢 SỬ DỤNG HÀM DỊCH LỖI Ở ĐÂY
+            setErrorMsg(translateLoginError(result.message || result.error));
             setIsLoading(false);
         }
     };

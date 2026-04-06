@@ -24,10 +24,8 @@ const Dashboard = () => {
     const userRole = user?.role || user?.account?.role || "USER";
     const isSuperAdmin = userRole === "SUPERADMIN";
 
-    const adminAssignedBranchIds = user?.account?.branches?.map(b => b._id || b) || user?.branches?.map(b => b._id || b) || [];
-    
     // Khởi tạo queryClient để invalidate cache sau khi update
-    const queryClient = useQueryClient(); 
+    const queryClient = useQueryClient();
 
     // ==========================================
     // 2. STATE LỌC, TÌM KIẾM, SẮP XẾP & PHÂN TRANG
@@ -60,7 +58,7 @@ const Dashboard = () => {
     const [bookingToDelete, setBookingToDelete] = useState(null);
 
     // ==========================================
-    // 4. REACT QUERY: FETCH DỮ LIỆU 
+    // 4. REACT QUERY: FETCH DỮ LIỆU
     // ==========================================
 
     // Delay debounce search
@@ -74,24 +72,21 @@ const Dashboard = () => {
 
     // 4.1 Lấy danh sách chi nhánh (Được cache lại)
     const { data: branches = [], isLoading: isLoadingBranches } = useQuery({
-        queryKey: ["branches", isSuperAdmin, user?.email],
+        queryKey: ["branches", isSuperAdmin, user?.user?.id], // Sửa lại cache key cho đúng
         queryFn: async () => {
             const clinicRes = await clinicApi.getAllClinics({ limit: 100 });
-            const allBranches = clinicRes.data?.branches || clinicRes.data || [];
 
-            if (isSuperAdmin) return allBranches;
-
-            return allBranches.filter(b => {
-                const matchEmail = b.managerId?.email === user?.email;
-                const matchAccount = adminAssignedBranchIds.includes(String(b._id));
-                return matchEmail || matchAccount;
-            });
+            // Trả thẳng dữ liệu từ Backend về vì Backend đã tự động phân quyền theo Token
+            return clinicRes.data?.branches || clinicRes.data || [];
         },
-        staleTime: 5 * 60 * 1000, // Cache sống trong 5 phút
+        staleTime: 5 * 60 * 1000,
     });
 
     // Tính toán branchId để query truyền đi
-    const derivedBranchId = isSuperAdmin ? filterBranch : (branches.length > 0 ? branches[0]._id : undefined);
+    const derivedBranchId = isSuperAdmin ? filterBranch : branches.length > 0 ? branches[0]._id : undefined;
+    console.log("🛠 [DEBUG FRONTEND] isSuperAdmin:", isSuperAdmin);
+    console.log("🛠 [DEBUG FRONTEND] branches lấy được:", branches.length, "chi nhánh");
+    console.log("🛠 [DEBUG FRONTEND] derivedBranchId sẽ truyền đi:", derivedBranchId);
 
     // 4.2 Lấy danh sách Bookings (Được cache & giữ data cũ khi sang trang)
     const { data: bookingData, isLoading: isLoadingBookings } = useQuery({
@@ -100,21 +95,30 @@ const Dashboard = () => {
             const params = { page, limit, sort: sortOrder };
             if (debouncedSearch) params.search = debouncedSearch;
             if (filterStatus) params.status = filterStatus;
+            
+            // Nếu có ID chi nhánh thì mới thêm vào params
             if (derivedBranchId) params.branchId = derivedBranchId;
 
+            // 🚀 DEBUG 2: Kiểm tra params trước khi gọi API
+            console.log("🚀 [DEBUG API CALL] Gọi API Booking với params:", params);
+
             const res = await bookingApi.getAllBookingsAdmin(params);
+            
+            // 📦 DEBUG 3: Kiểm tra cục data trả về từ Backend
+            console.log("📦 [DEBUG API RESPONSE] Data trả về từ Backend:", res);
+
             if (res && res.success) {
                 return {
                     bookings: res.data.bookings || [],
-                    totalPages: res.data.pagination?.pages || 1
+                    totalPages: res.data.pagination?.pages || 1,
                 };
             }
             return { bookings: [], totalPages: 1 };
         },
-        // Chỉ chạy query này khi đã biết được list branches (nếu không phải SuperAdmin)
+        // Mấu chốt nằm ở đây: Query này chỉ chạy khi branches đã load xong (nếu là Admin)
         enabled: isSuperAdmin || branches.length > 0,
-        placeholderData: keepPreviousData, // Giữ data trang cũ khi đang fetch trang mới (UI không bị giật)
-        staleTime: 1 * 60 * 1000, // Dữ liệu booking khá nhạy cảm, cache 1 phút
+        placeholderData: keepPreviousData, 
+        staleTime: 1 * 60 * 1000, 
     });
 
     const bookings = bookingData?.bookings || [];
@@ -124,7 +128,7 @@ const Dashboard = () => {
     // ==========================================
     // 5. REACT QUERY: MUTATIONS (Xử lý các thao tác update/delete)
     // ==========================================
-    
+
     const confirmMutation = useMutation({
         mutationFn: (id) => bookingApi.confirmBooking(id),
         onSuccess: () => {
@@ -133,7 +137,7 @@ const Dashboard = () => {
             setBookingToConfirm(null);
             queryClient.invalidateQueries({ queryKey: ["bookings"] }); // Tự động refetch list
         },
-        onError: (error) => setToast({ show: true, message: error.response?.data?.message || "Lỗi xác nhận lịch hẹn", type: "error" })
+        onError: (error) => setToast({ show: true, message: error.response?.data?.message || "Lỗi xác nhận lịch hẹn", type: "error" }),
     });
 
     const completeMutation = useMutation({
@@ -144,7 +148,7 @@ const Dashboard = () => {
             setBookingToComplete(null);
             queryClient.invalidateQueries({ queryKey: ["bookings"] });
         },
-        onError: (error) => setToast({ show: true, message: error.response?.data?.message || "Lỗi hoàn thành lịch hẹn", type: "error" })
+        onError: (error) => setToast({ show: true, message: error.response?.data?.message || "Lỗi hoàn thành lịch hẹn", type: "error" }),
     });
 
     const deleteMutation = useMutation({
@@ -155,7 +159,7 @@ const Dashboard = () => {
             setBookingToDelete(null);
             queryClient.invalidateQueries({ queryKey: ["bookings"] });
         },
-        onError: (error) => setToast({ show: true, message: error.response?.data?.message || "Lỗi khi xóa lịch hẹn", type: "error" })
+        onError: (error) => setToast({ show: true, message: error.response?.data?.message || "Lỗi khi xóa lịch hẹn", type: "error" }),
     });
 
     const isSubmitting = confirmMutation.isPending || completeMutation.isPending || deleteMutation.isPending;
@@ -328,7 +332,9 @@ const Dashboard = () => {
                                             </div>
                                         </td>
                                         <td>
-                                            <div className="z-dashboard-text-normal" style={{ maxWidth: "220px", wordBreak: "break-word" }}>{booking.branchId?.name}</div>
+                                            <div className="z-dashboard-text-normal" style={{ maxWidth: "220px", wordBreak: "break-word" }}>
+                                                {booking.branchId?.name}
+                                            </div>
                                         </td>
                                         <td>
                                             <div className="z-dashboard-text-bold" style={{ color: "var(--primary-color)" }}>

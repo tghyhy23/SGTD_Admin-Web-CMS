@@ -317,17 +317,11 @@
     resize: vertical;
 }
 
-/* Hộp cảnh báo (Info Box) */
-.z-notification-info-box {
-    background: #fef3c7;
-    padding: 12px 16px;
-    border-radius: 8px;
-    border-left: 4px solid #d97706;
-}
+
 
 .z-notification-info-box p {
     margin: 0;
-    font-size: 13px;
-    color: #92400e;
+    font-size: 12px;
+    color: rgb(107, 114, 128);
     line-height: 1.5;
 }
