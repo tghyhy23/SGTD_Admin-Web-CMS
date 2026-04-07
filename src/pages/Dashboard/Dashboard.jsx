@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query"; // Thêm import
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import Select from "react-select";
 import { bookingApi, clinicApi } from "../../api/axiosApi";
 import Modal from "../../ui/Modal/Modal";
 import PageHeader from "../../ui/PageHeader/PageHeader";
@@ -7,6 +8,30 @@ import ToastMessage from "../../ui/ToastMessage/ToastMessage";
 import Button, { DeleteButton } from "../../ui/Button/Button";
 import { useAuth } from "../../context/AuthContext";
 import "./Dashboard.css";
+
+// ==========================================
+// HÀM HELPER XỬ LÝ CHUỖI & DANH MỤC (THÊM MỚI)
+// ==========================================
+const removeVietnameseTones = (str) => {
+    if (!str) return "";
+    return str
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d")
+        .replace(/Đ/g, "D")
+        .toLowerCase()
+        .trim();
+};
+
+const mapCategoryToEnum = (title) => {
+    if (!title) return "PHONG_KHAM";
+    const normalized = removeVietnameseTones(title).toUpperCase();
+    if (normalized.includes("NHA KHOA")) return "NHA_KHOA";
+    if (normalized.includes("BENH VIEN")) return "BENH_VIEN";
+    if (normalized.includes("THAM MY")) return "THAM_MY_VIEN";
+    if (normalized.includes("PHONG KHAM")) return "PHONG_KHAM";
+    return normalized.replace(/\s+/g, "_");
+};
 
 const STATUS_OPTIONS = [
     { value: "", label: "Tất cả trạng thái" },
@@ -16,52 +41,70 @@ const STATUS_OPTIONS = [
     { value: "CANCELLED", label: "Đã hủy" },
 ];
 
+const customSelectStyles = {
+    control: (provided, state) => ({ ...provided, minHeight: "38px", borderRadius: "6px", fontSize: "14px", borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db", boxShadow: "none", "&:hover": { borderColor: "var(--primary-color)" }, backgroundColor: "#fff" }),
+    input: (provided) => ({ ...provided, margin: 0, padding: 0, fontSize: "14px" }),
+    option: (provided, state) => ({ ...provided, backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white", color: state.isSelected ? "var(--primary-color)" : "#374151", cursor: "pointer", margin: "4px", borderRadius: "6px", fontSize: "14px", width: "96%" }),
+    menu: (provided) => ({ ...provided, zIndex: 9999 }),
+    menuList: (provided) => ({ ...provided, overflowX: "hidden" }),
+};
+
 const Dashboard = () => {
-    // ==========================================
-    // 1. LẤY THÔNG TIN USER & PHÂN QUYỀN
-    // ==========================================
     const { user } = useAuth();
     const userRole = user?.role || user?.account?.role || "USER";
     const isSuperAdmin = userRole === "SUPERADMIN";
-
-    // Khởi tạo queryClient để invalidate cache sau khi update
     const queryClient = useQueryClient();
 
     // ==========================================
-    // 2. STATE LỌC, TÌM KIẾM, SẮP XẾP & PHÂN TRANG
+    // STATE: CATEGORY TỪ LOCALSTORAGE (THÊM MỚI)
+    // ==========================================
+    const [activeParentCategory, setActiveParentCategory] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem("activeCategory"));
+        } catch {
+            return null;
+        }
+    });
+
+    useEffect(() => {
+        const handleStorageChange = () => {
+            try {
+                setActiveParentCategory(JSON.parse(localStorage.getItem("activeCategory")));
+            } catch {
+                setActiveParentCategory(null);
+            }
+        };
+        window.addEventListener("activeCategoryChanged", handleStorageChange);
+        return () => window.removeEventListener("activeCategoryChanged", handleStorageChange);
+    }, []);
+
+    // ==========================================
+    // STATE UI & BỘ LỌC
     // ==========================================
     const [searchTerm, setSearchTerm] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
-
     const [filterStatus, setFilterStatus] = useState("");
     const [filterBranch, setFilterBranch] = useState("");
     const [sortOrder, setSortOrder] = useState("desc");
-
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-    const [showBranchDropdown, setShowBranchDropdown] = useState(false);
-
     const [page, setPage] = useState(1);
     const limit = 10;
-
     const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
-    // ==========================================
-    // 3. STATE CÁC MODALS
-    // ==========================================
+    // Modals state
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [bookingToConfirm, setBookingToConfirm] = useState(null);
-
     const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
     const [bookingToComplete, setBookingToComplete] = useState(null);
-
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [bookingToDelete, setBookingToDelete] = useState(null);
 
-    // ==========================================
-    // 4. REACT QUERY: FETCH DỮ LIỆU
-    // ==========================================
+    // Xử lý khi thay đổi Tab Category (Reset page và bộ lọc chi nhánh)
+    useEffect(() => {
+        setFilterBranch(""); // Reset branch về "Tất cả"
+        setPage(1); // Trở về trang 1
+    }, [activeParentCategory?.title]);
 
-    // Delay debounce search
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearch(searchTerm);
@@ -70,42 +113,44 @@ const Dashboard = () => {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-    // 4.1 Lấy danh sách chi nhánh (Được cache lại)
-    const { data: branches = [], isLoading: isLoadingBranches } = useQuery({
-        queryKey: ["branches", isSuperAdmin, user?.user?.id], // Sửa lại cache key cho đúng
-        queryFn: async () => {
-            const clinicRes = await clinicApi.getAllClinics({ limit: 100 });
+    // ==========================================
+    // REACT QUERY
+    // ==========================================
 
-            // Trả thẳng dữ liệu từ Backend về vì Backend đã tự động phân quyền theo Token
+    // Fetch Branches (Có lọc theo category)
+    const { data: branches = [], isLoading: isLoadingBranches } = useQuery({
+        queryKey: ["branches", isSuperAdmin, user?.user?.id, activeParentCategory?.title],
+        queryFn: async () => {
+            const apiParams = { limit: 100 };
+            
+            // Lọc chi nhánh theo Category hiện tại
+            if (activeParentCategory?.title) {
+                apiParams.category = mapCategoryToEnum(activeParentCategory.title);
+            }
+            
+            const clinicRes = await clinicApi.getAllClinics(apiParams);
             return clinicRes.data?.branches || clinicRes.data || [];
         },
         staleTime: 5 * 60 * 1000,
     });
 
-    // Tính toán branchId để query truyền đi
     const derivedBranchId = isSuperAdmin ? filterBranch : branches.length > 0 ? branches[0]._id : undefined;
-    console.log("🛠 [DEBUG FRONTEND] isSuperAdmin:", isSuperAdmin);
-    console.log("🛠 [DEBUG FRONTEND] branches lấy được:", branches.length, "chi nhánh");
-    console.log("🛠 [DEBUG FRONTEND] derivedBranchId sẽ truyền đi:", derivedBranchId);
 
-    // 4.2 Lấy danh sách Bookings (Được cache & giữ data cũ khi sang trang)
+    // Fetch Bookings (Cập nhật params truyền category)
     const { data: bookingData, isLoading: isLoadingBookings } = useQuery({
-        queryKey: ["bookings", page, limit, debouncedSearch, filterStatus, derivedBranchId, sortOrder],
+        queryKey: ["bookings", page, limit, debouncedSearch, filterStatus, derivedBranchId, sortOrder, activeParentCategory?.title],
         queryFn: async () => {
             const params = { page, limit, sort: sortOrder };
             if (debouncedSearch) params.search = debouncedSearch;
             if (filterStatus) params.status = filterStatus;
-            
-            // Nếu có ID chi nhánh thì mới thêm vào params
             if (derivedBranchId) params.branchId = derivedBranchId;
-
-            // 🚀 DEBUG 2: Kiểm tra params trước khi gọi API
-            console.log("🚀 [DEBUG API CALL] Gọi API Booking với params:", params);
+            
+            // Gửi thêm thông tin category nếu backend có hỗ trợ lọc booking theo danh mục
+            if (activeParentCategory?.title) {
+                params.category = mapCategoryToEnum(activeParentCategory.title);
+            }
 
             const res = await bookingApi.getAllBookingsAdmin(params);
-            
-            // 📦 DEBUG 3: Kiểm tra cục data trả về từ Backend
-            console.log("📦 [DEBUG API RESPONSE] Data trả về từ Backend:", res);
 
             if (res && res.success) {
                 return {
@@ -115,10 +160,9 @@ const Dashboard = () => {
             }
             return { bookings: [], totalPages: 1 };
         },
-        // Mấu chốt nằm ở đây: Query này chỉ chạy khi branches đã load xong (nếu là Admin)
         enabled: isSuperAdmin || branches.length > 0,
-        placeholderData: keepPreviousData, 
-        staleTime: 1 * 60 * 1000, 
+        placeholderData: keepPreviousData,
+        staleTime: 1 * 60 * 1000,
     });
 
     const bookings = bookingData?.bookings || [];
@@ -126,16 +170,15 @@ const Dashboard = () => {
     const isLoading = isLoadingBookings || isLoadingBranches;
 
     // ==========================================
-    // 5. REACT QUERY: MUTATIONS (Xử lý các thao tác update/delete)
+    // MUTATIONS
     // ==========================================
-
     const confirmMutation = useMutation({
         mutationFn: (id) => bookingApi.confirmBooking(id),
         onSuccess: () => {
             setToast({ show: true, message: "Đã xác nhận lịch hẹn!", type: "success" });
             setIsConfirmModalOpen(false);
             setBookingToConfirm(null);
-            queryClient.invalidateQueries({ queryKey: ["bookings"] }); // Tự động refetch list
+            queryClient.invalidateQueries({ queryKey: ["bookings"] });
         },
         onError: (error) => setToast({ show: true, message: error.response?.data?.message || "Lỗi xác nhận lịch hẹn", type: "error" }),
     });
@@ -165,7 +208,7 @@ const Dashboard = () => {
     const isSubmitting = confirmMutation.isPending || completeMutation.isPending || deleteMutation.isPending;
 
     // ==========================================
-    // 6. HELPER UI
+    // UI HELPERS
     // ==========================================
     const getStatusLabelText = (statusValue) => {
         const option = STATUS_OPTIONS.find((opt) => opt.value === statusValue);
@@ -181,6 +224,18 @@ const Dashboard = () => {
         return branch ? branch.name : "Tất cả chi nhánh";
     };
 
+    const branchOptions = [
+        { value: "", label: "Tất cả chi nhánh" },
+        ...branches.map(branch => ({
+            value: branch._id,
+            label: branch.name
+        }))
+    ];
+
+    const currentSelectedBranch = isSuperAdmin 
+        ? branchOptions.find(opt => opt.value === filterBranch) || branchOptions[0]
+        : { value: derivedBranchId, label: getBranchLabelText() };
+
     return (
         <>
             <PageHeader breadcrumbs={[{ label: "Quản lý Lịch Hẹn" }]} title="Quản lí lịch Hẹn" description="Quản lý theo dõi các lịch hẹn của khách hàng. Xác nhận và cập nhật hoàn thành dịch vụ khách hàng" />
@@ -189,72 +244,35 @@ const Dashboard = () => {
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
 
                 <div className="z-dashboard-header">
-                    <h1 className="z-dashboard-title">Danh sách lịch hẹn</h1>
+                    <h1 className="z-dashboard-title">Danh sách lịch hẹn {activeParentCategory?.title ? `- ${activeParentCategory.title}` : ""}</h1>
                 </div>
 
-                {/* --- TOOLS BAR (Search & Filters) --- */}
                 <div className="z-dashboard-tools">
                     <div className="z-dashboard-search">
                         <input type="text" placeholder="Tìm mã Booking, Tên KH, SĐT..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
 
-                    {/* Filter CHI NHÁNH */}
-                    <div className="z-dashboard-filter">
-                        <button
-                            className="z-dashboard-btn-filter"
-                            onClick={() => {
-                                if (isSuperAdmin) {
-                                    setShowBranchDropdown(!showBranchDropdown);
-                                    setShowStatusDropdown(false);
-                                }
+                    <div className="z-dashboard-filter" style={{ minWidth: "220px", flexShrink: 0 }}>
+                        <Select
+                            options={branchOptions}
+                            value={currentSelectedBranch}
+                            onChange={(selectedOption) => {
+                                setFilterBranch(selectedOption ? selectedOption.value : "");
+                                setPage(1);
+                                setShowStatusDropdown(false);
                             }}
-                            style={{ cursor: isSuperAdmin ? "pointer" : "default" }}
-                        >
-                            <span style={{ maxWidth: "160px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{getBranchLabelText()}</span>
-                            {isSuperAdmin && (
-                                <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151">
-                                    <path d="M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z" />
-                                </svg>
-                            )}
-                        </button>
-
-                        {isSuperAdmin && showBranchDropdown && (
-                            <div className="z-dashboard-dropdown-menu" style={{ maxHeight: "300px", overflowY: "auto" }}>
-                                <div
-                                    className={`z-dashboard-dropdown-item ${filterBranch === "" ? "active" : ""}`}
-                                    onClick={() => {
-                                        setFilterBranch("");
-                                        setPage(1);
-                                        setShowBranchDropdown(false);
-                                    }}
-                                >
-                                    Tất cả chi nhánh
-                                </div>
-                                {branches.map((branch) => (
-                                    <div
-                                        key={branch._id}
-                                        className={`z-dashboard-dropdown-item ${filterBranch === branch._id ? "active" : ""}`}
-                                        onClick={() => {
-                                            setFilterBranch(branch._id);
-                                            setPage(1);
-                                            setShowBranchDropdown(false);
-                                        }}
-                                    >
-                                        {branch.name}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                            styles={customSelectStyles}
+                            placeholder="Tìm chi nhánh..."
+                            isDisabled={!isSuperAdmin}
+                            isSearchable={true}
+                            noOptionsMessage={() => "Không tìm thấy chi nhánh"}
+                        />
                     </div>
 
-                    {/* Filter TRẠNG THÁI */}
                     <div className="z-dashboard-filter">
                         <button
                             className="z-dashboard-btn-filter"
-                            onClick={() => {
-                                setShowStatusDropdown(!showStatusDropdown);
-                                setShowBranchDropdown(false);
-                            }}
+                            onClick={() => setShowStatusDropdown(!showStatusDropdown)}
                         >
                             <span>{getStatusLabelText(filterStatus)}</span>
                             <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151">
@@ -281,7 +299,6 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* --- TABLE --- */}
                 <div className="z-dashboard-table-wrapper">
                     <table className="z-dashboard-table">
                         <thead>
@@ -396,7 +413,6 @@ const Dashboard = () => {
                     </table>
                 </div>
 
-                {/* --- PAGINATION --- */}
                 {totalPages > 1 && (
                     <div className="z-dashboard-pagination">
                         <button className="z-pagination-btn" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
@@ -415,22 +431,20 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                {/* --- MODAL XÁC NHẬN --- */}
                 <Modal isOpen={isConfirmModalOpen} onClose={() => !isSubmitting && setIsConfirmModalOpen(false)} title="Xác nhận lịch hẹn" size="sm" onSave={() => confirmMutation.mutate(bookingToConfirm._id)} saveText={isSubmitting ? "Đang xử lý..." : "Xác nhận"}>
                     <div className="z-dashboard-delete-content">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto", marginBottom: "15px" }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="var(--edit)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto", marginBottom: "15px" }}>
                             <circle cx="12" cy="12" r="10"></circle>
                             <path d="M12 16v-4"></path>
                             <path d="M12 8h.01"></path>
                         </svg>
                         <h3>Xác nhận lịch hẹn?</h3>
                         <p>
-                            Bạn có chắc muốn xác nhận mã đơn <strong style={{ color: "#2563eb" }}>{bookingToConfirm?.code}</strong>? Khách hàng sẽ nhận được thông báo ngay sau khi xác nhận.
+                            Bạn có chắc muốn xác nhận mã đơn <strong style={{ color: "var(--edit)" }}>{bookingToConfirm?.code}</strong>? Khách hàng sẽ nhận được thông báo ngay sau khi xác nhận.
                         </p>
                     </div>
                 </Modal>
 
-                {/* --- MODAL HOÀN THÀNH --- */}
                 <Modal isOpen={isCompleteModalOpen} onClose={() => !isSubmitting && setIsCompleteModalOpen(false)} title="Hoàn thành lịch hẹn" size="sm" onSave={() => completeMutation.mutate(bookingToComplete._id)} saveText={isSubmitting ? "Đang xử lý..." : "Hoàn thành"}>
                     <div className="z-dashboard-delete-content">
                         <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto", marginBottom: "15px" }}>
@@ -444,7 +458,6 @@ const Dashboard = () => {
                     </div>
                 </Modal>
 
-                {/* --- MODAL XÓA --- */}
                 <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmitting && setIsDeleteModalOpen(false)} title="Xác nhận xóa" size="sm" onSave={() => deleteMutation.mutate(bookingToDelete._id)} saveText={isSubmitting ? "Đang xử lý..." : "Xác nhận xóa"}>
                     <div className="z-dashboard-delete-content">
                         <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="var(--error)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto", marginBottom: "15px" }}>

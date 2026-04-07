@@ -250,7 +250,7 @@
 .z-clinic-detail-btn-primary {
     background-color: var(--primary-color);
     color: #fff;
-    border: 1px solid var(--primary-color);
+    border: none;
     padding: 8px 16px;
     border-radius: 6px;
     font-weight: 600;
@@ -263,8 +263,9 @@
 }
 
 .z-clinic-detail-btn-primary:hover {
-    filter: brightness(1.1);
-    box-shadow: 0 4px 6px -1px rgba(18, 145, 90, 0.2);
+    background-color: var(--base-primary);
+    color: var(--primary-color);
+    border: none;
 }
 
 /* ================= TABLE REVIEWS ================= */
@@ -548,6 +549,17 @@
     background: #f3f4f6;
     border-color: #9ca3af;
     color: #374151;
+}
+.z-clinic-detail-reload-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    color: #fff;
+    transition: all 0.2s;
 }
 
 /* Responsive */
