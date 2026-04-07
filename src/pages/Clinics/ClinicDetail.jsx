@@ -600,25 +600,18 @@ const ClinicDetail = () => {
                 {/* QUẢN LÝ ĐÁNH GIÁ (REVIEWS) */}
                 <div className="z-clinic-detail-card" style={{ marginTop: "24px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                        <h2 style={{ fontSize: "18px", margin: 0, color: "#111827" }}>Quản lý Đánh giá ({reviewTotal})</h2>
                         {/* 🟢 KHU VỰC TIÊU ĐỀ & NÚT RELOAD CỤC BỘ */}
                         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                            <h2 style={{ fontSize: "18px", margin: 0, color: "#111827" }}>Quản lý Đánh giá ({reviewTotal})</h2>
                             <button
                                 onClick={() => refetchReviews()}
                                 disabled={isReviewsFetching}
                                 title="Tải lại danh sách đánh giá"
+                                className="z-clinic-detail-reload-btn"
                                 style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    width: "32px",
-                                    height: "32px",
-                                    borderRadius: "50%",
-                                    backgroundColor: isReviewsFetching ? "#e5e7eb" : "#f3f4f6",
-                                    border: "none",
+                                    backgroundColor: isReviewsFetching ? "#09482d" : "var(--primary-color)",
                                     cursor: isReviewsFetching ? "not-allowed" : "pointer",
-                                    color: "#4b5563",
-                                    transition: "all 0.2s",
+                                    
                                 }}
                             >
                                 <svg
@@ -640,10 +633,8 @@ const ClinicDetail = () => {
                                     <path d="M3 3v5h5"></path>
                                 </svg>
                             </button>
+                            <AddButton onClick={() => handleOpenReviewModal(null)}>Thêm Seeding</AddButton>
                         </div>
-                        {/* -------------------------------------- */}
-
-                        <AddButton onClick={() => handleOpenReviewModal(null)}>Thêm Seeding</AddButton>
                     </div>
 
                     {isReviewsLoading ? (

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // 🟢 THÊM IMPORT
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { promotionApi, clinicApi, serviceApi, userApi } from "../../api/axiosApi";
 import Modal from "../../ui/Modal/Modal";
 import PageHeader from "../../ui/PageHeader/PageHeader";
@@ -10,6 +10,7 @@ import ReactSelect from "react-select";
 import DatePicker, { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import vi from "date-fns/locale/vi";
+import { useAuth } from "../../context/AuthContext"; // 🟢 THÊM useAuth
 registerLocale("vi", vi);
 import "./Promotions.css";
 
@@ -22,7 +23,6 @@ const STATUS_OPTIONS = [
 ];
 
 const handlePreventInvalidChars = (e) => {
-    // Chặn dấu trừ (-), cộng (+), và chữ e/E (ký hiệu số mũ)
     if (["-", "+", "e", "E"].includes(e.key)) {
         e.preventDefault();
     }
@@ -71,6 +71,14 @@ const Promotions = () => {
     const fileInputRef = useRef(null);
 
     // ==========================================
+    // 0. LẤY THÔNG TIN USER & PHÂN QUYỀN (🟢 THÊM MỚI)
+    // ==========================================
+    const { user } = useAuth();
+    const userRole = user?.role || user?.account?.role || user?.user?.account?.role || "USER";
+    const isSuperAdmin = userRole === "SUPERADMIN";
+    const currentUserId = user?.user?._id || user?.user?.id || user?._id || user?.id;
+
+    // ==========================================
     // 1. STATE LỌC, TÌM KIẾM, PHÂN TRANG & UI
     // ==========================================
     const [searchTerm, setSearchTerm] = useState("");
@@ -91,6 +99,7 @@ const Promotions = () => {
     const [promoToDelete, setPromoToDelete] = useState(null);
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
     const [promoToApply, setPromoToApply] = useState(null);
+    const [isRevokeConfirmOpen, setIsRevokeConfirmOpen] = useState(false);
 
     // Tặng mã state
     const [selectedUserIds, setSelectedUserIds] = useState([]);
@@ -137,17 +146,25 @@ const Promotions = () => {
     // ==========================================
     // REACT QUERY: FETCH DATA
     // ==========================================
-    // Lấy Danh sách Chi nhánh
-    const { data: branches = [] } = useQuery({
-        queryKey: ["branchesReference"],
+    
+    // 🟢 2. Fetch & Lọc Chi nhánh theo Role
+    const { data: branches = [], isLoading: isLoadingBranches } = useQuery({
+        queryKey: ["branchesReference", isSuperAdmin, currentUserId],
         queryFn: async () => {
             const res = await clinicApi.getAllClinics({ limit: 100 });
-            return res?.data?.branches || [];
+            const allBranches = res?.data?.branches || [];
+
+            if (isSuperAdmin) return allBranches;
+
+            // Nếu là Admin, chỉ trả về chi nhánh họ quản lý
+            return allBranches.filter((b) => {
+                const mId = b.managerId?._id || b.managerId;
+                return mId === currentUserId;
+            });
         },
-        staleTime: 10 * 60 * 1000, // Cache 10p
+        staleTime: 10 * 60 * 1000,
     });
 
-    // Lấy Danh sách Dịch vụ
     const { data: services = [] } = useQuery({
         queryKey: ["servicesReference"],
         queryFn: async () => {
@@ -157,7 +174,6 @@ const Promotions = () => {
         staleTime: 10 * 60 * 1000,
     });
 
-    // Lấy Danh sách Người dùng
     const { data: users = [] } = useQuery({
         queryKey: ["usersReference"],
         queryFn: async () => {
@@ -168,18 +184,20 @@ const Promotions = () => {
         staleTime: 5 * 60 * 1000,
     });
 
-    // Lấy Danh sách Khuyến mãi (Phân trang + Search)
+    // 🟢 Xác định branchId sẽ query (Auto-assign nếu là Admin)
+    const derivedBranchId = isSuperAdmin ? filterBranch : (branches.length > 0 ? branches[0]._id : undefined);
+
     const {
         data: promoData,
-        isLoading: isLoadingPromos,
+        isLoading: isLoadingPromosAPI,
         error: promoError,
     } = useQuery({
-        queryKey: ["promotions", page, limit, debouncedSearch, filterStatus, filterBranch],
+        queryKey: ["promotions", page, limit, debouncedSearch, filterStatus, derivedBranchId],
         queryFn: async () => {
             const params = { page, limit };
             if (debouncedSearch) params.search = debouncedSearch;
             if (filterStatus) params.status = filterStatus;
-            if (filterBranch) params.branchId = filterBranch;
+            if (derivedBranchId) params.branchId = derivedBranchId; // Luôn áp branchId cho Admin
 
             const res = await promotionApi.getAllPromotions(params);
             if (!res || !res.success) throw new Error("Không thể tải danh sách khuyến mãi.");
@@ -188,11 +206,14 @@ const Promotions = () => {
                 totalPages: res.data.pagination?.pages || 1,
             };
         },
+        enabled: isSuperAdmin || branches.length > 0, // 🟢 Đợi load branches xong mới query
+        placeholderData: keepPreviousData,
         staleTime: 1 * 60 * 1000,
     });
 
     const promotions = promoData?.promotions || [];
     const totalPages = promoData?.totalPages || 1;
+    const isLoadingPromos = isLoadingPromosAPI || isLoadingBranches;
 
     // ==========================================
     // REACT QUERY: MUTATIONS
@@ -204,21 +225,18 @@ const Promotions = () => {
             setIsDeleteModalOpen(false);
             setPromoToDelete(null);
 
-            queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, filterBranch], (oldData) => {
+            queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, derivedBranchId], (oldData) => {
                 if (!oldData) return oldData;
-
                 return {
                     ...oldData,
-                    // Lọc bỏ promotion vừa bị xóa
                     promotions: oldData.promotions.filter((promo) => promo._id !== deletedId),
                 };
             });
 
-            // Vẫn gọi API ngầm phía sau để đảm bảo 100% đồng bộ với Database (Phòng trường hợp phân trang bị lệch)
             queryClient.invalidateQueries({ queryKey: ["promotions"] });
         },
         onError: (err) => {
-            setIsDeleteModalOpen(false); // Tuỳ chọn: đóng modal khi lỗi
+            setIsDeleteModalOpen(false);
             showToast(translateErrorMessage(err), "error");
         },
     });
@@ -227,7 +245,7 @@ const Promotions = () => {
         mutationFn: (id) => promotionApi.togglePromotionStatus(id),
         onMutate: async (id) => {
             await queryClient.cancelQueries({ queryKey: ["promotions"] });
-            const currentData = queryClient.getQueryData(["promotions", page, limit, debouncedSearch, filterStatus, filterBranch]);
+            const currentData = queryClient.getQueryData(["promotions", page, limit, debouncedSearch, filterStatus, derivedBranchId]);
 
             if (currentData) {
                 const newPromotions = currentData.promotions.map((promo) => {
@@ -246,14 +264,14 @@ const Promotions = () => {
                     }
                     return promo;
                 });
-                queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, filterBranch], { ...currentData, promotions: newPromotions });
+                queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, derivedBranchId], { ...currentData, promotions: newPromotions });
             }
             return { currentData };
         },
         onSuccess: () => showToast("Đã thay đổi trạng thái!"),
         onError: (err, id, context) => {
             showToast(translateErrorMessage(err), "error");
-            queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, filterBranch], context.currentData);
+            queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, derivedBranchId], context.currentData);
         },
         onSettled: () => queryClient.invalidateQueries({ queryKey: ["promotions"] }),
     });
@@ -262,16 +280,12 @@ const Promotions = () => {
         mutationFn: ({ id, payload }) => (id ? promotionApi.updatePromotion(id, payload) : promotionApi.createPromotion(payload)),
         onSuccess: (res, variables) => {
             const savedPromo = res.data?.promotion || res.data;
-
-            // Lấy tên chi nhánh để hiển thị ngay lập tức trên UI
             const fullBranchObject = branches.find((b) => b._id === formData.branchId) || { _id: formData.branchId, name: "Đang tải..." };
 
-            // 🟢 CẬP NHẬT CACHE NGAY LẬP TỨC: Giúp UI đổi trong 0 giây, không chờ API
-            queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, filterBranch], (old) => {
+            queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, derivedBranchId], (old) => {
                 if (!old) return old;
 
                 if (variables.id) {
-                    // Chế độ Cập nhật (Edit)
                     return {
                         ...old,
                         promotions: old.promotions.map((p) => {
@@ -290,7 +304,6 @@ const Promotions = () => {
                         }),
                     };
                 } else {
-                    // Chế độ Tạo mới (Create)
                     const newPromo = {
                         ...(savedPromo && savedPromo._id ? savedPromo : { _id: Date.now().toString() }),
                         ...formData,
@@ -305,8 +318,6 @@ const Promotions = () => {
 
             showToast(variables.id ? "Cập nhật thành công!" : "Tạo khuyến mãi thành công!");
             setIsFormModalOpen(false);
-
-            // Vẫn gọi API ngầm phía sau để đảm bảo 100% đồng bộ với Database
             queryClient.invalidateQueries({ queryKey: ["promotions"] });
         },
         onError: (err) => showToast(translateErrorMessage(err), "error"),
@@ -314,9 +325,20 @@ const Promotions = () => {
 
     const applyPromoMutation = useMutation({
         mutationFn: ({ id, payload }) => promotionApi.updatePromotion(id, payload),
-        onSuccess: () => {
-            showToast(`Đã cập nhật tặng mã ${promoToApply.code} cho ${selectedUserIds.length} khách hàng!`);
+        onSuccess: (res, variables) => {
+            showToast(selectedUserIds.length > 0 ? `Đã cập nhật tặng mã ${promoToApply.code} cho ${selectedUserIds.length} khách hàng!` : `Đã thu hồi mã ${promoToApply.code} của tất cả khách hàng!`);
+
             setIsApplyModalOpen(false);
+            setIsRevokeConfirmOpen(false);
+
+            queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, derivedBranchId], (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    promotions: old.promotions.map((p) => (p._id === variables.id ? { ...p, applicableUserIds: selectedUserIds } : p)),
+                };
+            });
+
             queryClient.invalidateQueries({ queryKey: ["promotions"] });
         },
         onError: (err) => showToast(translateErrorMessage(err), "error"),
@@ -329,7 +351,11 @@ const Promotions = () => {
     // ==========================================
     const openCreateForm = () => {
         setCurrentPromoId(null);
-        setFormData(initialFormState);
+        // 🟢 Nếu là Admin, auto fill branchId và khoá lại
+        setFormData({
+            ...initialFormState,
+            branchId: !isSuperAdmin && branches.length > 0 ? branches[0]._id : "",
+        });
         setImageFile(null);
         setPreviewImage("");
         setIsFormModalOpen(true);
@@ -364,13 +390,9 @@ const Promotions = () => {
 
     const handleFormChange = (e) => {
         const { name, value } = e.target;
-
-        // Danh sách các trường cấu hình số lượng/tiền tệ không được âm
         const numericFields = ["discountValue", "maxDiscountAmount", "minOrderValue", "usageLimit", "limitPerUser"];
 
         if (numericFields.includes(name)) {
-            // Chỉ giữ lại các chữ số từ 0-9, loại bỏ hoàn toàn chữ cái, dấu trừ, khoảng trắng...
-            // Nếu giảm giá theo % cần số thập phân (VD: 12.5), bạn có thể đổi regex thành: /[^0-9.]/g
             const sanitizedValue = value.replace(/[^0-9]/g, "");
             setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
         } else {
@@ -431,7 +453,6 @@ const Promotions = () => {
         saveMutation.mutate({ id: currentPromoId, payload: submitData });
     };
 
-    // --- LOGIC TẶNG KHUYẾN MÃI ---
     const openApplyModal = (e, promo) => {
         e.stopPropagation();
         setPromoToApply(promo);
@@ -447,17 +468,37 @@ const Promotions = () => {
         setSelectedUserIds((prev) => (isAllSelected ? prev.filter((id) => !filteredIds.includes(id)) : Array.from(new Set([...prev, ...filteredIds]))));
     };
 
-    const submitApplyPromotion = () => {
-        if (selectedUserIds.length === 0) return showToast("Vui lòng chọn ít nhất 1 khách hàng!", "error");
+    const executeApplyPromotion = () => {
         const submitData = new FormData();
         submitData.append("applicableUserIds", JSON.stringify(selectedUserIds));
         applyPromoMutation.mutate({ id: promoToApply._id, payload: submitData });
     };
 
-    const filteredUsers = users.filter((user) => {
-        const search = removeVietnameseTones(userSearchTerm);
-        return removeVietnameseTones(user.fullName || user.username || "").includes(search) || removeVietnameseTones(user.email || "").includes(search) || (user.phoneNumber || "").includes(userSearchTerm);
-    });
+    const submitApplyPromotion = () => {
+        if (selectedUserIds.length === 0 && promoToApply?.applicableUserIds?.length > 0) {
+            setIsRevokeConfirmOpen(true);
+            return;
+        }
+        executeApplyPromotion();
+    };
+
+    const filteredUsers = users
+        .filter((user) => {
+            const search = removeVietnameseTones(userSearchTerm);
+            return removeVietnameseTones(user.fullName || user.username || "").includes(search) || removeVietnameseTones(user.email || "").includes(search) || (user.phoneNumber || "").includes(userSearchTerm);
+        })
+        .sort((a, b) => {
+            const aId = a.userId || a._id;
+            const bId = b.userId || b._id;
+
+            const isASelected = selectedUserIds.includes(aId);
+            const isBSelected = selectedUserIds.includes(bId);
+
+            if (isASelected && !isBSelected) return -1;
+            if (!isASelected && isBSelected) return 1;
+
+            return 0;
+        });
 
     // ==========================================
     // HELPER UI
@@ -492,20 +533,23 @@ const Promotions = () => {
                         <input type="text" placeholder="Tìm mã hoặc tên khuyến mãi..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
 
-                    <div style={{ minWidth: "300px", zIndex: 10 }}>
-                        <ReactSelect
-                            options={filterBranchOptions}
-                            value={filterBranchOptions.find((opt) => opt.value === filterBranch) || filterBranchOptions[0]}
-                            onChange={(selected) => {
-                                setFilterBranch(selected ? selected.value : "");
-                                setPage(1);
-                            }}
-                            styles={customSelectStyles}
-                            isSearchable={true}
-                            placeholder="Tìm Chi nhánh..."
-                            noOptionsMessage={() => "Không tìm thấy chi nhánh"}
-                        />
-                    </div>
+                    {/* 🟢 Chỉ hiển thị cho SUPERADMIN */}
+                    {isSuperAdmin && (
+                        <div style={{ minWidth: "300px", zIndex: 10 }}>
+                            <ReactSelect
+                                options={filterBranchOptions}
+                                value={filterBranchOptions.find((opt) => opt.value === filterBranch) || filterBranchOptions[0]}
+                                onChange={(selected) => {
+                                    setFilterBranch(selected ? selected.value : "");
+                                    setPage(1);
+                                }}
+                                styles={customSelectStyles}
+                                isSearchable={true}
+                                placeholder="Tìm Chi nhánh..."
+                                noOptionsMessage={() => "Không tìm thấy chi nhánh"}
+                            />
+                        </div>
+                    )}
 
                     <div className="z-promo-filter">
                         <button className="z-promo-btn-filter" onClick={() => setShowStatusDropdown(!showStatusDropdown)}>
@@ -661,7 +705,17 @@ const Promotions = () => {
                                     <label>
                                         Chi nhánh áp dụng <span className="z-promo-required">*</span>
                                     </label>
-                                    <ReactSelect name="branchId" options={formBranchOptions} value={formBranchOptions.find((opt) => opt.value === formData.branchId) || null} onChange={(selected) => setFormData((prev) => ({ ...prev, branchId: selected ? selected.value : "" }))} isDisabled={isSubmitting || !!currentPromoId} styles={customSelectStyles} placeholder="-- Chọn chi nhánh --" isSearchable={true} menuPosition="fixed" />
+                                    <ReactSelect 
+                                        name="branchId" 
+                                        options={formBranchOptions} 
+                                        value={formBranchOptions.find((opt) => opt.value === formData.branchId) || null} 
+                                        onChange={(selected) => setFormData((prev) => ({ ...prev, branchId: selected ? selected.value : "" }))} 
+                                        isDisabled={isSubmitting || !!currentPromoId || !isSuperAdmin} // 🟢 Khóa nếu không phải SuperAdmin
+                                        styles={customSelectStyles} 
+                                        placeholder="-- Chọn chi nhánh --" 
+                                        isSearchable={true} 
+                                        menuPosition="fixed" 
+                                    />
                                 </div>
                                 <div className="z-promo-form-row">
                                     <div className="z-promo-form-group" style={{ flex: 1 }}>
@@ -844,7 +898,17 @@ const Promotions = () => {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", paddingBottom: "10px", borderBottom: "1px solid #e5e7eb" }}>
                             <strong style={{ fontSize: "14px" }}>Danh sách Khách hàng ({filteredUsers.length})</strong>
                             <label style={{ display: "flex", alignItems: "center", gap: "5px", cursor: "pointer", fontSize: "14px", color: "var(--primary-color)" }}>
-                                <input type="checkbox" checked={filteredUsers.length > 0 && selectedUserIds.length === filteredUsers.length} onChange={() => handleSelectAllUsers(filteredUsers)} />
+                                <input
+                                    type="checkbox"
+                                    checked={filteredUsers.length > 0 && selectedUserIds.length === filteredUsers.length}
+                                    onChange={() => handleSelectAllUsers(filteredUsers)}
+                                    style={{
+                                        accentColor: "var(--primary-color)", 
+                                        width: "16px",
+                                        height: "16px",
+                                        cursor: "pointer",
+                                    }}
+                                />
                                 <strong>Chọn tất cả</strong>
                             </label>
                         </div>
@@ -856,7 +920,17 @@ const Promotions = () => {
                                     const userId = user.userId || user._id;
                                     return (
                                         <label key={userId} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px", borderBottom: "1px solid #f3f4f6", cursor: "pointer", transition: "background 0.2s" }} onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f9fafb")} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}>
-                                            <input type="checkbox" checked={selectedUserIds.includes(userId)} onChange={() => handleToggleSelectUser(userId)} />
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedUserIds.includes(userId)}
+                                                onChange={() => handleToggleSelectUser(userId)}
+                                                style={{
+                                                    accentColor: "var(--primary-color)",
+                                                    width: "16px",
+                                                    height: "16px",
+                                                    cursor: "pointer",
+                                                }}
+                                            />
                                             <div>
                                                 <div style={{ fontWeight: "600", color: "#374151" }}>{user.fullName || user.username || "Khách hàng ẩn danh"}</div>
                                                 <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>
@@ -868,6 +942,22 @@ const Promotions = () => {
                                 })
                             )}
                         </div>
+                    </div>
+                </Modal>
+
+                {/* MODAL CẢNH BÁO THU HỒI MÃ */}
+                <Modal isOpen={isRevokeConfirmOpen} onClose={() => !isSubmitting && setIsRevokeConfirmOpen(false)} title="Cảnh báo thu hồi mã" size="sm" onSave={executeApplyPromotion} saveText={isSubmitting ? "Đang xử lý..." : "Xác nhận thu hồi"}>
+                    <div className="z-promo-delete-content">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto", marginBottom: "15px" }}>
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        <h3 style={{ color: "var(--warning)" }}>Thu hồi toàn bộ mã?</h3>
+                        <p>
+                            Bạn chưa chọn khách hàng nào. Việc này sẽ <strong>THU HỒI</strong> khuyến mãi khỏi tất cả khách hàng hiện tại.
+                        </p>
+                        <p style={{ marginTop: "10px" }}>Bạn có chắc chắn muốn tiếp tục?</p>
                     </div>
                 </Modal>
             </div>
