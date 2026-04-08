@@ -1,24 +1,18 @@
 // src/components/Sidebar/Sidebar.jsx
-import React, { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import React from "react";
+import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import defaultAvatar from "../../assets/images/default_ava.jpg";
 import logo from "../../assets/images/logo_sgtd.png";
 import "./Sidebar.css";
 
-
-const AVATAR_PLACEHOLDER = defaultAvatar
+const AVATAR_PLACEHOLDER = defaultAvatar;
 
 const Sidebar = ({ isExpanded }) => {
     const { user, logout } = useAuth();
-    const navigate = useNavigate();
-
-    const [showDropdown, setShowDropdown] = useState(false);
 
     const displayName = user?.fullName || user?.name || "Admin";
     const displayAvatar = user?.avatarUrl || AVATAR_PLACEHOLDER;
-    
-    // ✅ THÊM MỚI: Lấy role hiện tại
     const userRole = user?.role || user?.account?.role || "USER";
 
     const handleLogout = () => {
@@ -26,12 +20,11 @@ const Sidebar = ({ isExpanded }) => {
         logout();
     };
 
-    // ✅ CẬP NHẬT: Thêm mảng `allowedRoles` vào từng đối tượng menu
     const allMenuItems = [
         {
             path: "/",
             label: "Quản lí lịch hẹn",
-            allowedRoles: ["SUPERADMIN", "ADMIN"], // Cả 2 đều thấy
+            allowedRoles: ["SUPERADMIN", "ADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-calendar-clock-icon lucide-calendar-clock">
                     <path d="M16 14v2.2l1.6 1" />
@@ -46,7 +39,7 @@ const Sidebar = ({ isExpanded }) => {
         {
             path: "/users",
             label: "Quản lí người dùng",
-            allowedRoles: ["SUPERADMIN"], // Chỉ SUPERADMIN
+            allowedRoles: ["SUPERADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
                     <path d="M10 15H6a4 4 0 0 0-4 4v2" />
@@ -67,7 +60,6 @@ const Sidebar = ({ isExpanded }) => {
             path: "/services",
             label: "Quản lí dịch vụ",
             allowedRoles: ["SUPERADMIN"],
-            // allowedRoles: ["SUPERADMIN", "ADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
                     <rect width="7" height="9" x="3" y="3" rx="1" />
@@ -81,7 +73,6 @@ const Sidebar = ({ isExpanded }) => {
             path: "/categories",
             label: "Quản lí danh mục",
             allowedRoles: ["SUPERADMIN"],
-            // allowedRoles: ["SUPERADMIN", "ADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
                     <path d="M11 13v4" />
@@ -167,8 +158,7 @@ const Sidebar = ({ isExpanded }) => {
         },
     ];
 
-    // ✅ THÊM MỚI: Lọc menu hiển thị dựa trên role
-    const filteredMenuItems = allMenuItems.filter(item => item.allowedRoles.includes(userRole));
+    const filteredMenuItems = allMenuItems.filter((item) => item.allowedRoles.includes(userRole));
 
     return (
         <aside className={`sidebar ${!isExpanded ? "collapsed" : ""}`}>
@@ -177,7 +167,6 @@ const Sidebar = ({ isExpanded }) => {
             </div>
 
             <ul className="sidebar-menu">
-                {/* Dùng filteredMenuItems thay vì menuItems */}
                 {filteredMenuItems.map((item, index) => (
                     <li key={index}>
                         <NavLink to={item.path} className={({ isActive }) => (isActive ? "active-link" : "")}>
@@ -186,46 +175,32 @@ const Sidebar = ({ isExpanded }) => {
                         </NavLink>
                     </li>
                 ))}
+                <div className="logout-button" onClick={handleLogout} title="Đăng xuất">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="menu-icon">
+                        <path d="m16 17 5-5-5-5" />
+                        <path d="M21 12H9" />
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    </svg>
+                    {isExpanded && <span className="menu-label">Đăng xuất</span>}
+                </div>
             </ul>
 
-            <div className="sidebar-footer" onMouseEnter={() => setShowDropdown(true)} onMouseLeave={() => setShowDropdown(false)}>
-                {showDropdown && (
-                    <div className="profile-dropdown-menu">
-                        <div className="dropdown-header">
-                            <span className="dropdown-role">{userRole}</span>
-                            <span className="dropdown-email">{user?.email || "admin@example.com"}</span>
-                        </div>
-
-                        <div className="dropdown-account-section">
-                            <ul className="dropdown-list">
-                                <li className="dropdown-item" onClick={() => navigate("/profile")}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                                        <circle cx="12" cy="7" r="4" />
-                                    </svg>
-                                    <span>Trang cá nhân</span>
-                                </li>
-                                <li className="dropdown-item logout-btn" onClick={handleLogout}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="m16 17 5-5-5-5" />
-                                        <path d="M21 12H9" />
-                                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                                    </svg>
-                                    <span>Đăng xuất</span>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                )}
-
+            <div className="sidebar-footer">
+                {/* Thông tin user & email nằm dưới */}
                 <div className="user-profile">
                     <img src={displayAvatar} alt="avatar" className="avatar" />
                     {isExpanded && (
                         <div className="sidebar-user-info">
-                            <span className="user-name" title={displayName}>
-                                {displayName}
+                            <div className="user-info">
+                                <span className="user-name" title={displayName}>
+                                    {displayName}
+                                </span>
+                                <span className="sidebar-user-role">{userRole}</span>
+                            </div>
+
+                            <span className="user-email" title={user?.email}>
+                                {user?.email || "admin@example.com"}
                             </span>
-                            <span className="sidebar-user-role">{userRole}</span>
                         </div>
                     )}
                 </div>
