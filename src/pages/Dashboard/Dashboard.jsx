@@ -363,48 +363,63 @@ const Dashboard = () => {
                                             <span className={`z-dashboard-badge-${booking.status.toLowerCase()}`}>{getStatusLabelText(booking.status)}</span>
                                         </td>
                                         <td>
-                                            <div className="z-dashboard-dropdown-actions">
-                                                <button className="z-banner-more-btn">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
-                                                        <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
+                                            {booking.status === "COMPLETED" && !isSuperAdmin ? (
+                                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <polyline points="20 6 9 17 4 12"></polyline>
                                                     </svg>
-                                                </button>
-                                                <div className="z-dashboard-action-menu">
-                                                    {booking.status === "PENDING" && (
-                                                        <Button
-                                                            variant="edit"
-                                                            onClick={() => {
-                                                                setBookingToConfirm(booking);
-                                                                setIsConfirmModalOpen(true);
-                                                            }}
-                                                            disabled={isSubmitting}
-                                                        >
-                                                            Xác nhận lịch
-                                                        </Button>
-                                                    )}
-                                                    {booking.status === "CONFIRMED" && (
-                                                        <Button
-                                                            variant="complete"
-                                                            onClick={() => {
-                                                                setBookingToComplete(booking);
-                                                                setIsCompleteModalOpen(true);
-                                                            }}
-                                                            disabled={isSubmitting}
-                                                        >
-                                                            Hoàn thành
-                                                        </Button>
-                                                    )}
-                                                    {isSuperAdmin && (
-                                                        <DeleteButton
-                                                            onClick={() => {
-                                                                setBookingToDelete(booking);
-                                                                setIsDeleteModalOpen(true);
-                                                            }}
-                                                            disabled={isSubmitting}
-                                                        />
-                                                    )}
                                                 </div>
-                                            </div>
+                                            ) : (
+                                                <div className="z-dashboard-dropdown-actions">
+                                                    <button className="z-banner-more-btn">
+                                                        {booking.status === "COMPLETED" ? (
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                                            </svg>
+                                                        ) : (
+                                                            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
+                                                                <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
+                                                            </svg>
+                                                        )}
+                                                    </button>
+                                                    
+                                                    <div className="z-dashboard-action-menu">
+                                                        {booking.status === "PENDING" && (
+                                                            <Button
+                                                                variant="edit"
+                                                                onClick={() => {
+                                                                    setBookingToConfirm(booking);
+                                                                    setIsConfirmModalOpen(true);
+                                                                }}
+                                                                disabled={isSubmitting}
+                                                            >
+                                                                Xác nhận lịch
+                                                            </Button>
+                                                        )}
+                                                        {booking.status === "CONFIRMED" && (
+                                                            <Button
+                                                                variant="complete"
+                                                                onClick={() => {
+                                                                    setBookingToComplete(booking);
+                                                                    setIsCompleteModalOpen(true);
+                                                                }}
+                                                                disabled={isSubmitting}
+                                                            >
+                                                                Hoàn thành
+                                                            </Button>
+                                                        )}
+                                                        {isSuperAdmin && (
+                                                            <DeleteButton
+                                                                onClick={() => {
+                                                                    setBookingToDelete(booking);
+                                                                    setIsDeleteModalOpen(true);
+                                                                }}
+                                                                disabled={isSubmitting}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 ))
