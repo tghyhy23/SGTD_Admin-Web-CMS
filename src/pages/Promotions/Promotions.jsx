@@ -10,7 +10,7 @@ import ReactSelect from "react-select";
 import DatePicker, { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import vi from "date-fns/locale/vi";
-import { useAuth } from "../../context/AuthContext"; // 🟢 THÊM useAuth
+import { useAuth } from "../../context/AuthContext";
 registerLocale("vi", vi);
 import "./Promotions.css";
 
@@ -71,12 +71,11 @@ const Promotions = () => {
     const fileInputRef = useRef(null);
 
     // ==========================================
-    // 0. LẤY THÔNG TIN USER & PHÂN QUYỀN (🟢 THÊM MỚI)
+    // 0. LẤY THÔNG TIN USER & PHÂN QUYỀN
     // ==========================================
     const { user } = useAuth();
     const userRole = user?.role || user?.account?.role || user?.user?.account?.role || "USER";
     const isSuperAdmin = userRole === "SUPERADMIN";
-    const currentUserId = user?.user?._id || user?.user?.id || user?._id || user?.id;
 
     // ==========================================
     // 1. STATE LỌC, TÌM KIẾM, PHÂN TRANG & UI
@@ -147,23 +146,27 @@ const Promotions = () => {
     // REACT QUERY: FETCH DATA
     // ==========================================
     
-    // 🟢 2. Fetch & Lọc Chi nhánh theo Role
+    // Giữ nguyên Fetch: Backend đã tự lọc theo token rồi
     const { data: branches = [], isLoading: isLoadingBranches } = useQuery({
-        queryKey: ["branchesReference", isSuperAdmin, currentUserId],
+        queryKey: ["branchesReference"],
         queryFn: async () => {
             const res = await clinicApi.getAllClinics({ limit: 100 });
-            const allBranches = res?.data?.branches || [];
-
-            if (isSuperAdmin) return allBranches;
-
-            // Nếu là Admin, chỉ trả về chi nhánh họ quản lý
-            return allBranches.filter((b) => {
-                const mId = b.managerId?._id || b.managerId;
-                return mId === currentUserId;
-            });
+            return res?.data?.branches || [];
         },
         staleTime: 10 * 60 * 1000,
     });
+
+    // 🟢 SỬA LỖI MẤT DATA:
+    // Nếu là SuperAdmin -> lấy theo filterBranch (có thể rỗng "" để lấy tất cả)
+    // Nếu là Admin -> ép lấy ID chi nhánh đầu tiên của họ
+    const derivedBranchId = isSuperAdmin ? filterBranch : (branches.length > 0 ? branches[0]._id : undefined);
+
+    // Auto-select Filter Branch cho Admin khi load xong danh sách chi nhánh
+    useEffect(() => {
+        if (!isSuperAdmin && branches.length > 0 && !filterBranch) {
+            setFilterBranch(branches[0]._id);
+        }
+    }, [branches, isSuperAdmin, filterBranch]);
 
     const { data: services = [] } = useQuery({
         queryKey: ["servicesReference"],
@@ -184,9 +187,6 @@ const Promotions = () => {
         staleTime: 5 * 60 * 1000,
     });
 
-    // 🟢 Xác định branchId sẽ query (Auto-assign nếu là Admin)
-    const derivedBranchId = isSuperAdmin ? filterBranch : (branches.length > 0 ? branches[0]._id : undefined);
-
     const {
         data: promoData,
         isLoading: isLoadingPromosAPI,
@@ -197,7 +197,7 @@ const Promotions = () => {
             const params = { page, limit };
             if (debouncedSearch) params.search = debouncedSearch;
             if (filterStatus) params.status = filterStatus;
-            if (derivedBranchId) params.branchId = derivedBranchId; // Luôn áp branchId cho Admin
+            if (derivedBranchId) params.branchId = derivedBranchId;
 
             const res = await promotionApi.getAllPromotions(params);
             if (!res || !res.success) throw new Error("Không thể tải danh sách khuyến mãi.");
@@ -206,7 +206,7 @@ const Promotions = () => {
                 totalPages: res.data.pagination?.pages || 1,
             };
         },
-        enabled: isSuperAdmin || branches.length > 0, // 🟢 Đợi load branches xong mới query
+        enabled: isSuperAdmin || branches.length > 0,
         placeholderData: keepPreviousData,
         staleTime: 1 * 60 * 1000,
     });
@@ -351,9 +351,9 @@ const Promotions = () => {
     // ==========================================
     const openCreateForm = () => {
         setCurrentPromoId(null);
-        // 🟢 Nếu là Admin, auto fill branchId và khoá lại
         setFormData({
             ...initialFormState,
+            // Nếu là Admin, form tự động chọn chi nhánh của họ luôn
             branchId: !isSuperAdmin && branches.length > 0 ? branches[0]._id : "",
         });
         setImageFile(null);
@@ -506,8 +506,11 @@ const Promotions = () => {
     const getStatusLabelText = (status) => STATUS_OPTIONS.find((opt) => opt.value === status)?.label || "Tất cả trạng thái";
     const formatDiscount = (type, value) => (type === "percentage" ? `${value}%` : `${value.toLocaleString("vi-VN")} đ`);
 
-    const filterBranchOptions = [{ value: "", label: "Tất cả chi nhánh" }, ...branches.map((b) => ({ value: b._id, label: b.name }))];
+    // 🟢 Tùy chọn Branch cho Filter và Form
     const formBranchOptions = branches.map((b) => ({ value: b._id, label: b.name }));
+    const filterBranchOptions = isSuperAdmin 
+        ? [{ value: "", label: "Tất cả chi nhánh" }, ...formBranchOptions] 
+        : formBranchOptions; // Admin không có mục "Tất cả chi nhánh"
 
     const customSelectStyles = {
         control: (provided, state) => ({ ...provided, minHeight: "38px", borderRadius: "6px", fontSize: "14px", borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db", boxShadow: "none", "&:hover": { borderColor: "var(--primary-color)" }, backgroundColor: "#fff" }),
@@ -533,23 +536,20 @@ const Promotions = () => {
                         <input type="text" placeholder="Tìm mã hoặc tên khuyến mãi..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
 
-                    {/* 🟢 Chỉ hiển thị cho SUPERADMIN */}
-                    {isSuperAdmin && (
-                        <div style={{ minWidth: "300px", zIndex: 10 }}>
-                            <ReactSelect
-                                options={filterBranchOptions}
-                                value={filterBranchOptions.find((opt) => opt.value === filterBranch) || filterBranchOptions[0]}
-                                onChange={(selected) => {
-                                    setFilterBranch(selected ? selected.value : "");
-                                    setPage(1);
-                                }}
-                                styles={customSelectStyles}
-                                isSearchable={true}
-                                placeholder="Tìm Chi nhánh..."
-                                noOptionsMessage={() => "Không tìm thấy chi nhánh"}
-                            />
-                        </div>
-                    )}
+                    <div style={{ minWidth: "300px", zIndex: 10 }}>
+                        <ReactSelect
+                            options={filterBranchOptions}
+                            value={filterBranchOptions.find((opt) => opt.value === filterBranch) || (isSuperAdmin ? filterBranchOptions[0] : null)}
+                            onChange={(selected) => {
+                                setFilterBranch(selected ? selected.value : "");
+                                setPage(1);
+                            }}
+                            styles={customSelectStyles}
+                            isSearchable={true}
+                            placeholder={isLoadingBranches ? "Đang tải..." : "Tìm Chi nhánh..."}
+                            noOptionsMessage={() => "Không tìm thấy chi nhánh"}
+                        />
+                    </div>
 
                     <div className="z-promo-filter">
                         <button className="z-promo-btn-filter" onClick={() => setShowStatusDropdown(!showStatusDropdown)}>
@@ -710,9 +710,9 @@ const Promotions = () => {
                                         options={formBranchOptions} 
                                         value={formBranchOptions.find((opt) => opt.value === formData.branchId) || null} 
                                         onChange={(selected) => setFormData((prev) => ({ ...prev, branchId: selected ? selected.value : "" }))} 
-                                        isDisabled={isSubmitting || !!currentPromoId || !isSuperAdmin} // 🟢 Khóa nếu không phải SuperAdmin
+                                        isDisabled={isSubmitting || !!currentPromoId} 
                                         styles={customSelectStyles} 
-                                        placeholder="-- Chọn chi nhánh --" 
+                                        placeholder={isLoadingBranches ? "Đang tải..." : "-- Chọn chi nhánh --"}
                                         isSearchable={true} 
                                         menuPosition="fixed" 
                                     />
