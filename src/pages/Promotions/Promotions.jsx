@@ -103,6 +103,8 @@ const Promotions = () => {
     // Tặng mã state
     const [selectedUserIds, setSelectedUserIds] = useState([]);
     const [userSearchTerm, setUserSearchTerm] = useState("");
+    const [filterMonth, setFilterMonth] = useState("");
+    const [showMonthDropdown, setShowMonthDropdown] = useState(false);
 
     // Form state
     const initialFormState = {
@@ -145,7 +147,7 @@ const Promotions = () => {
     // ==========================================
     // REACT QUERY: FETCH DATA
     // ==========================================
-    
+
     // Giữ nguyên Fetch: Backend đã tự lọc theo token rồi
     const { data: branches = [], isLoading: isLoadingBranches } = useQuery({
         queryKey: ["branchesReference"],
@@ -159,7 +161,7 @@ const Promotions = () => {
     // 🟢 SỬA LỖI MẤT DATA:
     // Nếu là SuperAdmin -> lấy theo filterBranch (có thể rỗng "" để lấy tất cả)
     // Nếu là Admin -> ép lấy ID chi nhánh đầu tiên của họ
-    const derivedBranchId = isSuperAdmin ? filterBranch : (branches.length > 0 ? branches[0]._id : undefined);
+    const derivedBranchId = isSuperAdmin ? filterBranch : branches.length > 0 ? branches[0]._id : undefined;
 
     // Auto-select Filter Branch cho Admin khi load xong danh sách chi nhánh
     useEffect(() => {
@@ -458,6 +460,7 @@ const Promotions = () => {
         setPromoToApply(promo);
         setSelectedUserIds(promo.applicableUserIds?.map((u) => (typeof u === "object" ? u._id : u)) || []);
         setUserSearchTerm("");
+        setFilterMonth("");
         setIsApplyModalOpen(true);
     };
 
@@ -484,8 +487,24 @@ const Promotions = () => {
 
     const filteredUsers = users
         .filter((user) => {
+            // 1. Lọc theo Text (Tên, SĐT, Email)
             const search = removeVietnameseTones(userSearchTerm);
-            return removeVietnameseTones(user.fullName || user.username || "").includes(search) || removeVietnameseTones(user.email || "").includes(search) || (user.phoneNumber || "").includes(userSearchTerm);
+            const matchesText = removeVietnameseTones(user.fullName || user.username || "").includes(search) || removeVietnameseTones(user.email || "").includes(search) || (user.phoneNumber || "").includes(userSearchTerm);
+
+            // 2. Lọc theo Tháng sinh
+            let matchesMonth = true;
+            if (filterMonth) {
+                // Giả định field ngày sinh từ backend trả về là dateOfBirth hoặc dob
+                const dob = user.dateOfBirth || user.dob;
+                if (dob) {
+                    const birthMonth = new Date(dob).getMonth() + 1; // getMonth() trả về 0-11 nên cần +1
+                    matchesMonth = birthMonth.toString() === filterMonth;
+                } else {
+                    matchesMonth = false; // Nếu chọn tháng mà user ko có ngày sinh thì loại
+                }
+            }
+
+            return matchesText && matchesMonth;
         })
         .sort((a, b) => {
             const aId = a.userId || a._id;
@@ -508,9 +527,7 @@ const Promotions = () => {
 
     // 🟢 Tùy chọn Branch cho Filter và Form
     const formBranchOptions = branches.map((b) => ({ value: b._id, label: b.name }));
-    const filterBranchOptions = isSuperAdmin 
-        ? [{ value: "", label: "Tất cả chi nhánh" }, ...formBranchOptions] 
-        : formBranchOptions; // Admin không có mục "Tất cả chi nhánh"
+    const filterBranchOptions = isSuperAdmin ? [{ value: "", label: "Tất cả chi nhánh" }, ...formBranchOptions] : formBranchOptions; // Admin không có mục "Tất cả chi nhánh"
 
     const customSelectStyles = {
         control: (provided, state) => ({ ...provided, minHeight: "38px", borderRadius: "6px", fontSize: "14px", borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db", boxShadow: "none", "&:hover": { borderColor: "var(--primary-color)" }, backgroundColor: "#fff" }),
@@ -518,6 +535,10 @@ const Promotions = () => {
         option: (provided, state) => ({ ...provided, backgroundColor: state.isSelected ? "var(--base-primary)" : state.isFocused ? "#eef2ff" : "white", color: state.isSelected ? "var(--primary-color)" : "#374151", cursor: "pointer", margin: "4px", borderRadius: "6px", fontSize: "14px", width: "96%" }),
         menu: (provided) => ({ ...provided, zIndex: 9999 }),
         menuList: (provided) => ({ ...provided, overflowX: "hidden" }),
+    };
+
+    const getMonthLabelText = (monthValue) => {
+        return monthValue ? `Tháng ${monthValue}` : "Tất cả tháng sinh";
     };
 
     return (
@@ -650,7 +671,7 @@ const Promotions = () => {
                                                     </svg>
                                                 </button>
                                                 <div className="z-promo-action-menu">
-                                                    <Button variant="outline" onClick={(e) => openApplyModal(e, promo)}>
+                                                    <Button variant="complete" onClick={(e) => openApplyModal(e, promo)}>
                                                         Tặng KH
                                                     </Button>
                                                     <Button variant="outline" onClick={() => toggleStatusMutation.mutate(promo._id)} disabled={toggleStatusMutation.isPending}>
@@ -705,17 +726,7 @@ const Promotions = () => {
                                     <label>
                                         Chi nhánh áp dụng <span className="z-promo-required">*</span>
                                     </label>
-                                    <ReactSelect 
-                                        name="branchId" 
-                                        options={formBranchOptions} 
-                                        value={formBranchOptions.find((opt) => opt.value === formData.branchId) || null} 
-                                        onChange={(selected) => setFormData((prev) => ({ ...prev, branchId: selected ? selected.value : "" }))} 
-                                        isDisabled={isSubmitting || !!currentPromoId} 
-                                        styles={customSelectStyles} 
-                                        placeholder={isLoadingBranches ? "Đang tải..." : "-- Chọn chi nhánh --"}
-                                        isSearchable={true} 
-                                        menuPosition="fixed" 
-                                    />
+                                    <ReactSelect name="branchId" options={formBranchOptions} value={formBranchOptions.find((opt) => opt.value === formData.branchId) || null} onChange={(selected) => setFormData((prev) => ({ ...prev, branchId: selected ? selected.value : "" }))} isDisabled={isSubmitting || !!currentPromoId} styles={customSelectStyles} placeholder={isLoadingBranches ? "Đang tải..." : "-- Chọn chi nhánh --"} isSearchable={true} menuPosition="fixed" />
                                 </div>
                                 <div className="z-promo-form-row">
                                     <div className="z-promo-form-group" style={{ flex: 1 }}>
@@ -891,10 +902,51 @@ const Promotions = () => {
                 </Modal>
 
                 {/* MODAL TẶNG MÃ */}
-                <Modal isOpen={isApplyModalOpen} onClose={() => !isSubmitting && setIsApplyModalOpen(false)} title={`Tặng mã Khuyến mãi: ${promoToApply?.code || ""}`} maxWidth="600px" onSave={submitApplyPromotion} saveText={isSubmitting ? "Đang xử lý..." : `Xác nhận tặng (${selectedUserIds.length})`}>
+                <Modal isOpen={isApplyModalOpen} onClose={() => !isSubmitting && setIsApplyModalOpen(false)} title={`Tặng mã Khuyến mãi: ${promoToApply?.code || ""}`} maxWidth="800px" onSave={submitApplyPromotion} saveText={isSubmitting ? "Đang xử lý..." : `Xác nhận tặng (${selectedUserIds.length})`}>
                     <div className="z-promo-apply-content">
                         <p style={{ marginBottom: "15px", color: "#6b7280", fontSize: "14px" }}>Chọn khách hàng bạn muốn gửi trực tiếp mã giảm giá này vào tài khoản.</p>
-                        <input type="text" className="z-promo-input" placeholder="Tìm theo tên, SĐT, email..." value={userSearchTerm} onChange={(e) => setUserSearchTerm(e.target.value)} style={{ marginBottom: "15px" }} />
+
+                        {/* Khu vực Search và Filter Tháng */}
+                        <div style={{ display: "flex", gap: "12px", marginBottom: "15px", alignItems: "center" }}>
+                            <input type="text" className="z-promo-input" placeholder="Tìm theo tên, SĐT, email..." value={userSearchTerm} onChange={(e) => setUserSearchTerm(e.target.value)} style={{ flex: 1, margin: 0 }} />
+
+                            {/* Custom Dropdown thay cho <select> */}
+                            <div className="z-promo-filter" style={{ minWidth: "200px" }}>
+                                <button type="button" className="z-promo-btn-filter" onClick={() => setShowMonthDropdown(!showMonthDropdown)} style={{ width: "100%", justifyContent: "space-between", height: "42px" }}>
+                                    <span>{getMonthLabelText(filterMonth)}</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151">
+                                        <path d="M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z" />
+                                    </svg>
+                                </button>
+
+                                {showMonthDropdown && (
+                                    <div className="z-promo-dropdown-menu" style={{ maxHeight: "250px", overflowY: "auto", width: "100%" }}>
+                                        <div
+                                            className={`z-promo-dropdown-item ${filterMonth === "" ? "active" : ""}`}
+                                            onClick={() => {
+                                                setFilterMonth("");
+                                                setShowMonthDropdown(false);
+                                            }}
+                                        >
+                                            Tất cả tháng sinh
+                                        </div>
+                                        {[...Array(12)].map((_, i) => (
+                                            <div
+                                                key={i + 1}
+                                                className={`z-promo-dropdown-item ${filterMonth === (i + 1).toString() ? "active" : ""}`}
+                                                onClick={() => {
+                                                    setFilterMonth((i + 1).toString());
+                                                    setShowMonthDropdown(false);
+                                                }}
+                                            >
+                                                Tháng {i + 1}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", paddingBottom: "10px", borderBottom: "1px solid #e5e7eb" }}>
                             <strong style={{ fontSize: "14px" }}>Danh sách Khách hàng ({filteredUsers.length})</strong>
                             <label style={{ display: "flex", alignItems: "center", gap: "5px", cursor: "pointer", fontSize: "14px", color: "var(--primary-color)" }}>
@@ -903,7 +955,7 @@ const Promotions = () => {
                                     checked={filteredUsers.length > 0 && selectedUserIds.length === filteredUsers.length}
                                     onChange={() => handleSelectAllUsers(filteredUsers)}
                                     style={{
-                                        accentColor: "var(--primary-color)", 
+                                        accentColor: "var(--primary-color)",
                                         width: "16px",
                                         height: "16px",
                                         cursor: "pointer",
@@ -918,6 +970,10 @@ const Promotions = () => {
                             ) : (
                                 filteredUsers.map((user) => {
                                     const userId = user.userId || user._id;
+                                    // Xử lý chuỗi ngày sinh để render
+                                    const dobString = user.dateOfBirth || user.dob;
+                                    const dobFormatted = dobString ? new Date(dobString).toLocaleDateString("vi-VN") : "";
+
                                     return (
                                         <label key={userId} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px", borderBottom: "1px solid #f3f4f6", cursor: "pointer", transition: "background 0.2s" }} onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f9fafb")} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}>
                                             <input
@@ -934,7 +990,10 @@ const Promotions = () => {
                                             <div>
                                                 <div style={{ fontWeight: "600", color: "#374151" }}>{user.fullName || user.username || "Khách hàng ẩn danh"}</div>
                                                 <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>
-                                                    {user.phoneNumber || "Chưa có SĐT"} {user.email ? ` • ${user.email}` : ""}
+                                                    {user.phoneNumber || "Chưa có SĐT"}
+                                                    {user.email ? ` • ${user.email}` : ""}
+                                                    {/* Render thêm ngày sinh ở đây */}
+                                                    {dobFormatted ? <span style={{ color: "var(--primary-color)", fontWeight: "500" }}> • {dobFormatted}</span> : ""}
                                                 </div>
                                             </div>
                                         </label>

@@ -286,7 +286,7 @@ const Categories = () => {
                         <input type="text" placeholder="Tìm tên danh mục..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
 
-                    <div className="z-category-filter">
+                    {/* <div className="z-category-filter">
                         <button className="z-category-btn-filter" onClick={() => setShowFilterDropdown(!showFilterDropdown)}>
                             <span>{getFilterLabel()}</span>
                             <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151">
@@ -324,7 +324,7 @@ const Categories = () => {
                                 </div>
                             </div>
                         )}
-                    </div>
+                    </div> */}
 
                     <AddButton onClick={openAddModal} style={{ marginLeft: "auto" }}>
                         Thêm mới
