@@ -291,7 +291,7 @@ const Location = () => {
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý Khu vực" }]} title="Quản lý Khu vực" description="Quản lý danh sách Tỉnh/Thành phố và Phường/Xã trên hệ thống." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý khu vực" }]} title="Quản lý khu vực" description="Quản lý danh sách Tỉnh/Thành phố và Phường/Xã trên hệ thống." />
 
             <div className="z-location-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />

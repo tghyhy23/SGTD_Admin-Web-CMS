@@ -492,7 +492,7 @@ const ClinicDetail = () => {
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý Phòng khám", path: "/clinics" }, { label: "Chi tiết Phòng khám" }]} title="Quản lí chi tiết phòng khám" description="Xem chi tiết và chỉnh sửa thông tin phòng khám, quản lý các đánh giá của phòng khám." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý Phòng khám", path: "/clinics" }, { label: "Chi tiết Phòng khám" }]} title="Quản lý chi tiết phòng khám" description="Xem chi tiết và chỉnh sửa thông tin phòng khám, quản lý các đánh giá của phòng khám." />
 
             <div className="z-clinic-detail-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
@@ -611,7 +611,6 @@ const ClinicDetail = () => {
                                 style={{
                                     backgroundColor: isReviewsFetching ? "#09482d" : "var(--primary-color)",
                                     cursor: isReviewsFetching ? "not-allowed" : "pointer",
-                                    
                                 }}
                             >
                                 <svg

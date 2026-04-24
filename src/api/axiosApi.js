@@ -307,7 +307,7 @@ export const userApi = {
     // Thêm user mới (Admin)
     createUser: (data) => axiosApi.post("/auth/create-user", data),
     // Xóa user bất kỳ (Admin)
-    deleteUserByAdmin: () => axiosApi.delete("/auth/delete-account"),
+    // deleteUserByAdmin: (id) => axiosApi.delete(`/auth/permanent-account/${id}`),
 };
 
 export const locationApi = {
@@ -415,4 +415,27 @@ export const warrantyApi = {
 
     // CRON
     updateExpiredWarranties: () => axiosApi.post("/warranty/update-expired"),
+};
+
+export const companyPageApi = {
+    // Lấy danh sách nội dung các trang công ty (Có thể truyền params: { companyCode: 'SGTD' | 'MEKONG' | 'PDCA' })
+    getAllContents: (params) => axiosApi.get("/company-page", { params }),
+
+    // Lấy chi tiết 1 khối nội dung
+    getContentById: (id) => axiosApi.get(`/company-page/${id}`),
+
+    // Tạo khối nội dung mới (hỗ trợ upload file ảnh)
+    createContent: (formData) =>
+        axiosApi.post("/company-page", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        }),
+
+    // Cập nhật khối nội dung
+    updateContent: (id, formData) =>
+        axiosApi.put(`/company-page/${id}`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        }),
+
+    // Xóa khối nội dung
+    deleteContent: (id) => axiosApi.delete(`/company-page/${id}`),
 };

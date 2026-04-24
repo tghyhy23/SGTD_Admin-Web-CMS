@@ -502,7 +502,7 @@ const Clinics = () => {
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý Chi nhánh" }]} title={`Quản lí phòng khám`} description="Quản lí và thiết lập khu vực, định vị của các phòng khám trên các tỉnh thành." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý Chi nhánh" }]} title={`Quản lý phòng khám`} description="Quản lý và thiết lập khu vực, định vị của các phòng khám trên các tỉnh thành." />
 
             <div className="z-clinic-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
@@ -684,7 +684,7 @@ const Clinics = () => {
                                     <input type="text" name="name" className="z-clinic-input" required value={formData.name} placeholder="VD: Nha Khoa Sài Gòn Tâm Đức - phường....." onChange={handleInputChange} disabled={isSubmitting} />
                                 </div>
                                 <div className="z-clinic-form-group">
-                                    <label>Quản lí (Admin)</label>
+                                    <label>Quản lý (Admin)</label>
                                     <Select options={adminOptions} value={adminOptions.find((opt) => opt.value === formData.managerId) || null} onChange={(selected) => setFormData((prev) => ({ ...prev, managerId: selected ? selected.value : "" }))} placeholder="-- Gõ để tìm Admin --" isSearchable={true} isDisabled={isSubmitting || !isSuperAdmin} styles={customSelectStyles} noOptionsMessage={() => "Không tìm thấy Admin nào"} />
                                 </div>
                                 <div className="z-clinic-form-row">

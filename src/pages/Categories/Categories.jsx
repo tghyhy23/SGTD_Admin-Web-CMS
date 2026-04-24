@@ -272,7 +272,7 @@ const Categories = () => {
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý Danh mục" }]} title={`Quản lí danh mục`} description="Quản lý danh sách các danh mục, loại danh mục của các sản phẩm." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý Danh mục" }]} title={`Quản lý danh mục`} description="Quản lý danh sách các danh mục, loại danh mục của các sản phẩm." />
 
             <div className="z-category-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />

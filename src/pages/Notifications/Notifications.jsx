@@ -166,7 +166,7 @@ export default function Notifications() {
     // ==========================================
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý Thông báo" }]} title="Quản lí thông báo" description="Theo dõi lịch sử thông báo hệ thống và gửi thông báo hàng loạt tới người dùng." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý Thông báo" }]} title="Quản lý thông báo" description="Theo dõi lịch sử thông báo hệ thống và gửi thông báo hàng loạt tới người dùng." />
 
             <div className="z-notification-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />

@@ -25,6 +25,7 @@ import Users from './pages/Users/Users';
 import Location from './pages/Location/Location';
 import Notifications from './pages/Notifications/Notifications';
 import Warranties from './pages/Waranties/Warranties';
+import Companies from './pages/Companies/Companies';
 
 function App() {
   const { user, loading } = useContext(AuthContext);
@@ -80,6 +81,7 @@ function App() {
                   <Route path="/banners" element={<Banners />} />
                   <Route path="/notifications" element={<Notifications />} />
                   <Route path="/locations" element={<Location />} />
+                  <Route path="/companies" element={<Companies />} />
                   <Route path="/warranties" element={<Warranties />} />
                 </>
             )}
