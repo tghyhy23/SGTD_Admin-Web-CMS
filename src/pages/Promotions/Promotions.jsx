@@ -543,7 +543,7 @@ const Promotions = () => {
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý Khuyến Mãi" }]} title="Quản lý Khuyến Mãi" description="Thiết lập các chương trình giảm giá, mã giảm giá và theo dõi lượt sử dụng." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý khuyến mãi" }]} title="Quản lý khuyến mãi" description="Thiết lập các chương trình giảm giá, mã giảm giá và theo dõi lượt sử dụng." />
 
             <div className="z-promo-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />

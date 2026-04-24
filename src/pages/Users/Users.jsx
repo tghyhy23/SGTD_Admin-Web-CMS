@@ -1,9 +1,10 @@
 // src/pages/Users/Users.jsx
 import React, { useEffect, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Thêm import
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { userApi } from "../../api/axiosApi";
 import Modal from "../../ui/Modal/Modal";
-import { Button, EditButton, DeleteButton, AddButton } from "../../ui/Button/Button";
+// Đã xóa DeleteButton
+import { Button, EditButton, AddButton } from "../../ui/Button/Button";
 import { Select } from "../../ui/Select/Select";
 import PageHeader from "../../ui/PageHeader/PageHeader";
 import ToastMessage from "../../ui/ToastMessage/ToastMessage";
@@ -42,6 +43,7 @@ const translateErrorMessage = (errorMsg) => {
     if (msg.includes("invalid gender")) return "Giới tính không hợp lệ!";
     if (msg.includes("invalid date of birth")) return "Ngày sinh không hợp lệ!";
     if (msg.includes("current password is required")) return "Vui lòng nhập mật khẩu hiện tại!";
+    if (msg.includes("password must include uppercase")) return "Mật khẩu phải chứa ít nhất 8 ký tự, gồm chữ hoa, chữ thường và số!";
     if (msg.includes("current password is incorrect")) return "Mật khẩu hiện tại không chính xác!";
     if (msg.includes("new password cannot be the same")) return "Mật khẩu mới không được trùng với mật khẩu cũ!";
     if (msg.includes("password must be at least") || msg.includes("password requires")) return "Mật khẩu phải đủ mạnh (ít nhất 8 ký tự, gồm chữ hoa, chữ thường và số)!";
@@ -88,8 +90,7 @@ const Users = () => {
     // ==========================================
     // MODALS STATE
     // ==========================================
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [userToDelete, setUserToDelete] = useState(null);
+    // Đã xóa state Delete
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [userToEdit, setUserToEdit] = useState(null);
@@ -130,48 +131,14 @@ const Users = () => {
             const res = await userApi.getAllUsers({ limit: 100 });
             return res.users || res.data?.users || [];
         },
-        staleTime: 5 * 60 * 1000, // Cache 5 phút, chuyển qua lại không bị load lại
+        staleTime: 5 * 60 * 1000,
     });
 
     // ==========================================
-    // REACT QUERY: MUTATIONS (Thêm/Sửa/Xóa)
+    // REACT QUERY: MUTATIONS (Thêm/Sửa)
     // ==========================================
 
-    // 1. Xóa/Khóa User
-    const deleteMutation = useMutation({
-        mutationFn: (userId) => userApi.deleteUserByAdmin(userId),
-        onSuccess: (res, deletedId) => {
-            queryClient.setQueryData(["users"], (oldData) => {
-                if (!oldData) return [];
-                return oldData.map((user) => {
-                    const currentId = String(user.userId || user._id);
-                    const targetId = String(deletedId);
-
-                    if (currentId === targetId) {
-                        return {
-                            ...user,
-                            status: "INACTIVE",
-                            account: { ...user.account, status: "INACTIVE", accountStatus: "INACTIVE" },
-                        };
-                    }
-                    return user;
-                });
-            });
-
-            setToast({ show: true, message: "Khóa tài khoản thành công!", type: "success" });
-            setIsDeleteModalOpen(false);
-            setUserToDelete(null);
-
-            // Đồng bộ lại với server sau (Background)
-            queryClient.invalidateQueries({ queryKey: ["users"] });
-        },
-        onError: (error) => {
-            const errorMsg = error.response?.data?.message || error.message;
-            setToast({ show: true, message: translateErrorMessage(errorMsg), type: "error" });
-        },
-    });
-
-    // 2. Cập nhật User
+    // 1. Cập nhật User
     const editMutation = useMutation({
         mutationFn: ({ id, payload }) => userApi.updateUserByAdmin(id, payload),
         onSuccess: (res, variables) => {
@@ -184,9 +151,8 @@ const Users = () => {
                     if (currentId === targetId) {
                         return {
                             ...user,
-                            ...variables.payload, // Ghi đè fullName, gender, dateOfBirth ở ngoài
-                            role: variables.payload.role, // Ghi đè role ngoài
-                            // QUAN TRỌNG: Ghi đè vào sâu bên trong object account để UI nhận diện được
+                            ...variables.payload,
+                            role: variables.payload.role,
                             account: {
                                 ...user.account,
                                 role: variables.payload.role,
@@ -210,28 +176,26 @@ const Users = () => {
         },
     });
 
-    // 3. Tạo User mới
+    // 2. Tạo User mới
     const createMutation = useMutation({
         mutationFn: (payload) => userApi.createUser(payload),
         onSuccess: (res, variables) => {
-            // Lấy data chuẩn từ API trả về (nếu có), nếu không có thì tự chế cục data tạm
             const newUserData = res?.user ||
                 res?.data || {
                     ...variables,
-                    userId: Math.random().toString(), // Tạo ID tạm để map() không bị lỗi key
+                    userId: Math.random().toString(),
                     joinedAt: new Date().toISOString(),
                     account: { role: variables.role, status: variables.accountStatus },
                 };
 
             queryClient.setQueryData(["users"], (oldData) => {
                 if (!oldData) return [newUserData];
-                return [newUserData, ...oldData]; // Đẩy lên đầu danh sách
+                return [newUserData, ...oldData];
             });
 
             setToast({ show: true, message: "Tạo tài khoản thành công!", type: "success" });
             setIsCreateModalOpen(false);
 
-            // Sau khi update UI xong, gọi lại API GET ngầm để lấy ID thật từ database
             queryClient.invalidateQueries({ queryKey: ["users"] });
         },
         onError: (error) => {
@@ -240,8 +204,6 @@ const Users = () => {
         },
     });
 
-    // Gom nhóm trạng thái loading của các hành động
-    const isSubmittingDelete = deleteMutation.isPending;
     const isSubmittingEdit = editMutation.isPending;
     const isSubmittingCreate = createMutation.isPending;
 
@@ -272,20 +234,17 @@ const Users = () => {
     };
 
     const handleCreateSubmit = () => {
-        // 1. Kiểm tra các trường bắt buộc
         if (!createFormData.fullName || !createFormData.email || !createFormData.password) {
             setToast({ show: true, message: "Vui lòng nhập các thông tin bắt buộc (*)", type: "error" });
             return;
         }
 
-        // 2. Validate Email
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(createFormData.email)) {
             setToast({ show: true, message: "Định dạng email không hợp lệ!", type: "error" });
             return;
         }
 
-        // 3. Validate Số điện thoại (nếu có nhập, bắt buộc phải đúng 10 số)
         if (createFormData.phoneNumber && createFormData.phoneNumber.length !== 10) {
             setToast({ show: true, message: "Số điện thoại phải bao gồm đúng 10 chữ số!", type: "error" });
             return;
@@ -294,19 +253,18 @@ const Users = () => {
         const payload = { ...createFormData, dateOfBirth: createFormData.dateOfBirth || null };
         createMutation.mutate(payload);
     };
+
     const handlePhoneKeyDown = (e) => {
-        // Chặn dấu trừ, cộng, chữ e/E, và dấu chấm
         if (["-", "+", "e", "E", "."].includes(e.key)) {
             e.preventDefault();
         }
     };
+
     const handleCreateInputChange = (e) => {
         const { name, value } = e.target;
 
         if (name === "phoneNumber") {
-            // Lọc bỏ mọi thứ không phải là số
             const sanitizedValue = value.replace(/[^0-9]/g, "");
-            // Giới hạn không cho nhập quá 10 số
             if (sanitizedValue.length > 10) return;
             setCreateFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
         } else {
@@ -342,7 +300,7 @@ const Users = () => {
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý Tài Khoản" }]} title="Quản lý Tài Khoản Người Dùng" description="Phân quyền và quản lý thông tin khách hàng trên hệ thống." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý Tài Khoản" }]} title="Quản lý tài khoản người dùng" description="Phân quyền và quản lý thông tin khách hàng trên hệ thống." />
 
             <div className="z-user-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
@@ -440,25 +398,8 @@ const Users = () => {
                                         </td>
                                         <td>{user.joinedAt ? new Date(user.joinedAt).toLocaleDateString("vi-VN") : "---"}</td>
                                         <td>
-                                            <div className="z-user-dropdown-actions">
-                                                <button className="z-user-more-btn">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
-                                                        <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
-                                                    </svg>
-                                                </button>
-                                                <div className="z-user-action-menu">
-                                                    <EditButton onClick={() => handleEditClick(user)} label="Cập nhật" />
-                                                    {role !== "SUPERADMIN" && (
-                                                        <DeleteButton
-                                                            onClick={() => {
-                                                                setUserToDelete(user);
-                                                                setIsDeleteModalOpen(true);
-                                                            }}
-                                                            label="Khóa tài khoản"
-                                                        />
-                                                    )}
-                                                </div>
-                                            </div>
+                                            {/* Đã đưa nút Edit ra ngoài trực tiếp, bỏ nút 3 chấm */}
+                                            <EditButton onClick={() => handleEditClick(user)} label="Cập nhật" />
                                         </td>
                                     </tr>
                                 );
@@ -557,7 +498,7 @@ const Users = () => {
 
                         <div className="z-user-form-group">
                             <label>
-                                Mật khẩu <small style={{ color: "gray" }}>(ít nhất 8 ký tự (gồm chữ hoa và chữ thường, 1 ký tự đặc biệt))</small> <span style={{ color: "red" }}>*</span>
+                                Mật khẩu <small style={{ color: "gray" }}>(ít nhất 8 ký tự (gồm chữ hoa và chữ thường, 1 ký tự đặc biệt và số))</small> <span style={{ color: "red" }}>*</span>
                             </label>
                             <div style={{ position: "relative" }}>
                                 <input type={showPassword ? "text" : "password"} name="password" value={createFormData.password} onChange={handleCreateInputChange} placeholder="Tạo mật khẩu..." className="z-user-input" disabled={isSubmittingCreate} autoComplete="new-password" style={{ paddingRight: "40px" }} />
@@ -615,21 +556,6 @@ const Users = () => {
                                 <Select name="accountStatus" options={statusOptions} value={createFormData.accountStatus} onChange={handleCreateInputChange} disabled={isSubmittingCreate} />
                             </div>
                         </div>
-                    </div>
-                </Modal>
-
-                {/* MODAL 3: XÓA/KHÓA TÀI KHOẢN */}
-                <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmittingDelete && setIsDeleteModalOpen(false)} title="Xác nhận khóa" maxWidth="400px" onSave={() => deleteMutation.mutate(userToDelete.userId || userToDelete._id)} saveText={isSubmittingDelete ? "Đang xử lý..." : "Khóa tài khoản"}>
-                    <div className="z-user-delete-content">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 6h18"></path>
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                        </svg>
-                        <h3>Khóa tài khoản?</h3>
-                        <p>
-                            Tài khoản <strong>{userToDelete?.fullName}</strong> sẽ bị vô hiệu hóa và không thể đăng nhập.
-                        </p>
                     </div>
                 </Modal>
             </div>

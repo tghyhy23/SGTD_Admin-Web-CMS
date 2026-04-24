@@ -56,7 +56,7 @@ const Login = () => {
             <form onSubmit={handleLogin} className="form-login">
                 <div className="input-container">
                     <div className="input-group">
-                        <label>Số điện thoại / Email</label>
+                        <label> Email </label>
 
                         <div className="input-icon-wrapper">
                             {/* Icon User */}

@@ -92,13 +92,6 @@
     padding: 8px 14px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
-    width: 300px;
-    outline: none;
-}
-.z-user-search input {
-    padding: 8px 14px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
     outline: none;
     font-size: 14px;
     width: 300px;
@@ -127,10 +120,10 @@
     position: relative; /* CỰC KỲ QUAN TRỌNG */
 }
 .z-user-dropdown-menu {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: absolute;
     top: 100%;
     right: 0;
     margin-top: 4px;
@@ -178,7 +171,7 @@
 }
 .z-user-table th:nth-child(2), 
 .z-user-table td:nth-child(2) {
-    width: 400px; /* Thiết lập độ rộng cố định bạn mong muốn */
+    width: 400px; 
     max-width: 400px;
     min-width: 250px;
 }
@@ -219,11 +212,6 @@
     color: var(--primary-color);
 }
 
-
-.z-user-dropdown-actions {
-    position: relative;
-    display: inline-block;
-}
 .z-user-name, 
 .z-user-sub-email {
     white-space: nowrap;
@@ -232,37 +220,7 @@
     display: block;
     width: 100%;
 }
-.z-user-more-btn {
-    background: none;
-    border: none;
-    padding: 8px;
-    cursor: pointer;
-    border-radius: 50%;
-    display: flex;
-}
-.z-user-action-menu {
-    position: absolute;
-    right: 0;
-    top: 0;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    z-index: 110;
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    visibility: hidden;
-    opacity: 0;
-    transform: translateY(-10px);
-    transition: all 0.2s ease;
-}
-.z-user-dropdown-actions:hover .z-user-action-menu {
-    visibility: visible;
-    opacity: 1;
-    transform: translateY(0);
-}
+
 .z-user-pagination {
     display: flex;
     justify-content: center;
@@ -298,33 +256,34 @@
     color: white;
     border-color: var(--primary-color);
 }
+
 /* ================= MODAL FORMS ================= */
 .z-user-form {
     display: flex;
     flex-direction: column;
-    gap: 20px; /* Khoảng cách rộng rãi chuẩn như Banners */
+    gap: 20px; 
     min-height: 250px;
 }
 
 .z-user-form-group {
     display: flex;
     flex-direction: column;
-    gap: 8px; /* Khoảng cách giữa label và input */
+    gap: 8px; 
 }
 
 .z-user-form-group label {
     font-size: 14px;
     font-weight: 600;
-    color: #374151; /* Màu chữ tiêu chuẩn */
+    color: #374151; 
     margin: 0;
 }
 
 .z-user-input {
     width: 100%;
-    padding: 12px 14px; /* Form control to hơn, click dễ hơn */
+    padding: 12px 14px; 
     background: #fff;
     border: 1px solid #d1d5db;
-    border-radius: 8px; /* Bo góc 8px chuẩn UI */
+    border-radius: 8px; 
     font-size: 14px;
     color: #111827;
     outline: none;
@@ -334,7 +293,7 @@
 
 .z-user-input:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(18, 145, 90, 0.1); /* Hiệu ứng focus xanh đồng bộ */
+    box-shadow: 0 0 0 3px rgba(18, 145, 90, 0.1); 
 }
 
 /* Style riêng cho input bị disable (Họ và tên) */
@@ -344,23 +303,4 @@
     color: #6b7280;
     cursor: not-allowed;
     border-color: #e5e7eb;
-}
-
-/* ================= MODAL DELETE ================= */
-.z-user-delete-content {
-    text-align: center;
-    padding: 10px 0;
-}
-
-.z-user-delete-content h3 { 
-    margin: 16px 0 8px 0; 
-    color: #111827; 
-    font-size: 18px;
-}
-
-.z-user-delete-content p {
-    color: #4b5563;
-    line-height: 1.5;
-    font-size: 14px;
-    margin: 0;
 }

@@ -23,7 +23,7 @@ const Sidebar = ({ isExpanded }) => {
     const allMenuItems = [
         {
             path: "/",
-            label: "Quản lí lịch hẹn",
+            label: "Quản lý lịch hẹn",
             allowedRoles: ["SUPERADMIN", "ADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-calendar-clock-icon lucide-calendar-clock">
@@ -38,7 +38,7 @@ const Sidebar = ({ isExpanded }) => {
         },
         {
             path: "/users",
-            label: "Quản lí người dùng",
+            label: "Quản lý người dùng",
             allowedRoles: ["SUPERADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
@@ -58,7 +58,7 @@ const Sidebar = ({ isExpanded }) => {
         },
         {
             path: "/services",
-            label: "Quản lí dịch vụ",
+            label: "Quản lý dịch vụ",
             allowedRoles: ["SUPERADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
@@ -71,7 +71,7 @@ const Sidebar = ({ isExpanded }) => {
         },
         {
             path: "/categories",
-            label: "Quản lí danh mục",
+            label: "Quản lý danh mục",
             allowedRoles: ["SUPERADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
@@ -85,7 +85,7 @@ const Sidebar = ({ isExpanded }) => {
         },
         {
             path: "/promotions",
-            label: "Quản lí khuyến mãi",
+            label: "Quản lý khuyến mãi",
             allowedRoles: ["SUPERADMIN", "ADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
@@ -96,7 +96,7 @@ const Sidebar = ({ isExpanded }) => {
         },
         {
             path: "/locations",
-            label: "Quản lí khu vực",
+            label: "Quản lý khu vực",
             allowedRoles: ["SUPERADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
@@ -107,7 +107,7 @@ const Sidebar = ({ isExpanded }) => {
         },
         {
             path: "/notifications",
-            label: "Quản lí thông báo",
+            label: "Quản lý thông báo",
             allowedRoles: ["SUPERADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
@@ -119,7 +119,7 @@ const Sidebar = ({ isExpanded }) => {
         },
         {
             path: "/clinics",
-            label: "Quản lí phòng khám",
+            label: "Quản lý phòng khám",
             allowedRoles: ["SUPERADMIN", "ADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
@@ -133,7 +133,7 @@ const Sidebar = ({ isExpanded }) => {
         },
         {
             path: "/banners",
-            label: "Quản lí banner",
+            label: "Quản lý banner",
             allowedRoles: ["SUPERADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">
@@ -144,8 +144,25 @@ const Sidebar = ({ isExpanded }) => {
             ),
         },
         {
+            path: "/companies",
+            label: "Quản lý công ty thành viên",
+            allowedRoles: ["SUPERADMIN"],
+            icon: (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-vector-square-icon lucide-vector-square">
+                    <path d="M19.5 7a24 24 0 0 1 0 10" />
+                    <path d="M4.5 7a24 24 0 0 0 0 10" />
+                    <path d="M7 19.5a24 24 0 0 0 10 0" />
+                    <path d="M7 4.5a24 24 0 0 1 10 0" />
+                    <rect x="17" y="17" width="5" height="5" rx="1" />
+                    <rect x="17" y="2" width="5" height="5" rx="1" />
+                    <rect x="2" y="17" width="5" height="5" rx="1" />
+                    <rect x="2" y="2" width="5" height="5" rx="1" />
+                </svg>
+            ),
+        },
+        {
             path: "/blogs",
-            label: "Quản lí tin tức",
+            label: "Quản lý tin tức",
             allowedRoles: ["SUPERADMIN"],
             icon: (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide">

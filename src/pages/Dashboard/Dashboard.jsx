@@ -122,12 +122,12 @@ const Dashboard = () => {
         queryKey: ["branches", isSuperAdmin, user?.user?.id, activeParentCategory?.title],
         queryFn: async () => {
             const apiParams = { limit: 100 };
-            
+
             // Lọc chi nhánh theo Category hiện tại
             if (activeParentCategory?.title) {
                 apiParams.category = mapCategoryToEnum(activeParentCategory.title);
             }
-            
+
             const clinicRes = await clinicApi.getAllClinics(apiParams);
             return clinicRes.data?.branches || clinicRes.data || [];
         },
@@ -144,7 +144,7 @@ const Dashboard = () => {
             if (debouncedSearch) params.search = debouncedSearch;
             if (filterStatus) params.status = filterStatus;
             if (derivedBranchId) params.branchId = derivedBranchId;
-            
+
             // Gửi thêm thông tin category nếu backend có hỗ trợ lọc booking theo danh mục
             if (activeParentCategory?.title) {
                 params.category = mapCategoryToEnum(activeParentCategory.title);
@@ -226,19 +226,17 @@ const Dashboard = () => {
 
     const branchOptions = [
         { value: "", label: "Tất cả chi nhánh" },
-        ...branches.map(branch => ({
+        ...branches.map((branch) => ({
             value: branch._id,
-            label: branch.name
-        }))
+            label: branch.name,
+        })),
     ];
 
-    const currentSelectedBranch = isSuperAdmin 
-        ? branchOptions.find(opt => opt.value === filterBranch) || branchOptions[0]
-        : { value: derivedBranchId, label: getBranchLabelText() };
+    const currentSelectedBranch = isSuperAdmin ? branchOptions.find((opt) => opt.value === filterBranch) || branchOptions[0] : { value: derivedBranchId, label: getBranchLabelText() };
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý Lịch Hẹn" }]} title="Quản lí lịch Hẹn" description="Quản lý theo dõi các lịch hẹn của khách hàng. Xác nhận và cập nhật hoàn thành dịch vụ khách hàng" />
+            <PageHeader breadcrumbs={[{ label: "Quản lý Lịch Hẹn" }]} title="Quản lý lịch hẹn" description="Quản lý theo dõi các lịch hẹn của khách hàng. Xác nhận và cập nhật hoàn thành dịch vụ khách hàng" />
 
             <div className="z-dashboard-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
@@ -270,10 +268,7 @@ const Dashboard = () => {
                     </div>
 
                     <div className="z-dashboard-filter">
-                        <button
-                            className="z-dashboard-btn-filter"
-                            onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                        >
+                        <button className="z-dashboard-btn-filter" onClick={() => setShowStatusDropdown(!showStatusDropdown)}>
                             <span>{getStatusLabelText(filterStatus)}</span>
                             <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="#374151">
                                 <path d="M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z" />
@@ -382,7 +377,7 @@ const Dashboard = () => {
                                                             </svg>
                                                         )}
                                                     </button>
-                                                    
+
                                                     <div className="z-dashboard-action-menu">
                                                         {booking.status === "PENDING" && (
                                                             <Button
