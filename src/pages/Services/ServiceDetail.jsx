@@ -1,29 +1,36 @@
 // src/pages/Services/ServiceDetail.jsx
-import React, { useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // 🟢 THÊM IMPORT
-import { serviceApi } from '../../api/axiosApi';
+import { serviceApi } from "../../api/axiosApi";
 import PageHeader from "../../ui/PageHeader/PageHeader";
 import ToastMessage from "../../ui/ToastMessage/ToastMessage";
 import Modal from "../../ui/Modal/Modal";
 import ReactSelect from "react-select";
-import './ServiceDetail.css';
+import "./ServiceDetail.css";
 
-const FALLBACK_IMG = 'https://via.placeholder.com/400x400?text=No+Image';
+const FALLBACK_IMG = "https://via.placeholder.com/400x400?text=No+Image";
 
 const ServiceDetail = () => {
-    const { id } = useParams(); 
+    const { id } = useParams();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
-    const [activeImage, setActiveImage] = useState(0); 
+    const [activeImage, setActiveImage] = useState(0);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const fileInputRef = useRef(null);
     const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
     const initialForm = {
-        serviceId: "", name: "", price: "", unit: "cái", description: "",
-        manufacturer: "", warranty_period: "", hardness: "", transparency: "",
+        serviceId: "",
+        name: "",
+        price: "",
+        unit: "cái",
+        description: "",
+        manufacturer: "",
+        warranty_period: "",
+        hardness: "",
+        transparency: "",
     };
     const [formData, setFormData] = useState(initialForm);
     const [imageFiles, setImageFiles] = useState([]);
@@ -42,14 +49,11 @@ const ServiceDetail = () => {
         queryKey: ["serviceDetail", id],
         queryFn: async () => {
             // Gọi song song 2 API để tiết kiệm thời gian chờ
-            const [serviceRes, variantRes] = await Promise.all([
-                serviceApi.getAllServices(),
-                serviceApi.getVariantById(id)
-            ]);
+            const [serviceRes, variantRes] = await Promise.all([serviceApi.getAllServices(), serviceApi.getVariantById(id)]);
 
             const rawServices = serviceRes?.data?.services || [];
             const product = variantRes?.data?.variant;
-            
+
             if (!product) throw new Error("Không tìm thấy thông tin sản phẩm.");
 
             let images = [];
@@ -78,7 +82,7 @@ const ServiceDetail = () => {
         mutationFn: (submitData) => serviceApi.updateVariant(id, submitData),
         onSuccess: (res) => {
             const serverVariant = res.data?.variant || res.data;
-            const selectedService = rawServices.find(s => s._id === formData.serviceId);
+            const selectedService = rawServices.find((s) => s._id === formData.serviceId);
             const updatedImageUrls = serverVariant?.imageUrls || [...oldImageUrls, ...imagePreviews];
 
             // CẬP NHẬT CACHE CỦA TRANG DETAIL
@@ -97,9 +101,9 @@ const ServiceDetail = () => {
                         hardness: formData.hardness,
                         transparency: formData.transparency,
                         serviceId: selectedService ? { _id: selectedService._id, name: selectedService.name } : old.product.serviceId,
-                        imageUrls: updatedImageUrls
+                        imageUrls: updatedImageUrls,
                     },
-                    images: updatedImageUrls.length > 0 ? updatedImageUrls : [FALLBACK_IMG]
+                    images: updatedImageUrls.length > 0 ? updatedImageUrls : [FALLBACK_IMG],
                 };
             });
 
@@ -119,7 +123,7 @@ const ServiceDetail = () => {
         onError: (error) => {
             const errorMsg = error.response?.data?.message || "Lỗi kết nối đến máy chủ";
             showToast(errorMsg, "error");
-        }
+        },
     });
 
     const isSubmitting = updateMutation.isPending;
@@ -133,18 +137,21 @@ const ServiceDetail = () => {
         const files = Array.from(e.target.files);
         const totalImages = oldImageUrls.length + imageFiles.length + files.length;
         if (totalImages > 5) return showToast("Chỉ được phép upload tối đa 5 ảnh!", "error");
-        
+
         const newPreviews = files.map((file) => URL.createObjectURL(file));
         setImageFiles([...imageFiles, ...files]);
         setImagePreviews([...imagePreviews, ...newPreviews]);
-        e.target.value = null; 
+        e.target.value = null;
     };
 
     const removeNewImage = (index) => {
-        const newFiles = [...imageFiles]; const newPreviews = [...imagePreviews];
+        const newFiles = [...imageFiles];
+        const newPreviews = [...imagePreviews];
         URL.revokeObjectURL(newPreviews[index]);
-        newFiles.splice(index, 1); newPreviews.splice(index, 1);
-        setImageFiles(newFiles); setImagePreviews(newPreviews);
+        newFiles.splice(index, 1);
+        newPreviews.splice(index, 1);
+        setImageFiles(newFiles);
+        setImagePreviews(newPreviews);
     };
 
     const removeOldImage = (index) => {
@@ -155,11 +162,19 @@ const ServiceDetail = () => {
 
     const handleEditClick = () => {
         setFormData({
-            serviceId: product.serviceId?._id || "", name: product.name || "", price: product.price || "",
-            unit: product.unit || "cái", description: product.description || "", manufacturer: product.manufacturer || "",
-            warranty_period: product.warranty_period || "", hardness: product.hardness || "", transparency: product.transparency || "",
+            serviceId: product.serviceId?._id || "",
+            name: product.name || "",
+            price: product.price || "",
+            unit: product.unit || "cái",
+            description: product.description || "",
+            manufacturer: product.manufacturer || "",
+            warranty_period: product.warranty_period || "",
+            hardness: product.hardness || "",
+            transparency: product.transparency || "",
         });
-        setImageFiles([]); setImagePreviews([]); setOldImageUrls(product.imageUrls || []); 
+        setImageFiles([]);
+        setImagePreviews([]);
+        setOldImageUrls(product.imageUrls || []);
         setIsModalOpen(true);
     };
 
@@ -168,19 +183,19 @@ const ServiceDetail = () => {
         if (!formData.serviceId) return showToast("Vui lòng chọn Danh mục dịch vụ!", "error");
 
         const submitData = new FormData();
+
+        // 1. Gửi các thông tin text bình thường
         Object.keys(formData).forEach((key) => {
-            if (key === "image" || key === "images" || key === "imageUrls") return; 
+            if (key === "image" || key === "images" || key === "imageUrls" || key === "existingUrls") return;
             if (formData[key] !== null && formData[key] !== undefined && formData[key] !== "") {
                 submitData.append(key, formData[key]);
             }
         });
 
-        if (oldImageUrls.length === 0 && imageFiles.length === 0) {
-            submitData.append("images", ""); 
-        } else if (oldImageUrls.length > 0) {
-            oldImageUrls.forEach(url => submitData.append("images", url));
-        }
+        // 2. 🟢 ĐỒNG BỘ LOGIC: Gửi danh sách ảnh cũ bằng key "existingUrls" giống trang Services
+        submitData.append("existingUrls", JSON.stringify(oldImageUrls));
 
+        // 3. Xử lý các file ảnh MỚI được thêm vào
         if (imageFiles && imageFiles.length > 0) {
             Array.from(imageFiles).forEach((file) => submitData.append("image", file));
         }
@@ -214,22 +229,23 @@ const ServiceDetail = () => {
 
                 <div className="z-service-detail-card">
                     <div className="z-service-detail-layout">
-                        
                         {/* --- CỘT TRÁI (HÌNH ẢNH) --- */}
                         <div className="z-service-detail-left">
                             <div className="z-service-detail-main-img-container">
-                                <img 
-                                    src={images[activeImage]} 
-                                    alt={product.name} 
+                                <img
+                                    src={images[activeImage]}
+                                    alt={product.name}
                                     className="z-service-detail-main-img"
-                                    onError={(e) => { e.target.src = FALLBACK_IMG }}
+                                    onError={(e) => {
+                                        e.target.src = FALLBACK_IMG;
+                                    }}
                                 />
                             </div>
-                            
+
                             {images.length > 1 && (
                                 <div className="z-service-detail-thumb-list">
                                     {images.map((img, index) => (
-                                        <div key={index} className={`z-service-detail-thumb-item ${activeImage === index ? 'active' : ''}`} onClick={() => setActiveImage(index)}>
+                                        <div key={index} className={`z-service-detail-thumb-item ${activeImage === index ? "active" : ""}`} onClick={() => setActiveImage(index)}>
                                             <img src={img} alt={`thumb-${index}`} />
                                         </div>
                                     ))}
@@ -240,22 +256,17 @@ const ServiceDetail = () => {
                         {/* --- CỘT PHẢI (THÔNG TIN) --- */}
                         <div className="z-service-detail-right">
                             <div className="z-service-detail-header-info">
-                                <span className="z-service-detail-badge">
-                                    {product.serviceId?.name || "Dịch vụ"}
-                                </span>
+                                <span className="z-service-detail-badge">{product.serviceId?.name || "Dịch vụ"}</span>
                                 <h1 className="z-service-detail-title">{product.name}</h1>
-                                
+
                                 <div className="z-service-detail-price">
-                                    {Number(product.price || 0).toLocaleString('vi-VN')} đ 
-                                    <span className="z-service-detail-unit">{product.unit ? `/ ${product.unit}` : ''}</span>
+                                    {Number(product.price || 0).toLocaleString("vi-VN")} đ<span className="z-service-detail-unit">{product.unit ? `/ ${product.unit}` : ""}</span>
                                 </div>
                             </div>
 
                             <div className="z-service-detail-section">
                                 <h3>Mô tả sản phẩm</h3>
-                                <p className="z-service-detail-desc">
-                                    {product.description || "Chưa có mô tả cho sản phẩm này."}
-                                </p>
+                                <p className="z-service-detail-desc">{product.description || "Chưa có mô tả cho sản phẩm này."}</p>
                             </div>
 
                             <div className="z-service-detail-specs-box">
@@ -286,18 +297,19 @@ const ServiceDetail = () => {
                                         </li>
                                     )}
                                 </ul>
-                                
-                                {(!product.manufacturer && !product.warranty_period && !product.hardness && !product.transparency) && (
-                                    <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>Chưa có thông số kỹ thuật.</p>
-                                )}
+
+                                {!product.manufacturer && !product.warranty_period && !product.hardness && !product.transparency && <p style={{ color: "#6b7280", fontSize: "14px", margin: 0 }}>Chưa có thông số kỹ thuật.</p>}
                             </div>
 
                             <div className="z-service-detail-actions">
-                                <button className="z-service-detail-btn-back" onClick={() => navigate('/services')}>
+                                <button className="z-service-detail-btn-back" onClick={() => navigate("/services")}>
                                     Quay lại danh sách
                                 </button>
                                 <button className="z-service-detail-btn-primary" onClick={handleEditClick} disabled={isSubmitting}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                    </svg>
                                     Chỉnh sửa
                                 </button>
                             </div>
@@ -309,22 +321,27 @@ const ServiceDetail = () => {
                 <Modal isOpen={isModalOpen} onClose={() => !isSubmitting && setIsModalOpen(false)} title="Cập nhật Sản phẩm" size="lg" onSave={handleUpdateSubmit} saveText={isSubmitting ? "Đang xử lý..." : "Lưu thay đổi"}>
                     <div className="z-service-detail-form">
                         <div className="z-service-detail-form-grid">
-                            
                             {/* CỘT TRÁI */}
                             <div className="z-service-detail-form-col">
                                 <div className="z-service-detail-form-group">
-                                    <label>Danh mục Dịch vụ <span className="z-service-detail-required">*</span></label>
-                                    <ReactSelect options={formServiceOptions} value={formServiceOptions.find(opt => opt.value === formData.serviceId) || null} onChange={(selected) => setFormData({ ...formData, serviceId: selected ? selected.value : "" })} isDisabled={isSubmitting} styles={customSelectStyles} placeholder="-- Chọn dịch vụ --" isSearchable={true} menuPosition="fixed" />
+                                    <label>
+                                        Danh mục Dịch vụ <span className="z-service-detail-required">*</span>
+                                    </label>
+                                    <ReactSelect options={formServiceOptions} value={formServiceOptions.find((opt) => opt.value === formData.serviceId) || null} onChange={(selected) => setFormData({ ...formData, serviceId: selected ? selected.value : "" })} isDisabled={isSubmitting} styles={customSelectStyles} placeholder="-- Chọn dịch vụ --" isSearchable={true} menuPosition="fixed" />
                                 </div>
 
                                 <div className="z-service-detail-form-group">
-                                    <label>Tên sản phẩm <span className="z-service-detail-required">*</span></label>
+                                    <label>
+                                        Tên sản phẩm <span className="z-service-detail-required">*</span>
+                                    </label>
                                     <input type="text" className="z-service-detail-input" required placeholder="VD: Implant Zygoma" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} disabled={isSubmitting} />
                                 </div>
 
                                 <div className="z-service-detail-form-row">
                                     <div className="z-service-detail-form-group" style={{ flex: 1 }}>
-                                        <label>Giá (VNĐ) <span className="z-service-detail-required">*</span></label>
+                                        <label>
+                                            Giá (VNĐ) <span className="z-service-detail-required">*</span>
+                                        </label>
                                         <input type="number" className="z-service-detail-input" required min="0" placeholder="VD: 45000000" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} disabled={isSubmitting} />
                                     </div>
                                     <div className="z-service-detail-form-group" style={{ flex: 1 }}>
@@ -363,24 +380,32 @@ const ServiceDetail = () => {
                                     <input type="text" className="z-service-detail-input" placeholder="VD: Cao, tự nhiên" value={formData.transparency} onChange={(e) => setFormData({ ...formData, transparency: e.target.value })} disabled={isSubmitting} />
                                 </div>
 
-                                <h3 className="z-service-detail-form-title" style={{ marginTop: "12px" }}>Thư viện Ảnh</h3>
+                                <h3 className="z-service-detail-form-title" style={{ marginTop: "12px" }}>
+                                    Thư viện Ảnh
+                                </h3>
                                 <div className="z-service-detail-form-group">
                                     <label>Hình ảnh (Tối đa 5 ảnh)</label>
                                     <div className="z-service-detail-upload-wrapper">
                                         {oldImageUrls.map((url, index) => (
                                             <div key={`old-${index}`} className="z-service-detail-img-box">
                                                 <img src={url} alt={`old-preview-${index}`} />
-                                                <button type="button" className="z-service-detail-remove-btn" onClick={() => removeOldImage(index)}>×</button>
+                                                <button type="button" className="z-service-detail-remove-btn" onClick={() => removeOldImage(index)}>
+                                                    ×
+                                                </button>
                                             </div>
                                         ))}
                                         {imagePreviews.map((src, index) => (
                                             <div key={`new-${index}`} className="z-service-detail-img-box">
                                                 <img src={src} alt={`new-preview-${index}`} />
-                                                <button type="button" className="z-service-detail-remove-btn" onClick={() => removeNewImage(index)}>×</button>
+                                                <button type="button" className="z-service-detail-remove-btn" onClick={() => removeNewImage(index)}>
+                                                    ×
+                                                </button>
                                             </div>
                                         ))}
-                                        {(oldImageUrls.length + imagePreviews.length) < 5 && (
-                                            <div className="z-service-detail-add-img-btn" onClick={handleAddImageClick}>+ Tải ảnh</div>
+                                        {oldImageUrls.length + imagePreviews.length < 5 && (
+                                            <div className="z-service-detail-add-img-btn" onClick={handleAddImageClick}>
+                                                + Tải ảnh
+                                            </div>
                                         )}
                                     </div>
                                     <input type="file" multiple accept="image/*" ref={fileInputRef} style={{ display: "none" }} onChange={handleImageChange} />
