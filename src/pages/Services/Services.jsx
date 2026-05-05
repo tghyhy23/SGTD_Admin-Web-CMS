@@ -7,6 +7,7 @@ import ToastMessage from "../../ui/ToastMessage/ToastMessage";
 import Modal from "../../ui/Modal/Modal";
 import { AddButton, EditButton, DeleteButton } from "../../ui/Button/Button";
 import ReactSelect from "react-select";
+import fallbackImg from "../../assets/images/default_img.png";
 
 import "./Services.css";
 
@@ -21,7 +22,7 @@ const removeVietnameseTones = (str) => {
         .trim();
 };
 
-const FALLBACK_IMAGE = "https://via.placeholder.com/150";
+const FALLBACK_IMAGE = fallbackImg;
 
 const getActiveCategoryFromStorage = () => {
     try {
