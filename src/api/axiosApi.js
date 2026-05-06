@@ -418,24 +418,58 @@ export const warrantyApi = {
 };
 
 export const companyPageApi = {
-    // Lấy danh sách nội dung các trang công ty (Có thể truyền params: { companyCode: 'SGTD' | 'MEKONG' | 'PDCA' })
-    getAllContents: (params) => axiosApi.get("/company-page", { params }),
+    // ============================================
+    // 1. PAGE LEVEL (Quản lý cấp độ Trang)
+    // ============================================
 
-    // Lấy chi tiết 1 khối nội dung
-    getContentById: (id) => axiosApi.get(`/company-page/${id}`),
+    // Lấy danh sách tất cả các trang (Admin view)
+    getAllPages: () => 
+        axiosApi.get("/company-pages"),
 
-    // Tạo khối nội dung mới (hỗ trợ upload file ảnh)
-    createContent: (formData) =>
-        axiosApi.post("/company-page", formData, {
+    // Lấy chi tiết 1 trang theo companyKey (VD: 'SGTD_EDU', 'PDCA', 'MEKONG')
+    getPageDetail: (companyKey) => 
+        axiosApi.get(`/company-pages/${companyKey}`),
+
+    // Tạo hoặc cập nhật thông tin chính của trang (kèm heroImage)
+    upsertPage: (formData) =>
+        axiosApi.post("/company-pages", formData, {
             headers: { "Content-Type": "multipart/form-data" },
         }),
 
-    // Cập nhật khối nội dung
-    updateContent: (id, formData) =>
-        axiosApi.put(`/company-page/${id}`, formData, {
+    // Bật/tắt trạng thái hiển thị (Publish/Unpublish) của cả trang
+    togglePublish: (companyKey) => 
+        axiosApi.patch(`/company-pages/${companyKey}/toggle-publish`),
+
+    // ============================================
+    // 2. SECTION LEVEL (Quản lý các khối nội dung bên trong trang)
+    // ============================================
+
+    // Thêm section mới vào trang (hỗ trợ up nhiều ảnh qua field 'sectionImages')
+    addSection: (companyKey, formData) =>
+        axiosApi.post(`/company-pages/${companyKey}/sections`, formData, {
             headers: { "Content-Type": "multipart/form-data" },
         }),
 
-    // Xóa khối nội dung
-    deleteContent: (id) => axiosApi.delete(`/company-page/${id}`),
+    // Cập nhật section (hỗ trợ append thêm ảnh vào mảng images hiện tại)
+    updateSection: (companyKey, sectionId, formData) =>
+        axiosApi.put(`/company-pages/${companyKey}/sections/${sectionId}`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        }),
+
+    // Thay đổi thứ tự (drag & drop) các sections
+    // data format: [{ sectionId: "...", order: 1 }, ...]
+    reorderSections: (companyKey, data) => 
+        axiosApi.patch(`/company-pages/${companyKey}/sections/reorder`, data),
+
+    // Xóa một section (Backend sẽ tự xóa cả ảnh trên Cloudinary)
+    deleteSection: (companyKey, sectionId) => 
+        axiosApi.delete(`/company-pages/${companyKey}/sections/${sectionId}`),
+
+    // Xóa một ảnh cụ thể trong 1 section
+    deleteSectionImage: (companyKey, sectionId, imageId) => 
+        axiosApi.delete(`/company-pages/${companyKey}/sections/${sectionId}/images/${imageId}`),
+
+    // Xóa toàn bộ ảnh của 1 section (nhưng giữ lại text)
+    deleteAllSectionImages: (companyKey, sectionId) => 
+        axiosApi.delete(`/company-pages/${companyKey}/sections/${sectionId}/images`),
 };
