@@ -24,7 +24,7 @@ const FALLBACK_IMG = "https://via.placeholder.com/300x150?text=No+Banner";
 
 const POSITION_LABELS = {
     MIDDLE: "Background Trang Chủ",
-    BOTTOM: "Trang Khuyến Mãi",
+    // BOTTOM: "Trang Khuyến Mãi",
     ABOUT_HERO: "Trang Giới Thiệu (lớn)",
     ABOUT_MIDDLE: "Trang Giới Thiệu (nhỏ)",
     EDU: "SGTD EDU",
@@ -44,7 +44,7 @@ const DEFAULT_LINKS = {
 
 const LINK_LABELS = {
     "/(tabs)/index": "Trang Chủ",
-    "/promotion/Promotions": "Trang Khuyến Mãi",
+    // "/promotion/Promotions": "Trang Khuyến Mãi",
     "/dentistry/Intro": "Trang Giới Thiệu",
     "/intro/SGTD": "Trang Giới Thiệu Sài Gòn Tâm Đức Education",
     "/intro/Mekong": "Trang Giới Thiệu Mekong",
@@ -489,10 +489,10 @@ const Banners = () => {
                                 <input type="number" name="displayOrder" value={formData.displayOrder} onChange={handleInputChange} min="0" disabled={isSubmitting} className="z-banner-input" />
                             </div>
                         </div>
-                        <div className="z-banner-form-group">
+                        {/* <div className="z-banner-form-group">
                             <label>Điều hướng đến</label>
                             <input type="text" value={LINK_LABELS[DEFAULT_LINKS[formData.position]] || DEFAULT_LINKS[formData.position] || "Không có link điều hướng"} disabled={true} className="z-banner-input readonly z-banner-input-highlight" />
-                        </div>
+                        </div> */}
                         <div className="z-banner-form-group">
                             <label>Trạng thái (Status)</label>
                             <Select name="status" options={statusOptions} value={formData.status} onChange={handleInputChange} disabled={isSubmitting} />
