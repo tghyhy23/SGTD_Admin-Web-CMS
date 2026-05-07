@@ -1,16 +1,16 @@
 # SGTD CMS - Content Management System
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)
 ![React](https://img.shields.io/badge/React-18+-61dafb.svg)
 ![Vite](https://img.shields.io/badge/Vite-5+-646cff.svg)
 
 ## Overview
 
-**SGTD CMS** is a modern content management system built with **React + Vite**. It provides an intuitive admin interface for managing content, images, and configurations for multiple company pages including SGTD Edu, Mekong, and PDCA.
+**SGTD CMS** is a modern content management system built with **React + Vite**.
 
 ---
 
-## Version 1.0.0 - Release Notes
+## Version 1.0.1 - Release Notes: add mapping error message in login page
 
 ### 🎯 Company Page API Integration
 - Add API Fetching for Company Pages
