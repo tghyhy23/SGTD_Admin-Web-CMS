@@ -1,6 +1,6 @@
 # SGTD CMS - Content Management System
 
-![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)
 ![React](https://img.shields.io/badge/React-18+-61dafb.svg)
 ![Vite](https://img.shields.io/badge/Vite-5+-646cff.svg)
 
@@ -10,10 +10,10 @@
 
 ---
 
-## Version 1.0.1 - Release Notes: add mapping error message in login page
+## Version 1.0.2 - Release Notes: UPDATE Feedback: user authorization, add note
 
-### 🎯 Company Page API Integration
-- Add API Fetching for Company Pages
+### 🎯 User authorization, add note:
+- Add user authorization: receptionist, sale, admin, superadmin, add taking note
 
 ## 👥 Contributors
 
@@ -28,4 +28,4 @@ This software is created for internal use by SGTD.
 ---
 
 **Last Updated**: May 2026  
-**Version**: 1.0.0
+**Version**: 1.0.2
