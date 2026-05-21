@@ -72,9 +72,52 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #374151;
+    color: var(--text-main);
 }
-
+.z-dashboard-filter-delete {
+    background: var(--base-error);
+    color: var(--error);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid var(--error);
+    transition: all 0.15s ease-in-out;
+    font-family: inherit;
+    outline: none;
+}
+.z-dashboard-badge-no_show {
+    /* Dùng màu xám đậm hoặc cam đỏ cho nổi bật */
+    background-color: #f3f4f6; 
+    color: #4b5563;
+}
+.z-dashboard-btn-export {
+    margin-left: auto;
+    background: var(--primary-color);
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s ease-in-out;
+    font-family: inherit;
+    outline: none;
+}
+.z-dashboard-btn-export:hover {
+    background: var(--base-primary);
+    color: var(--primary-color);
+}
 .z-dashboard-dropdown-menu {
     display: flex;
     flex-direction: column;
@@ -112,7 +155,8 @@
     background: #fff;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    overflow: visible;
+    overflow-x: auto;
+    overflow-y: hidden;
     min-height: 300px;
 }
 
@@ -127,6 +171,52 @@
     border-bottom: 1px solid #e5e7eb;
     text-align: left;
     font-size: 14px;
+    white-space: nowrap;
+}
+
+/* Thêm styling cho các input filter mới */
+.z-dashboard-date-filter, .z-dashboard-service-filter {
+    padding: 8px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    outline: none;
+    font-size: 14px;
+    min-height: 38px;
+}
+
+.z-dashboard-filter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 10px 0;
+}
+
+.z-dashboard-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    text-align: left;
+}
+
+.z-dashboard-filter-group label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+}
+
+.z-dashboard-filter-group input[type="date"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    min-height: 38px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.z-dashboard-filter-group input[type="date"]:focus {
+    border-color: var(--primary-color);
 }
 
 .z-dashboard-table th {
@@ -343,4 +433,81 @@
     color: #4b5563;
     line-height: 1.5;
     margin: 0;
+}
+
+
+/* ==============================================================
+   FORM SỬA LỊCH HẸN
+   ============================================================== */
+.z-dashboard-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 8px 0;
+}
+
+.z-dashboard-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+/* Base style cho Input và Textarea */
+.z-dashboard-input,
+.z-dashboard-textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    box-sizing: border-box;
+    background-color: #fff;
+    color: #374151;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Hiệu ứng khi Hover */
+.z-dashboard-input:hover:not([readonly]):not(:disabled),
+.z-dashboard-textarea:hover:not([readonly]):not(:disabled) {
+    border-color: var(--primary-color, #1d4ed8);
+}
+
+/* Hiệu ứng khi Focus (đang gõ) */
+.z-dashboard-input:focus:not([readonly]),
+.z-dashboard-textarea:focus:not([readonly]) {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(49, 46, 129, 0.1);
+}
+
+/* Custom riêng cho Input Ngày (Khớp chiều cao với React-Select) */
+.z-dashboard-input-date {
+    height: 38px;
+    padding: 0 10px;
+}
+
+/* Textarea tự động chỉnh size theo chiều dọc */
+.z-dashboard-textarea {
+    resize: vertical;
+}
+
+/* Input Promo: Tự động in hoa */
+.z-dashboard-input-uppercase {
+    text-transform: uppercase;
+}
+
+/* Input Chỉ đọc (Readonly) - VD: Tên chi nhánh */
+.z-dashboard-input-readonly {
+    background-color: #f3f4f6;
+    color: #6b7280;
+    cursor: not-allowed;
+    border-color: #d1d5db;
+}
+
+.z-dashboard-input-readonly:hover,
+.z-dashboard-input-readonly:focus {
+    border-color: #d1d5db; /* Ngăn đổi màu khi hover vào ô readonly */
+    box-shadow: none;
 }

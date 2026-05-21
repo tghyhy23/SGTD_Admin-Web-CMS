@@ -8,8 +8,9 @@ const translateLoginError = (errorMsg) => {
     if (!errorMsg) return "Đăng nhập thất bại, vui lòng thử lại!";
     const msg = errorMsg.toLowerCase();
 
-    // Dựa trên loginService từ backend
+    // Dựa trên loginService từ backend Request failed with status code 401
     if (msg.includes("identifier and password are required")) return "Vui lòng nhập Email/Số điện thoại và Mật khẩu.";
+    if (msg.includes("request failed with status code 401")) return "Tài khoản hoặc mật khẩu không chính xác!. Vui lòng thử lại.";
     if (msg.includes("too many login attempts")) return "Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.";
     if (msg.includes("invalid identifier or password")) return "Tài khoản hoặc mật khẩu không chính xác!";
     if (msg.includes("log in using your google account")) return "Tài khoản này được đăng ký bằng Google. Vui lòng đăng nhập bằng Google.";

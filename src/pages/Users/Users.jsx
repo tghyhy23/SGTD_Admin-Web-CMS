@@ -59,6 +59,8 @@ const translateErrorMessage = (errorMsg) => {
 const roleOptions = [
     { value: "all", label: "Tất cả vai trò" },
     { value: "USER", label: "Khách hàng (USER)" },
+    { value: "RECEPTIONIST", label: "Lễ tân (RECEPTIONIST)" },
+    { value: "SALE", label: "Nhân viên Sale (SALE)" },
     { value: "ADMIN", label: "Quản trị viên (ADMIN)" },
 ];
 
@@ -296,6 +298,7 @@ const Users = () => {
     const currentItems = allFilteredUsers.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(allFilteredUsers.length / itemsPerPage);
 
+    const totalUsers = allFilteredUsers.length;
     if (isLoading) return <div className="z-user-state">Đang tải dữ liệu...</div>;
 
     return (
@@ -306,7 +309,10 @@ const Users = () => {
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
 
                 <div className="z-user-header">
-                    <h1 className="z-user-title">Danh sách người dùng</h1>
+                    <h1 className="z-user-title">
+                        Danh sách người dùng
+                        <span style={{ color: "var(--primary-color)", marginLeft: "8px"}}>- Tổng: {totalUsers}</span>
+                    </h1>
                 </div>
 
                 <div className="z-user-tabs">

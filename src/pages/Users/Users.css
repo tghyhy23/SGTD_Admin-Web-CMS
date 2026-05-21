@@ -212,6 +212,16 @@
     color: var(--primary-color);
 }
 
+.z-user-role-badge.sale {
+    background-color: var(--base-warning);
+    color: var(--warning);
+}
+
+.z-user-role-badge.receptionist {
+    background-color: #fce7f3; /* Hồng/Tím nhạt */
+    color: #db2777;            /* Hồng đậm */
+}
+
 .z-user-name, 
 .z-user-sub-email {
     white-space: nowrap;

@@ -118,6 +118,10 @@ export const clinicApi = {
     // 1. Lấy danh sách phòng khám (kèm filter, search, phân trang)
     getAllClinics: (params) => axiosApi.get("/branch", { params }),
 
+    // timeslots cho booking
+    getAvailableTimeSlots: (branchId, params) => 
+        axiosApi.get(`/branch/${branchId}/available-slots`, { params }),
+
     // 2. Lấy chi tiết 1 phòng khám
     getClinicById: (id) => axiosApi.get(`/branch/${id}`),
 
@@ -389,6 +393,20 @@ export const bookingApi = {
 
     // (Tùy chọn) Admin Hủy lịch - Nếu backend của bạn cho phép admin gọi route này
     cancelBooking: (id, data) => axiosApi.post(`/booking/${id}/cancel`, data),
+
+    // Admin update lịch hẹn
+    updateBooking: (id, data) => axiosApi.put(`/booking/${id}`, data),
+
+    // Admin ghi nhận khách không đến
+    markBookingNoShow: (id) => axiosApi.patch(`/booking/${id}/no-show`),
+};
+
+// Thêm đoạn này vào file api/axiosApi.js của bạn
+export const noteApi = {
+    createNote: (bookingId, data) => axiosApi.post(`/notes/bookings/${bookingId}`, data),
+    getNotesByBooking: (bookingId) => axiosApi.get(`/notes/bookings/${bookingId}`),
+    updateNote: (noteId, data) => axiosApi.patch(`/notes/${noteId}`, data),
+    deleteNote: (noteId) => axiosApi.delete(`/notes/${noteId}`),
 };
 
 export const systemModuleApi = {

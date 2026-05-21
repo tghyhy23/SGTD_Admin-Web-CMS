@@ -11,6 +11,7 @@ import ReactSelect from "react-select";
 import DatePicker, { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import vi from "date-fns/locale/vi";
+import { useAuth } from "../../context/AuthContext";
 registerLocale("vi", vi);
 
 import "./ClinicDetail.css";
@@ -44,10 +45,9 @@ const translateErrorMessage = (errorMsg) => {
         return "Lỗi kết nối hoặc File quá lớn bị máy chủ từ chối (Lỗi 413). Vui lòng thử ảnh nhỏ hơn!";
     }
     if (msg.includes("branch not found")) return "Không tìm thấy thông tin phòng khám trên hệ thống.";
-    if (msg.includes("name, category, district, address and hotline are required")) return "Vui lòng điền đầy đủ thông tin bắt buộc!";
-    if (msg.includes("manager not found")) return "Không tìm thấy thông tin tài khoản Quản lý.";
-    if (msg.includes("assigned user must be admin") || msg.includes("assigned manager must be admin")) return "Tài khoản Quản lý được gán phải có quyền Admin.";
-    if (msg.includes("already manages")) return "Tài khoản này đang quản lý một phòng khám khác. Không thể gán thêm.";
+    if (msg.includes("name, category, district, address and hotline are required")) return "Vui lòng điền đầy đủ thông bắt buộc!";
+    if (msg.includes("manager not found") || msg.includes("receptionist not found")) return "Không tìm thấy thông tin tài khoản Lễ tân.";
+    if (msg.includes("assigned user must be admin") || msg.includes("assigned manager must be admin")) return "Tài khoản được gán phải hợp lệ.";
     if (msg.includes("some services not found or inactive")) return "Một số dịch vụ không tồn tại hoặc đã ngừng hoạt động.";
     if (msg.includes("review not found")) return "Không tìm thấy thông tin đánh giá trên hệ thống.";
     if (msg.includes("missing required fields")) return "Vui lòng điền đầy đủ thông tin bắt buộc (Tên khách hàng, Số sao, Nội dung)!";
@@ -61,11 +61,15 @@ const ClinicDetail = () => {
     const location = useLocation();
     const queryClient = useQueryClient();
 
+    // 🟢 ĐỊNH NGHĨA QUYỀN TRUY CẬP THEO REQUIREMENT MỚI
+    const { user } = useAuth();
+    const userRole = user?.role || user?.account?.role || "USER";
+    const isSuperAdmin = userRole === "SUPERADMIN"; // Chỉ SuperAdmin được phép chỉnh sửa
+
     // Dữ liệu truyền từ trang list sang
     const passedClinic = location.state?.clinicData || undefined;
     const passedDistricts = location.state?.districtsData || undefined;
     const passedServices = location.state?.servicesData || undefined;
-    const passedAdmins = location.state?.adminsData || undefined;
 
     // UI States
     const [activeImage, setActiveImage] = useState(0);
@@ -109,8 +113,8 @@ const ClinicDetail = () => {
     const {
         data: reviewsData,
         isLoading: isReviewsLoading,
-        isFetching: isReviewsFetching, // 🟢 Trạng thái đang tải lại dữ liệu
-        refetch: refetchReviews, // 🟢 Hàm ép gọi lại API riêng cho phần Review
+        isFetching: isReviewsFetching,
+        refetch: refetchReviews, 
     } = useQuery({
         queryKey: ["clinicReviews", id, reviewPage],
         queryFn: async () => {
@@ -124,25 +128,14 @@ const ClinicDetail = () => {
     const reviews = reviewsData?.reviews || [];
     const reviewTotal = reviewsData?.total || 0;
 
-    const { data: managers = [] } = useQuery({
-        queryKey: ["adminManagers"],
+    const { data: receptionists = [] } = useQuery({
+        queryKey: ["receptionistsData"],
         queryFn: async () => {
             const res = await userApi.getAllUsers({ limit: 500 });
             const userList = res.users || res.data?.users || res.data || [];
-            return Array.isArray(userList) ? userList.filter((u) => (u?.account?.role || u?.role || "USER") === "ADMIN") : [];
+            return Array.isArray(userList) ? userList.filter((u) => (u?.account?.role || u?.role || "USER") === "RECEPTIONIST") : [];
         },
-        initialData: passedAdmins?.length ? passedAdmins : undefined,
         staleTime: 10 * 60 * 1000,
-    });
-
-    // 🟢 FIX: Fetch all clinics to get list of assigned managers for filtering
-    const { data: allClinics = [] } = useQuery({
-        queryKey: ["allClinicsForDetail", id],
-        queryFn: async () => {
-            const res = await clinicApi.getAllClinics({ limit: 500 });
-            return res?.data?.branches || res?.data || [];
-        },
-        staleTime: 5 * 60 * 1000,
     });
 
     const { data: districts = [] } = useQuery({
@@ -177,7 +170,7 @@ const ClinicDetail = () => {
         description: "",
         mapsUrl: "",
         isActive: true,
-        managerId: "",
+        receptionistId: "", 
         longitude: "",
         latitude: "",
         openTime: "07:30",
@@ -261,20 +254,17 @@ const ClinicDetail = () => {
     const deleteReviewMutation = useMutation({
         mutationFn: (reviewId) => reviewApi.deleteReview(reviewId),
         onSuccess: (res, reviewId) => {
-            // 1. Cập nhật danh sách review
             queryClient.setQueryData(["clinicReviews", id, reviewPage], (old) => {
                 if (!old) return old;
                 return { ...old, reviews: old.reviews.filter((r) => r._id !== reviewId), total: Math.max(0, old.total - 1) };
             });
 
-            // 2. 🟢 CẬP NHẬT SỐ LƯỢNG ĐÁNH GIÁ TRÊN THÔNG TIN PHÒNG KHÁM
             queryClient.setQueryData(["clinicDetail", id], (oldClinic) => {
                 if (!oldClinic) return oldClinic;
                 const newTotalReview = Math.max(0, (oldClinic.totalReview || 0) - 1);
                 return {
                     ...oldClinic,
                     totalReview: newTotalReview,
-                    // Nếu không còn review nào, ép sao về 0 để tránh lỗi backend
                     totalRating: newTotalReview === 0 ? 0 : oldClinic.totalRating,
                 };
             });
@@ -292,7 +282,6 @@ const ClinicDetail = () => {
     const saveReviewMutation = useMutation({
         mutationFn: ({ reviewId, payload }) => (reviewId ? reviewApi.updateSeedReview(reviewId, payload) : reviewApi.createSeedReview(payload)),
         onSuccess: (res, variables) => {
-            // 🟢 TĂNG SỐ LƯỢNG ĐÁNH GIÁ TRÊN THÔNG TIN PHÒNG KHÁM NẾU LÀ THÊM MỚI
             if (!variables.reviewId) {
                 queryClient.setQueryData(["clinicDetail", id], (oldClinic) => {
                     if (!oldClinic) return oldClinic;
@@ -326,6 +315,12 @@ const ClinicDetail = () => {
             lat = clinic.location.coordinates[1];
         }
         const clinicServiceIds = clinic.availableServiceIds?.map((s) => String(s._id || s)) || [];
+
+        let currentRecId = clinic.receptionistId?._id || clinic.receptionistId || "";
+        if (!currentRecId && clinic.receptionistIds?.length > 0) {
+            currentRecId = clinic.receptionistIds[0]?._id || clinic.receptionistIds[0];
+        }
+
         setFormData({
             name: clinic.name || "",
             districtId: clinic.districtId?._id || clinic.districtId || "",
@@ -335,7 +330,7 @@ const ClinicDetail = () => {
             mapsUrl: clinic.mapsUrl || "",
             description: clinic.description || "",
             isActive: clinic.isActive !== undefined ? clinic.isActive : true,
-            managerId: clinic.managerId?._id || clinic.managerId || "",
+            receptionistId: currentRecId,
             longitude: lng,
             latitude: lat,
             openTime: clinic.openingHours?.openTime || "07:30",
@@ -351,10 +346,11 @@ const ClinicDetail = () => {
     const handleUpdateSubmit = (e) => {
         if (e) e.preventDefault();
         const submitData = new FormData();
-        ["name", "districtId", "address", "hotline", "email", "description", "isActive", "mapsUrl"].forEach((key) => {
-            if (formData[key] !== null && formData[key] !== undefined) submitData.append(key, formData[key]);
+        ["name", "districtId", "address", "hotline", "email", "description", "isActive", "mapsUrl", "receptionistId"].forEach((key) => {
+            if (formData[key] !== null && formData[key] !== undefined && formData[key] !== "") submitData.append(key, formData[key]);
         });
-        submitData.append("managerId", formData.managerId || "null");
+
+        if (!formData.receptionistId) submitData.append("receptionistId", "");
 
         if (formData.longitude && formData.latitude) {
             submitData.append("location", JSON.stringify({ type: "Point", coordinates: [parseFloat(formData.longitude), parseFloat(formData.latitude)] }));
@@ -362,11 +358,7 @@ const ClinicDetail = () => {
         submitData.append("openingHours", JSON.stringify({ openTime: formData.openTime, closeTime: formData.closeTime, breakStart: "12:00", breakEnd: "13:00" }));
         submitData.append("availableServiceIds", JSON.stringify(formData.availableServiceIds));
 
-        // 🟢 FIX: Gửi đúng cấu trúc FormData - match Clinics.jsx
-        // Gửi file ảnh mới vào field "images"
         imageFiles.forEach((file) => submitData.append("images", file));
-
-        // Gửi các URL ảnh cũ cần giữ lại vào field "imageUrls" (JSON format)
         submitData.append("imageUrls", JSON.stringify(oldImageUrls.length === 0 && imageFiles.length === 0 ? [] : oldImageUrls));
 
         updateClinicMutation.mutate(submitData);
@@ -465,16 +457,10 @@ const ClinicDetail = () => {
 
     const districtOptions = (districts || []).map((d) => ({ value: d._id, label: d.name }));
 
-    // 🟢 FIX: Filter to show only unassigned admins or the current clinic's manager
-    const assignedManagerIds = (allClinics || []).map((c) => c.managerId?._id || c.managerId).filter(Boolean);
-
-    const availableAdmins = (managers || []).filter((admin) => {
-        const adminId = admin.userId || admin._id;
-        // Show if admin hasn't been assigned to any clinic OR is the current clinic's manager
-        return !assignedManagerIds.includes(adminId) || adminId === formData.managerId;
-    });
-
-    const adminOptions = (availableAdmins || []).map((admin) => ({ value: admin.userId || admin._id, label: `${admin.fullName || admin.username || "Chưa có tên"} - ${admin.email || admin.phone || ""}` }));
+    const receptionistOptions = (receptionists || []).map((rec) => ({ 
+        value: rec.userId || rec._id, 
+        label: `${rec.fullName || rec.username || "Chưa có tên"} - ${rec.email || rec.phoneNumber || ""}` 
+    }));
 
     const customSelectStyles = {
         control: (provided, state) => ({ ...provided, minHeight: "38px", borderRadius: "6px", fontSize: "14px", borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db", boxShadow: "none", "&:hover": { borderColor: "var(--primary-color)" }, backgroundColor: "#fff" }),
@@ -484,15 +470,22 @@ const ClinicDetail = () => {
         menuList: (provided) => ({ ...provided, overflowX: "hidden" }),
     };
 
-    const currentManagerId = clinic?.managerId?._id || clinic?.managerId;
-    const currentManager = (managers || []).find((m) => (m.userId || m._id) === currentManagerId) || (typeof clinic?.managerId === "object" ? clinic?.managerId : null);
+    let initialRecId = clinic?.receptionistId?._id || clinic?.receptionistId;
+    if (!initialRecId && clinic?.receptionistIds?.length > 0) {
+        initialRecId = clinic.receptionistIds[0]?._id || clinic.receptionistIds[0];
+    }
+
+    const currentReceptionist = (receptionists || []).find((r) => (r.userId || r._id) === initialRecId)
+        || (typeof clinic?.receptionistId === "object" ? clinic?.receptionistId : null)
+        || (clinic?.receptionistIds?.[0] && typeof clinic.receptionistIds[0] === "object" ? clinic.receptionistIds[0] : null);
+
 
     if (isClinicLoading) return <div className="z-clinic-detail-state">Đang tải dữ liệu...</div>;
     if (clinicError || !clinic) return <div className="z-clinic-detail-state z-clinic-detail-error">{clinicError?.message || "Không có dữ liệu"}</div>;
 
     return (
         <>
-            <PageHeader breadcrumbs={[{ label: "Quản lý Phòng khám", path: "/clinics" }, { label: "Chi tiết Phòng khám" }]} title="Quản lý chi tiết phòng khám" description="Xem chi tiết và chỉnh sửa thông tin phòng khám, quản lý các đánh giá của phòng khám." />
+            <PageHeader breadcrumbs={[{ label: "Quản lý Phòng khám", path: "/clinics" }, { label: "Chi tiết Phòng khám" }]} title="Quản lý chi tiết phòng khám" description="Xem chi tiết và quản lý thông tin, đánh giá của phòng khám." />
 
             <div className="z-clinic-detail-container">
                 <ToastMessage show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
@@ -533,7 +526,7 @@ const ClinicDetail = () => {
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
                                     <span className="z-clinic-detail-badge">Chi nhánh hệ thống</span>
                                     <span style={{ fontWeight: "600", fontSize: "14px", color: "var(--warning)" }}>
-                                        {/* 🟢 Nếu số lượng review = 0 thì hiển thị 0 sao, ngược lại thì lấy số từ backend */}⭐ {clinic.totalReview === 0 ? 0 : clinic.totalRating?.toFixed(1) || 0}
+                                        ⭐ {clinic.totalReview === 0 ? 0 : clinic.totalRating?.toFixed(1) || 0}
                                         <span style={{ color: "#6b7280", fontSize: "12px", marginLeft: "4px" }}>({clinic.totalReview || 0} đánh giá)</span>
                                     </span>
                                 </div>
@@ -562,12 +555,12 @@ const ClinicDetail = () => {
                                         </span>
                                     </li>
                                     <li>
-                                        <span className="spec-label">Quản lý (Admin):</span>
+                                        <span className="spec-label">Lễ tân phụ trách:</span>
                                         <span className="spec-value" style={{ textAlign: "right" }}>
-                                            {currentManager ? (
+                                            {currentReceptionist ? (
                                                 <>
-                                                    <div style={{ color: "var(--primary-color)", fontWeight: "700" }}>{currentManager.fullName || currentManager.username || "Chưa có tên"}</div>
-                                                    <div style={{ fontSize: "14px", color: "#6b7280", fontWeight: "500", marginTop: "2px" }}>{currentManager.email || currentManager.phoneNumber || "Chưa cập nhật liên hệ"}</div>
+                                                    <div style={{ color: "var(--primary-color)", fontWeight: "700" }}>{currentReceptionist.fullName || currentReceptionist.username || currentReceptionist.name || "Chưa có tên"}</div>
+                                                    <div style={{ fontSize: "14px", color: "#6b7280", fontWeight: "500", marginTop: "2px" }}>{currentReceptionist.email || currentReceptionist.phoneNumber || "Chưa cập nhật liên hệ"}</div>
                                                 </>
                                             ) : (
                                                 <span style={{ color: "#9ca3af", fontStyle: "italic", fontWeight: "normal" }}>-- Chưa gán --</span>
@@ -585,13 +578,16 @@ const ClinicDetail = () => {
                                 <button className="z-clinic-detail-btn-back" onClick={() => navigate("/clinics")}>
                                     Quay lại danh sách
                                 </button>
-                                <button className="z-clinic-detail-btn-primary" onClick={handleEditClick}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                    </svg>
-                                    Chỉnh sửa
-                                </button>
+                                {/* 🟢 CHỈ SUPERADMIN MỚI THẤY NÚT CHỈNH SỬA PHÒNG KHÁM */}
+                                {isSuperAdmin && (
+                                    <button className="z-clinic-detail-btn-primary" onClick={handleEditClick}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                        </svg>
+                                        Chỉnh sửa
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -600,8 +596,7 @@ const ClinicDetail = () => {
                 {/* QUẢN LÝ ĐÁNH GIÁ (REVIEWS) */}
                 <div className="z-clinic-detail-card" style={{ marginTop: "24px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-                        <h2 style={{ fontSize: "18px", margin: 0, color: "#111827" }}>Quản lý Đánh giá ({reviewTotal})</h2>
-                        {/* 🟢 KHU VỰC TIÊU ĐỀ & NÚT RELOAD CỤC BỘ */}
+                        <h2 style={{ fontSize: "18px", margin: 0, color: "#111827" }}>Đánh giá của Khách hàng ({reviewTotal})</h2>
                         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                             <button
                                 onClick={() => refetchReviews()}
@@ -625,14 +620,17 @@ const ClinicDetail = () => {
                                     strokeLinejoin="round"
                                     style={{
                                         transition: "transform 0.5s ease",
-                                        transform: isReviewsFetching ? "rotate(180deg)" : "rotate(0deg)", // Xoay nhẹ khi đang tải
+                                        transform: isReviewsFetching ? "rotate(180deg)" : "rotate(0deg)", 
                                     }}
                                 >
                                     <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
                                     <path d="M3 3v5h5"></path>
                                 </svg>
                             </button>
-                            <AddButton onClick={() => handleOpenReviewModal(null)}>Thêm Seeding</AddButton>
+                            {/* 🟢 CHỈ SUPERADMIN MỚI ĐƯỢC THÊM SEEDING */}
+                            {isSuperAdmin && (
+                                <AddButton onClick={() => handleOpenReviewModal(null)}>Thêm Seeding</AddButton>
+                            )}
                         </div>
                     </div>
 
@@ -648,7 +646,8 @@ const ClinicDetail = () => {
                                         <th>Nội dung</th>
                                         <th>Ngày tạo</th>
                                         <th>Trạng thái</th>
-                                        <th style={{ textAlign: "center" }}>Thao tác</th>
+                                        {/* 🟢 CHỈ SUPERADMIN MỚI THẤY CỘT THAO TÁC TRONG REVIEW */}
+                                        {isSuperAdmin && <th style={{ textAlign: "center" }}>Thao tác</th>}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -677,32 +676,35 @@ const ClinicDetail = () => {
                                             <td>
                                                 <span className={r.isHidden ? "z-clinic-detail-badge-inactive" : "z-clinic-detail-badge-active"}>{r.isHidden ? "Đang ẩn" : "Hiển thị"}</span>
                                             </td>
-                                            <td style={{ textAlign: "center" }}>
-                                                <div className="z-clinic-detail-dropdown-actions" onClick={(e) => e.stopPropagation()}>
-                                                    <button className="z-clinic-detail-more-btn">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
-                                                            <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
-                                                        </svg>
-                                                    </button>
-                                                    <div className="z-clinic-detail-action-menu">
-                                                        <EditButton onClick={() => handleOpenReviewModal(r)} />
-                                                        <Button variant="outline" onClick={() => toggleHideReviewMutation.mutate(r._id)} disabled={toggleHideReviewMutation.isPending}>
-                                                            {r.isHidden ? "Hiện đánh giá" : "Ẩn đánh giá"}
-                                                        </Button>
-                                                        <DeleteButton
-                                                            onClick={() => {
-                                                                setReviewToDelete(r);
-                                                                setIsDeleteReviewModalOpen(true);
-                                                            }}
-                                                        />
+                                            {/* 🟢 CHỈ SUPERADMIN MỚI THẤY NÚT THAO TÁC */}
+                                            {isSuperAdmin && (
+                                                <td style={{ textAlign: "center" }}>
+                                                    <div className="z-clinic-detail-dropdown-actions" onClick={(e) => e.stopPropagation()}>
+                                                        <button className="z-clinic-detail-more-btn">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
+                                                                <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
+                                                            </svg>
+                                                        </button>
+                                                        <div className="z-clinic-detail-action-menu">
+                                                            <EditButton onClick={() => handleOpenReviewModal(r)} />
+                                                            <Button variant="outline" onClick={() => toggleHideReviewMutation.mutate(r._id)} disabled={toggleHideReviewMutation.isPending}>
+                                                                {r.isHidden ? "Hiện đánh giá" : "Ẩn đánh giá"}
+                                                            </Button>
+                                                            <DeleteButton
+                                                                onClick={() => {
+                                                                    setReviewToDelete(r);
+                                                                    setIsDeleteReviewModalOpen(true);
+                                                                }}
+                                                            />
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
+                                                </td>
+                                            )}
                                         </tr>
                                     ))}
                                     {reviews.length === 0 && (
                                         <tr>
-                                            <td colSpan="6">
+                                            <td colSpan={isSuperAdmin ? "6" : "5"}>
                                                 <div className="z-clinic-detail-state">Chưa có đánh giá nào.</div>
                                             </td>
                                         </tr>
@@ -714,263 +716,279 @@ const ClinicDetail = () => {
                 </div>
 
                 {/* MODAL CẬP NHẬT PHÒNG KHÁM */}
-                <Modal isOpen={isModalOpen} onClose={() => !isSubmitting && setIsModalOpen(false)} title="Cập nhật Phòng khám" maxWidth="900px" onSave={handleUpdateSubmit} saveText={isSubmitting ? "Đang xử lý..." : "Lưu thay đổi"}>
-                    <div className="z-clinic-form">
-                        <div className="z-clinic-form-grid">
-                            <div className="z-clinic-form-column">
-                                <div className="z-clinic-form-group">
-                                    <label>
-                                        Tên Phòng Khám <span className="z-clinic-required">*</span>
-                                    </label>
-                                    <input type="text" name="name" className="z-clinic-input" required value={formData.name} onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))} disabled={isSubmitting} />
-                                </div>
-                                <div className="z-clinic-form-group">
-                                    <label>Quản lý (Admin)</label>
-                                    <ReactSelect options={adminOptions} value={adminOptions.find((opt) => opt.value === formData.managerId) || null} onChange={(selected) => setFormData((prev) => ({ ...prev, managerId: selected ? selected.value : "" }))} placeholder="-- Gõ để tìm Admin --" isSearchable={true} isDisabled={isSubmitting} styles={customSelectStyles} noOptionsMessage={() => "Không tìm thấy Admin nào"} menuPosition="fixed" />
-                                </div>
-                                <div className="z-clinic-form-row">
-                                    <div className="z-clinic-form-group z-clinic-flex-1">
+                {isSuperAdmin && (
+                    <Modal isOpen={isModalOpen} onClose={() => !isSubmitting && setIsModalOpen(false)} title="Cập nhật Phòng khám" maxWidth="900px" onSave={handleUpdateSubmit} saveText={isSubmitting ? "Đang xử lý..." : "Lưu thay đổi"}>
+                        <div className="z-clinic-form">
+                            <div className="z-clinic-form-grid">
+                                <div className="z-clinic-form-column">
+                                    <div className="z-clinic-form-group">
                                         <label>
-                                            Hotline <span className="z-clinic-required">*</span>
+                                            Tên Phòng Khám <span className="z-clinic-required">*</span>
                                         </label>
-                                        <input type="text" name="hotline" className="z-clinic-input" required value={formData.hotline} onChange={(e) => setFormData((prev) => ({ ...prev, hotline: e.target.value }))} disabled={isSubmitting} />
+                                        <input type="text" name="name" className="z-clinic-input" required value={formData.name} onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))} disabled={isSubmitting} />
                                     </div>
-                                    <div className="z-clinic-form-group z-clinic-flex-1">
-                                        <label>Email liên hệ</label>
-                                        <input type="email" name="email" className="z-clinic-input" value={formData.email} onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))} disabled={isSubmitting} />
+                                    <div className="z-clinic-form-group">
+                                        <label>Lễ tân phụ trách</label>
+                                        <ReactSelect 
+                                            options={receptionistOptions} 
+                                            value={receptionistOptions.find((opt) => opt.value === formData.receptionistId) || null} 
+                                            onChange={(selected) => setFormData((prev) => ({ ...prev, receptionistId: selected ? selected.value : "" }))} 
+                                            placeholder="-- Gõ để tìm Lễ tân --" 
+                                            isSearchable={true} 
+                                            isDisabled={isSubmitting} 
+                                            styles={customSelectStyles} 
+                                            noOptionsMessage={() => "Không tìm thấy Lễ tân nào"} 
+                                            menuPosition="fixed" 
+                                        />
                                     </div>
-                                </div>
-                                <div className="z-clinic-form-group">
-                                    <label>
-                                        Thuộc Quận/Huyện <span className="z-clinic-required">*</span>
-                                    </label>
-                                    <ReactSelect options={districtOptions} value={districtOptions.find((option) => option.value === formData.districtId) || null} onChange={(selected) => setFormData((prev) => ({ ...prev, districtId: selected ? selected.value : "" }))} placeholder="-- Gõ để tìm Phường/Xã --" isSearchable={true} isDisabled={isSubmitting} styles={customSelectStyles} noOptionsMessage={() => "Không tìm thấy Phường/Xã"} menuPosition="fixed" />
-                                </div>
-                                <div className="z-clinic-form-group">
-                                    <label>
-                                        Địa chỉ chi tiết <span className="z-clinic-required">*</span>
-                                    </label>
-                                    <textarea name="address" className="z-clinic-textarea" rows="2" required value={formData.address} onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))} disabled={isSubmitting}></textarea>
-                                </div>
-                                <div className="z-clinic-form-group">
-                                    <label>Mô tả / Giới thiệu</label>
-                                    <textarea name="description" className="z-clinic-textarea" rows="3" value={formData.description} onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))} disabled={isSubmitting}></textarea>
-                                </div>
-                            </div>
-                            <div className="z-clinic-form-column">
-                                <h3 className="z-clinic-form-section-title">Định vị & Bản đồ</h3>
-                                <div className="z-clinic-form-group">
-                                    <label>Link Google Maps</label>
-                                    <input type="url" name="mapsUrl" className="z-clinic-input" placeholder="http://googleusercontent.com/maps..." value={formData.mapsUrl} onChange={(e) => setFormData((prev) => ({ ...prev, mapsUrl: e.target.value }))} disabled={isSubmitting} />
-                                </div>
-                                <div className="z-clinic-form-row">
-                                    <div className="z-clinic-form-group z-clinic-flex-1">
-                                        <label>Kinh độ (Lng)</label>
-                                        <input type="number" step="any" name="longitude" className="z-clinic-input" placeholder="VD: 106.59" value={formData.longitude} onChange={(e) => setFormData((prev) => ({ ...prev, longitude: e.target.value }))} disabled={isSubmitting} />
-                                    </div>
-                                    <div className="z-clinic-form-group z-clinic-flex-1">
-                                        <label>Vĩ độ (Lat)</label>
-                                        <input type="number" step="any" name="latitude" className="z-clinic-input" placeholder="VD: 10.76" value={formData.latitude} onChange={(e) => setFormData((prev) => ({ ...prev, latitude: e.target.value }))} disabled={isSubmitting} />
-                                    </div>
-                                </div>
-                                <h3 className="z-clinic-form-section-title z-clinic-mt-16">Hoạt động & Dịch vụ</h3>
-                                <div className="z-clinic-form-row">
-                                    <div className="z-clinic-form-group z-clinic-flex-1">
-                                        <label>
-                                            Giờ mở cửa <span className="z-clinic-required">*</span>
-                                        </label>
-                                        <ReactSelect options={TIME_OPTIONS} value={TIME_OPTIONS.find((opt) => opt.value === formData.openTime)} onChange={(sel) => setFormData((prev) => ({ ...prev, openTime: sel.value }))} isDisabled={isSubmitting} styles={customSelectStyles} menuPosition="fixed" />
-                                    </div>
-                                    <div className="z-clinic-form-group z-clinic-flex-1">
-                                        <label>
-                                            Giờ đóng cửa <span className="z-clinic-required">*</span>
-                                        </label>
-                                        <ReactSelect options={TIME_OPTIONS} value={TIME_OPTIONS.find((opt) => opt.value === formData.closeTime)} onChange={(sel) => setFormData((prev) => ({ ...prev, closeTime: sel.value }))} isDisabled={isSubmitting} styles={customSelectStyles} menuPosition="fixed" />
-                                    </div>
-                                </div>
-                                <div className="z-clinic-form-group">
-                                    <label>Dịch vụ cung cấp</label>
-                                    <div className="z-clinic-services-list">
-                                        {safeServices.length > 0 && (
-                                            <label className="z-clinic-service-item" style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: "8px", marginBottom: "8px" }}>
-                                                <input type="checkbox" checked={isAllServicesSelected} onChange={handleSelectAllServices} disabled={isSubmitting} />
-                                                <span style={{ fontWeight: "bold", color: "var(--primary-color, #1d4ed8)" }}>Chọn tất cả ({safeServices.length} dịch vụ)</span>
+                                    <div className="z-clinic-form-row">
+                                        <div className="z-clinic-form-group z-clinic-flex-1">
+                                            <label>
+                                                Hotline <span className="z-clinic-required">*</span>
                                             </label>
-                                        )}
-                                        {safeServices.map((srv) => (
-                                            <label key={srv._id} className="z-clinic-service-item">
-                                                <input type="checkbox" checked={formData.availableServiceIds.includes(srv._id)} onChange={() => handleServiceCheckbox(srv._id)} disabled={isSubmitting} />
-                                                <span>{srv.name}</span>
+                                            <input type="text" name="hotline" className="z-clinic-input" required value={formData.hotline} onChange={handleInputChange} onKeyDown={handlePhoneKeyDown} disabled={isSubmitting} />
+                                        </div>
+                                        <div className="z-clinic-form-group z-clinic-flex-1">
+                                            <label>Email liên hệ</label>
+                                            <input type="email" name="email" className="z-clinic-input" value={formData.email} onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))} disabled={isSubmitting} />
+                                        </div>
+                                    </div>
+                                    <div className="z-clinic-form-group">
+                                        <label>
+                                            Thuộc Quận/Huyện <span className="z-clinic-required">*</span>
+                                        </label>
+                                        <ReactSelect options={districtOptions} value={districtOptions.find((option) => option.value === formData.districtId) || null} onChange={(selected) => setFormData((prev) => ({ ...prev, districtId: selected ? selected.value : "" }))} placeholder="-- Gõ để tìm Phường/Xã --" isSearchable={true} isDisabled={isSubmitting} styles={customSelectStyles} noOptionsMessage={() => "Không tìm thấy Phường/Xã"} menuPosition="fixed" />
+                                    </div>
+                                    <div className="z-clinic-form-group">
+                                        <label>
+                                            Địa chỉ chi tiết <span className="z-clinic-required">*</span>
+                                        </label>
+                                        <textarea name="address" className="z-clinic-textarea" rows="2" required value={formData.address} onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))} disabled={isSubmitting}></textarea>
+                                    </div>
+                                    <div className="z-clinic-form-group">
+                                        <label>Mô tả / Giới thiệu</label>
+                                        <textarea name="description" className="z-clinic-textarea" rows="3" value={formData.description} onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))} disabled={isSubmitting}></textarea>
+                                    </div>
+                                </div>
+                                <div className="z-clinic-form-column">
+                                    <h3 className="z-clinic-form-section-title">Định vị & Bản đồ</h3>
+                                    <div className="z-clinic-form-group">
+                                        <label>Link Google Maps</label>
+                                        <input type="url" name="mapsUrl" className="z-clinic-input" placeholder="http://googleusercontent.com/maps..." value={formData.mapsUrl} onChange={(e) => setFormData((prev) => ({ ...prev, mapsUrl: e.target.value }))} disabled={isSubmitting} />
+                                    </div>
+                                    <div className="z-clinic-form-row">
+                                        <div className="z-clinic-form-group z-clinic-flex-1">
+                                            <label>Kinh độ (Lng)</label>
+                                            <input type="number" step="any" name="longitude" className="z-clinic-input" placeholder="VD: 106.59" value={formData.longitude} onChange={(e) => setFormData((prev) => ({ ...prev, longitude: e.target.value }))} disabled={isSubmitting} />
+                                        </div>
+                                        <div className="z-clinic-form-group z-clinic-flex-1">
+                                            <label>Vĩ độ (Lat)</label>
+                                            <input type="number" step="any" name="latitude" className="z-clinic-input" placeholder="VD: 10.76" value={formData.latitude} onChange={(e) => setFormData((prev) => ({ ...prev, latitude: e.target.value }))} disabled={isSubmitting} />
+                                        </div>
+                                    </div>
+                                    <h3 className="z-clinic-form-section-title z-clinic-mt-16">Hoạt động & Dịch vụ</h3>
+                                    <div className="z-clinic-form-row">
+                                        <div className="z-clinic-form-group z-clinic-flex-1">
+                                            <label>
+                                                Giờ mở cửa <span className="z-clinic-required">*</span>
                                             </label>
-                                        ))}
+                                            <ReactSelect options={TIME_OPTIONS} value={TIME_OPTIONS.find((opt) => opt.value === formData.openTime)} onChange={(sel) => setFormData((prev) => ({ ...prev, openTime: sel.value }))} isDisabled={isSubmitting} styles={customSelectStyles} menuPosition="fixed" />
+                                        </div>
+                                        <div className="z-clinic-form-group z-clinic-flex-1">
+                                            <label>
+                                                Giờ đóng cửa <span className="z-clinic-required">*</span>
+                                            </label>
+                                            <ReactSelect options={TIME_OPTIONS} value={TIME_OPTIONS.find((opt) => opt.value === formData.closeTime)} onChange={(sel) => setFormData((prev) => ({ ...prev, closeTime: sel.value }))} isDisabled={isSubmitting} styles={customSelectStyles} menuPosition="fixed" />
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="z-clinic-form-group">
-                                    <label>Trạng thái</label>
-                                    <ReactSelect options={STATUS_OPTIONS} value={STATUS_OPTIONS.find((opt) => opt.value === formData.isActive.toString())} onChange={(sel) => setFormData((prev) => ({ ...prev, isActive: sel.value === "true" }))} isDisabled={isSubmitting} styles={customSelectStyles} menuPosition="fixed" />
-                                </div>
-                                <div className="z-clinic-form-group">
-                                    <label>Hình ảnh (Tối đa 5 ảnh)</label>
-                                    <div className="z-clinic-upload-wrapper">
-                                        {oldImageUrls.map((url, i) => (
-                                            <div key={`old-${i}`} className="z-clinic-image-box">
-                                                <img src={url} alt={`old-${i}`} className="z-clinic-preview-img" />
-                                                <button type="button" className="z-clinic-remove-btn" onClick={() => removeOldImage(i)}>
-                                                    ×
-                                                </button>
-                                            </div>
-                                        ))}
-                                        {imagePreviews.map((src, i) => (
-                                            <div key={`new-${i}`} className="z-clinic-image-box">
-                                                <img src={src} alt={`new-${i}`} className="z-clinic-preview-img" />
-                                                <button type="button" className="z-clinic-remove-btn" onClick={() => removeNewImage(i)}>
-                                                    ×
-                                                </button>
-                                            </div>
-                                        ))}
-                                        {oldImageUrls.length + imagePreviews.length < 5 && (
-                                            <div className="z-clinic-add-img-btn" onClick={() => clinicImagesInputRef.current.click()}>
-                                                + Ảnh
-                                            </div>
-                                        )}
+                                    <div className="z-clinic-form-group">
+                                        <label>Dịch vụ cung cấp</label>
+                                        <div className="z-clinic-services-list">
+                                            {safeServices.length > 0 && (
+                                                <label className="z-clinic-service-item" style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: "8px", marginBottom: "8px" }}>
+                                                    <input type="checkbox" checked={isAllServicesSelected} onChange={handleSelectAllServices} disabled={isSubmitting} />
+                                                    <span style={{ fontWeight: "bold", color: "var(--primary-color, #1d4ed8)" }}>Chọn tất cả ({safeServices.length} dịch vụ)</span>
+                                                </label>
+                                            )}
+                                            {safeServices.map((srv) => (
+                                                <label key={srv._id} className="z-clinic-service-item">
+                                                    <input type="checkbox" checked={formData.availableServiceIds.includes(srv._id)} onChange={() => handleServiceCheckbox(srv._id)} disabled={isSubmitting} />
+                                                    <span>{srv.name}</span>
+                                                </label>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <input ref={clinicImagesInputRef} type="file" multiple accept="image/*" style={{ display: "none" }} onChange={handleImageChange} disabled={isSubmitting} />
+                                    <div className="z-clinic-form-group">
+                                        <label>Trạng thái</label>
+                                        <ReactSelect options={STATUS_OPTIONS} value={STATUS_OPTIONS.find((opt) => opt.value === formData.isActive.toString())} onChange={(sel) => setFormData((prev) => ({ ...prev, isActive: sel.value === "true" }))} isDisabled={isSubmitting} styles={customSelectStyles} menuPosition="fixed" />
+                                    </div>
+                                    <div className="z-clinic-form-group">
+                                        <label>Hình ảnh (Tối đa 5 ảnh)</label>
+                                        <div className="z-clinic-upload-wrapper">
+                                            {oldImageUrls.map((url, i) => (
+                                                <div key={`old-${i}`} className="z-clinic-image-box">
+                                                    <img src={url} alt={`old-${i}`} className="z-clinic-preview-img" />
+                                                    <button type="button" className="z-clinic-remove-btn" onClick={() => removeOldImage(i)}>
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {imagePreviews.map((src, i) => (
+                                                <div key={`new-${i}`} className="z-clinic-image-box">
+                                                    <img src={src} alt={`new-${i}`} className="z-clinic-preview-img" />
+                                                    <button type="button" className="z-clinic-remove-btn" onClick={() => removeNewImage(i)}>
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {oldImageUrls.length + imagePreviews.length < 5 && (
+                                                <div className="z-clinic-add-img-btn" onClick={() => clinicImagesInputRef.current.click()}>
+                                                    + Ảnh
+                                                </div>
+                                            )}
+                                        </div>
+                                        <input ref={clinicImagesInputRef} type="file" multiple accept="image/*" style={{ display: "none" }} onChange={handleImageChange} disabled={isSubmitting} />
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </Modal>
+                    </Modal>
+                )}
 
                 {/* MODAL THÊM/SỬA REVIEW */}
-                <Modal isOpen={isReviewModalOpen} onClose={() => !isSubmitting && setIsReviewModalOpen(false)} title={currentReviewId ? "Cập nhật Review" : "Thêm Review Seeding"} maxWidth="600px" onSave={handleReviewSubmit} saveText={isSubmitting ? "Đang xử lý..." : "Lưu Đánh Giá"}>
-                    <div className="z-clinic-detail-form">
-                        <div className="z-clinic-detail-form-group">
-                            <label>
-                                Tên khách hàng ảo <span className="z-clinic-detail-required">*</span>
-                            </label>
-                            <input type="text" name="fakeAuthorName" className="z-clinic-detail-input" required placeholder="VD: Chị Mai - Quận 1" value={reviewForm.fakeAuthorName} onChange={(e) => setReviewForm((prev) => ({ ...prev, fakeAuthorName: e.target.value }))} disabled={isSubmitting} />
-                        </div>
-                        <div className="z-clinic-detail-form-row">
-                            <div className="z-clinic-detail-form-group" style={{ flex: 1 }}>
+                {isSuperAdmin && (
+                    <Modal isOpen={isReviewModalOpen} onClose={() => !isSubmitting && setIsReviewModalOpen(false)} title={currentReviewId ? "Cập nhật Review" : "Thêm Review Seeding"} maxWidth="600px" onSave={handleReviewSubmit} saveText={isSubmitting ? "Đang xử lý..." : "Lưu Đánh Giá"}>
+                        <div className="z-clinic-detail-form">
+                            <div className="z-clinic-detail-form-group">
                                 <label>
-                                    Số Sao (1 - 5) <span className="z-clinic-detail-required">*</span>
+                                    Tên khách hàng ảo <span className="z-clinic-detail-required">*</span>
                                 </label>
-                                <input type="number" name="rating" className="z-clinic-detail-input" min="1" max="5" required value={reviewForm.rating} onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: e.target.value }))} disabled={isSubmitting} />
+                                <input type="text" name="fakeAuthorName" className="z-clinic-detail-input" required placeholder="VD: Chị Mai - Quận 1" value={reviewForm.fakeAuthorName} onChange={(e) => setReviewForm((prev) => ({ ...prev, fakeAuthorName: e.target.value }))} disabled={isSubmitting} />
                             </div>
-                            <div className="z-clinic-detail-form-group" style={{ flex: 1 }}>
-                                <label>Ngày đánh giá ảo</label>
-                                <DatePicker selected={reviewForm.fakeDate} onChange={(date) => setReviewForm((prev) => ({ ...prev, fakeDate: date }))} showTimeSelect timeFormat="HH:mm" timeIntervals={1} dateFormat="dd/MM/yyyy HH:mm" className="z-clinic-detail-input" placeholderText="Bỏ trống lấy ngày hiện tại" disabled={isSubmitting} locale="vi" />
+                            <div className="z-clinic-detail-form-row">
+                                <div className="z-clinic-detail-form-group" style={{ flex: 1 }}>
+                                    <label>
+                                        Số Sao (1 - 5) <span className="z-clinic-detail-required">*</span>
+                                    </label>
+                                    <input type="number" name="rating" className="z-clinic-detail-input" min="1" max="5" required value={reviewForm.rating} onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: e.target.value }))} disabled={isSubmitting} />
+                                </div>
+                                <div className="z-clinic-detail-form-group" style={{ flex: 1 }}>
+                                    <label>Ngày đánh giá ảo</label>
+                                    <DatePicker selected={reviewForm.fakeDate} onChange={(date) => setReviewForm((prev) => ({ ...prev, fakeDate: date }))} showTimeSelect timeFormat="HH:mm" timeIntervals={1} dateFormat="dd/MM/yyyy HH:mm" className="z-clinic-detail-input" placeholderText="Bỏ trống lấy ngày hiện tại" disabled={isSubmitting} locale="vi" />
+                                </div>
                             </div>
-                        </div>
-                        <div className="z-clinic-detail-form-group">
-                            <label>Ảnh Avatar (Tùy chọn)</label>
-                            <div className="z-clinic-detail-upload-wrapper">
-                                {reviewForm.previewUrl || reviewForm.fakeAvatarUrl ? (
-                                    <div className="z-clinic-detail-img-box avatar-box">
-                                        <img src={reviewForm.previewUrl || reviewForm.fakeAvatarUrl} alt="Avatar preview" />
-                                        <button
-                                            type="button"
-                                            className="z-clinic-detail-remove-btn"
-                                            onClick={() => {
-                                                if (reviewForm.previewUrl) URL.revokeObjectURL(reviewForm.previewUrl);
-                                                setReviewForm((prev) => ({ ...prev, fakeAvatarFile: null, previewUrl: "", fakeAvatarUrl: "" }));
-                                            }}
-                                        >
-                                            ×
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="z-clinic-detail-add-img-btn avatar-add" onClick={() => avatarInputRef.current.click()}>
-                                        + Tải ảnh
-                                    </div>
-                                )}
+                            <div className="z-clinic-detail-form-group">
+                                <label>Ảnh Avatar (Tùy chọn)</label>
+                                <div className="z-clinic-detail-upload-wrapper">
+                                    {reviewForm.previewUrl || reviewForm.fakeAvatarUrl ? (
+                                        <div className="z-clinic-detail-img-box avatar-box">
+                                            <img src={reviewForm.previewUrl || reviewForm.fakeAvatarUrl} alt="Avatar preview" />
+                                            <button
+                                                type="button"
+                                                className="z-clinic-detail-remove-btn"
+                                                onClick={() => {
+                                                    if (reviewForm.previewUrl) URL.revokeObjectURL(reviewForm.previewUrl);
+                                                    setReviewForm((prev) => ({ ...prev, fakeAvatarFile: null, previewUrl: "", fakeAvatarUrl: "" }));
+                                                }}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="z-clinic-detail-add-img-btn avatar-add" onClick={() => avatarInputRef.current.click()}>
+                                            + Tải ảnh
+                                        </div>
+                                    )}
+                                    <input
+                                        ref={avatarInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        style={{ display: "none" }}
+                                        onChange={(e) => {
+                                            const f = e.target.files[0];
+                                            if (f) setReviewForm((prev) => ({ ...prev, fakeAvatarFile: f, previewUrl: URL.createObjectURL(f) }));
+                                            e.target.value = null;
+                                        }}
+                                        disabled={isSubmitting}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="z-clinic-detail-form-group">
+                                <label style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                                    <span>
+                                        Nội dung đánh giá <span className="z-clinic-detail-required">*</span>
+                                    </span>
+                                    <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: "normal" }}>(Ít nhất 10 ký tự)</span>
+                                </label>
+
+                                <textarea name="content" className="z-clinic-detail-textarea" rows="4" required placeholder="Nhận xét của khách hàng..." value={reviewForm.content} onChange={(e) => setReviewForm((prev) => ({ ...prev, content: e.target.value }))} disabled={isSubmitting}></textarea>
+                            </div>
+
+                            <div className="z-clinic-detail-form-group">
+                                <label>Hình ảnh thực tế kèm theo (Tùy chọn)</label>
+                                <div className="z-clinic-detail-upload-wrapper">
+                                    {reviewForm.reviewImagePreviews.map((src, index) => (
+                                        <div key={`rev-img-${index}`} className="z-clinic-detail-img-box">
+                                            <img src={src} alt="Review attachment" />
+                                            <button
+                                                type="button"
+                                                className="z-clinic-detail-remove-btn"
+                                                onClick={() => {
+                                                    const newFiles = [...reviewForm.reviewImageFiles];
+                                                    const newPreviews = [...reviewForm.reviewImagePreviews];
+                                                    URL.revokeObjectURL(newPreviews[index]);
+                                                    newFiles.splice(index, 1);
+                                                    newPreviews.splice(index, 1);
+                                                    setReviewForm((prev) => ({ ...prev, reviewImageFiles: newFiles, reviewImagePreviews: newPreviews }));
+                                                }}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {reviewForm.reviewImagePreviews.length < 3 && (
+                                        <div className="z-clinic-detail-add-img-btn" onClick={() => reviewImagesInputRef.current.click()}>
+                                            + Thêm ảnh
+                                        </div>
+                                    )}
+                                </div>
                                 <input
-                                    ref={avatarInputRef}
+                                    ref={reviewImagesInputRef}
                                     type="file"
+                                    multiple
                                     accept="image/*"
                                     style={{ display: "none" }}
                                     onChange={(e) => {
-                                        const f = e.target.files[0];
-                                        if (f) setReviewForm((prev) => ({ ...prev, fakeAvatarFile: f, previewUrl: URL.createObjectURL(f) }));
+                                        const files = Array.from(e.target.files);
+                                        if (reviewForm.oldReviewImageUrls.length + reviewForm.reviewImageFiles.length + files.length > 3) return showToast("Mỗi review tối đa 3 ảnh!", "error");
+                                        const newPreviews = files.map((file) => URL.createObjectURL(file));
+                                        setReviewForm((prev) => ({ ...prev, reviewImageFiles: [...prev.reviewImageFiles, ...files], reviewImagePreviews: [...prev.reviewImagePreviews, ...newPreviews] }));
                                         e.target.value = null;
                                     }}
                                     disabled={isSubmitting}
                                 />
                             </div>
                         </div>
-
-                        <div className="z-clinic-detail-form-group">
-                            <label style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                                <span>
-                                    Nội dung đánh giá <span className="z-clinic-detail-required">*</span>
-                                </span>
-                                <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: "normal" }}>(Ít nhất 10 ký tự)</span>
-                            </label>
-
-                            <textarea name="content" className="z-clinic-detail-textarea" rows="4" required placeholder="Nhận xét của khách hàng..." value={reviewForm.content} onChange={(e) => setReviewForm((prev) => ({ ...prev, content: e.target.value }))} disabled={isSubmitting}></textarea>
-                        </div>
-
-                        <div className="z-clinic-detail-form-group">
-                            <label>Hình ảnh thực tế kèm theo (Tùy chọn)</label>
-                            <div className="z-clinic-detail-upload-wrapper">
-                                {reviewForm.reviewImagePreviews.map((src, index) => (
-                                    <div key={`rev-img-${index}`} className="z-clinic-detail-img-box">
-                                        <img src={src} alt="Review attachment" />
-                                        <button
-                                            type="button"
-                                            className="z-clinic-detail-remove-btn"
-                                            onClick={() => {
-                                                const newFiles = [...reviewForm.reviewImageFiles];
-                                                const newPreviews = [...reviewForm.reviewImagePreviews];
-                                                URL.revokeObjectURL(newPreviews[index]);
-                                                newFiles.splice(index, 1);
-                                                newPreviews.splice(index, 1);
-                                                setReviewForm((prev) => ({ ...prev, reviewImageFiles: newFiles, reviewImagePreviews: newPreviews }));
-                                            }}
-                                        >
-                                            ×
-                                        </button>
-                                    </div>
-                                ))}
-                                {reviewForm.reviewImagePreviews.length < 3 && (
-                                    <div className="z-clinic-detail-add-img-btn" onClick={() => reviewImagesInputRef.current.click()}>
-                                        + Thêm ảnh
-                                    </div>
-                                )}
-                            </div>
-                            <input
-                                ref={reviewImagesInputRef}
-                                type="file"
-                                multiple
-                                accept="image/*"
-                                style={{ display: "none" }}
-                                onChange={(e) => {
-                                    const files = Array.from(e.target.files);
-                                    if (reviewForm.oldReviewImageUrls.length + reviewForm.reviewImageFiles.length + files.length > 3) return showToast("Mỗi review tối đa 3 ảnh!", "error");
-                                    const newPreviews = files.map((file) => URL.createObjectURL(file));
-                                    setReviewForm((prev) => ({ ...prev, reviewImageFiles: [...prev.reviewImageFiles, ...files], reviewImagePreviews: [...prev.reviewImagePreviews, ...newPreviews] }));
-                                    e.target.value = null;
-                                }}
-                                disabled={isSubmitting}
-                            />
-                        </div>
-                    </div>
-                </Modal>
+                    </Modal>
+                )}
 
                 {/* MODAL XÓA REVIEW */}
-                <Modal isOpen={isDeleteReviewModalOpen} onClose={() => !isSubmitting && setIsDeleteReviewModalOpen(false)} title="Xác nhận xóa" maxWidth="500px" onSave={() => deleteReviewMutation.mutate(reviewToDelete?._id)} saveText={isSubmitting ? "Đang xóa..." : "Xác nhận xóa"}>
-                    <div style={{ textAlign: "center", padding: "20px 0" }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: "16px" }}>
-                            <path d="M3 6h18"></path>
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                        </svg>
-                        <h3 style={{ fontSize: "18px", marginBottom: "8px", color: "#111827" }}>Xóa đánh giá?</h3>
-                        <p style={{ color: "#4b5563" }}>
-                            Bạn có chắc chắn muốn xóa vĩnh viễn đánh giá của khách hàng <strong>{reviewToDelete?.authName}</strong> không? Hành động này không thể hoàn tác.
-                        </p>
-                    </div>
-                </Modal>
+                {isSuperAdmin && (
+                    <Modal isOpen={isDeleteReviewModalOpen} onClose={() => !isSubmitting && setIsDeleteReviewModalOpen(false)} title="Xác nhận xóa" maxWidth="500px" onSave={() => deleteReviewMutation.mutate(reviewToDelete?._id)} saveText={isSubmitting ? "Đang xóa..." : "Xác nhận xóa"}>
+                        <div style={{ textAlign: "center", padding: "20px 0" }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: "16px" }}>
+                                <path d="M3 6h18"></path>
+                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                            </svg>
+                            <h3 style={{ fontSize: "18px", marginBottom: "8px", color: "#111827" }}>Xóa đánh giá?</h3>
+                            <p style={{ color: "#4b5563" }}>
+                                Bạn có chắc chắn muốn xóa vĩnh viễn đánh giá của khách hàng <strong>{reviewToDelete?.authName}</strong> không? Hành động này không thể hoàn tác.
+                            </p>
+                        </div>
+                    </Modal>
+                )}
             </div>
         </>
     );

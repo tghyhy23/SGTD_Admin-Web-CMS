@@ -5,14 +5,14 @@ import Modal from "../../ui/Modal/Modal";
 import PageHeader from "../../ui/PageHeader/PageHeader";
 import ToastMessage from "../../ui/ToastMessage/ToastMessage";
 import { AddButton, EditButton, DeleteButton, Button } from "../../ui/Button/Button";
-import { Select } from "../../ui/Select/Select";
 import ReactSelect from "react-select";
 import DatePicker, { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import vi from "date-fns/locale/vi";
 import { useAuth } from "../../context/AuthContext";
-registerLocale("vi", vi);
 import "./Promotions.css";
+
+registerLocale("vi", vi);
 
 const STATUS_OPTIONS = [
     { value: "", label: "Tất cả trạng thái" },
@@ -75,7 +75,15 @@ const Promotions = () => {
     // ==========================================
     const { user } = useAuth();
     const userRole = user?.role || user?.account?.role || user?.user?.account?.role || "USER";
+
+    // 🟢 SUPERADMIN CÓ TOÀN QUYỀN (BAO GỒM XÓA)
     const isSuperAdmin = userRole === "SUPERADMIN";
+
+    // 🟢 ADMIN VÀ SUPERADMIN CÓ QUYỀN GHI (THÊM, SỬA, TẶNG MÃ, ĐỔI TRẠNG THÁI)
+    const isAdminOrSuperAdmin = ["ADMIN", "SUPERADMIN"].includes(userRole);
+
+    // 🟢 SUPERADMIN, ADMIN, SALES ĐƯỢC XEM TOÀN BỘ CHI NHÁNH (Lễ tân chỉ xem chi nhánh được giao)
+    const canViewAllBranches = ["SUPERADMIN", "ADMIN", "SALE"].includes(userRole);
 
     // ==========================================
     // 1. STATE LỌC, TÌM KIẾM, PHÂN TRANG & UI
@@ -106,12 +114,13 @@ const Promotions = () => {
     const [filterMonth, setFilterMonth] = useState("");
     const [showMonthDropdown, setShowMonthDropdown] = useState(false);
 
-    // Form state
+    // Form state (Hỗ trợ Multi-branch)
     const initialFormState = {
         name: "",
         code: "",
         description: "",
-        branchId: "",
+        branchIds: [],
+        applyAllBranches: false,
         isActive: true,
         bannerImageUrl: "",
         badgeText: "",
@@ -147,8 +156,6 @@ const Promotions = () => {
     // ==========================================
     // REACT QUERY: FETCH DATA
     // ==========================================
-
-    // Giữ nguyên Fetch: Backend đã tự lọc theo token rồi
     const { data: branches = [], isLoading: isLoadingBranches } = useQuery({
         queryKey: ["branchesReference"],
         queryFn: async () => {
@@ -158,17 +165,13 @@ const Promotions = () => {
         staleTime: 10 * 60 * 1000,
     });
 
-    // 🟢 SỬA LỖI MẤT DATA:
-    // Nếu là SuperAdmin -> lấy theo filterBranch (có thể rỗng "" để lấy tất cả)
-    // Nếu là Admin -> ép lấy ID chi nhánh đầu tiên của họ
-    const derivedBranchId = isSuperAdmin ? filterBranch : branches.length > 0 ? branches[0]._id : undefined;
+    const derivedBranchId = canViewAllBranches ? filterBranch : branches.length > 0 ? branches[0]._id : undefined;
 
-    // Auto-select Filter Branch cho Admin khi load xong danh sách chi nhánh
     useEffect(() => {
-        if (!isSuperAdmin && branches.length > 0 && !filterBranch) {
+        if (!canViewAllBranches && branches.length > 0 && !filterBranch) {
             setFilterBranch(branches[0]._id);
         }
-    }, [branches, isSuperAdmin, filterBranch]);
+    }, [branches, canViewAllBranches, filterBranch]);
 
     const { data: services = [] } = useQuery({
         queryKey: ["servicesReference"],
@@ -187,6 +190,7 @@ const Promotions = () => {
             return userData.filter((u) => u?.account?.status !== "INACTIVE");
         },
         staleTime: 5 * 60 * 1000,
+        enabled: isAdminOrSuperAdmin,
     });
 
     const {
@@ -201,14 +205,14 @@ const Promotions = () => {
             if (filterStatus) params.status = filterStatus;
             if (derivedBranchId) params.branchId = derivedBranchId;
 
-            const res = await promotionApi.getAllPromotions(params);
+            const res = await promotionApi.getAllActivePromotions(params);
             if (!res || !res.success) throw new Error("Không thể tải danh sách khuyến mãi.");
             return {
                 promotions: res.data.promotions || [],
                 totalPages: res.data.pagination?.pages || 1,
             };
         },
-        enabled: isSuperAdmin || branches.length > 0,
+        enabled: canViewAllBranches || branches.length > 0,
         placeholderData: keepPreviousData,
         staleTime: 1 * 60 * 1000,
     });
@@ -226,15 +230,6 @@ const Promotions = () => {
             showToast("Xóa khuyến mãi thành công!");
             setIsDeleteModalOpen(false);
             setPromoToDelete(null);
-
-            queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, derivedBranchId], (oldData) => {
-                if (!oldData) return oldData;
-                return {
-                    ...oldData,
-                    promotions: oldData.promotions.filter((promo) => promo._id !== deletedId),
-                };
-            });
-
             queryClient.invalidateQueries({ queryKey: ["promotions"] });
         },
         onError: (err) => {
@@ -245,79 +240,16 @@ const Promotions = () => {
 
     const toggleStatusMutation = useMutation({
         mutationFn: (id) => promotionApi.togglePromotionStatus(id),
-        onMutate: async (id) => {
-            await queryClient.cancelQueries({ queryKey: ["promotions"] });
-            const currentData = queryClient.getQueryData(["promotions", page, limit, debouncedSearch, filterStatus, derivedBranchId]);
-
-            if (currentData) {
-                const newPromotions = currentData.promotions.map((promo) => {
-                    if (promo._id === id) {
-                        const newIsActive = !promo.isActive;
-                        let newComputed = "inactive";
-                        if (newIsActive) {
-                            const now = new Date();
-                            const end = new Date(promo.endDate);
-                            const start = new Date(promo.startDate);
-                            if (now > end) newComputed = "expired";
-                            else if (now < start) newComputed = "upcoming";
-                            else newComputed = "active";
-                        }
-                        return { ...promo, isActive: newIsActive, computedStatus: newComputed };
-                    }
-                    return promo;
-                });
-                queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, derivedBranchId], { ...currentData, promotions: newPromotions });
-            }
-            return { currentData };
+        onSuccess: () => {
+            showToast("Đã thay đổi trạng thái!");
+            queryClient.invalidateQueries({ queryKey: ["promotions"] });
         },
-        onSuccess: () => showToast("Đã thay đổi trạng thái!"),
-        onError: (err, id, context) => {
-            showToast(translateErrorMessage(err), "error");
-            queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, derivedBranchId], context.currentData);
-        },
-        onSettled: () => queryClient.invalidateQueries({ queryKey: ["promotions"] }),
+        onError: (err) => showToast(translateErrorMessage(err), "error"),
     });
 
     const saveMutation = useMutation({
         mutationFn: ({ id, payload }) => (id ? promotionApi.updatePromotion(id, payload) : promotionApi.createPromotion(payload)),
         onSuccess: (res, variables) => {
-            const savedPromo = res.data?.promotion || res.data;
-            const fullBranchObject = branches.find((b) => b._id === formData.branchId) || { _id: formData.branchId, name: "Đang tải..." };
-
-            queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, derivedBranchId], (old) => {
-                if (!old) return old;
-
-                if (variables.id) {
-                    return {
-                        ...old,
-                        promotions: old.promotions.map((p) => {
-                            if (p._id === variables.id) {
-                                return {
-                                    ...(savedPromo && savedPromo._id ? savedPromo : p),
-                                    ...formData,
-                                    details: formData.details ? formData.details.split("\n").filter((d) => d.trim() !== "") : [],
-                                    terms: formData.terms ? formData.terms.split("\n").filter((t) => t.trim() !== "") : [],
-                                    branchId: fullBranchObject,
-                                    bannerImageUrl: imageFile ? URL.createObjectURL(imageFile) : previewImage,
-                                    computedStatus: !formData.isActive ? "inactive" : p.computedStatus,
-                                };
-                            }
-                            return p;
-                        }),
-                    };
-                } else {
-                    const newPromo = {
-                        ...(savedPromo && savedPromo._id ? savedPromo : { _id: Date.now().toString() }),
-                        ...formData,
-                        branchId: fullBranchObject,
-                        usedCount: 0,
-                        computedStatus: formData.isActive ? "active" : "inactive",
-                        bannerImageUrl: imageFile ? URL.createObjectURL(imageFile) : savedPromo?.bannerImageUrl || "",
-                    };
-                    return { ...old, promotions: [newPromo, ...old.promotions] };
-                }
-            });
-
             showToast(variables.id ? "Cập nhật thành công!" : "Tạo khuyến mãi thành công!");
             setIsFormModalOpen(false);
             queryClient.invalidateQueries({ queryKey: ["promotions"] });
@@ -327,20 +259,10 @@ const Promotions = () => {
 
     const applyPromoMutation = useMutation({
         mutationFn: ({ id, payload }) => promotionApi.updatePromotion(id, payload),
-        onSuccess: (res, variables) => {
+        onSuccess: () => {
             showToast(selectedUserIds.length > 0 ? `Đã cập nhật tặng mã ${promoToApply.code} cho ${selectedUserIds.length} khách hàng!` : `Đã thu hồi mã ${promoToApply.code} của tất cả khách hàng!`);
-
             setIsApplyModalOpen(false);
             setIsRevokeConfirmOpen(false);
-
-            queryClient.setQueryData(["promotions", page, limit, debouncedSearch, filterStatus, derivedBranchId], (old) => {
-                if (!old) return old;
-                return {
-                    ...old,
-                    promotions: old.promotions.map((p) => (p._id === variables.id ? { ...p, applicableUserIds: selectedUserIds } : p)),
-                };
-            });
-
             queryClient.invalidateQueries({ queryKey: ["promotions"] });
         },
         onError: (err) => showToast(translateErrorMessage(err), "error"),
@@ -355,8 +277,7 @@ const Promotions = () => {
         setCurrentPromoId(null);
         setFormData({
             ...initialFormState,
-            // Nếu là Admin, form tự động chọn chi nhánh của họ luôn
-            branchId: !isSuperAdmin && branches.length > 0 ? branches[0]._id : "",
+            branchIds: !isAdminOrSuperAdmin && branches.length > 0 ? [branches[0]._id] : [],
         });
         setImageFile(null);
         setPreviewImage("");
@@ -366,11 +287,16 @@ const Promotions = () => {
     const openUpdateForm = (e, promo) => {
         if (e) e.stopPropagation();
         setCurrentPromoId(promo._id);
+
+        const fetchedBranchIds = promo.branchIds?.map((b) => b._id || b) || (promo.branchId ? [promo.branchId._id || promo.branchId] : []);
+        const isAll = branches.length > 0 && fetchedBranchIds.length === branches.length;
+
         setFormData({
             name: promo.name || "",
             code: promo.code || "",
             description: promo.description || "",
-            branchId: promo.branchId?._id || promo.branchId || "",
+            branchIds: fetchedBranchIds,
+            applyAllBranches: isAll,
             isActive: promo.isActive,
             badgeText: promo.badgeText || "",
             details: Array.isArray(promo.details) ? promo.details.join("\n") : promo.details || "",
@@ -425,7 +351,8 @@ const Promotions = () => {
 
     const handleFormSubmit = (e) => {
         e.preventDefault();
-        if (!formData.branchId || !formData.name || !formData.code || !formData.startDate || !formData.endDate || !formData.discountValue) {
+
+        if ((!formData.applyAllBranches && formData.branchIds.length === 0) || !formData.name || !formData.code || !formData.startDate || !formData.endDate || !formData.discountValue) {
             return showToast("Vui lòng điền đầy đủ các trường bắt buộc!", "error");
         }
 
@@ -433,7 +360,11 @@ const Promotions = () => {
         submitData.append("name", formData.name);
         submitData.append("code", formData.code);
         submitData.append("description", formData.description);
-        submitData.append("branchId", formData.branchId);
+
+        // Append branchIds
+        const finalBranchIds = formData.applyAllBranches ? branches.map((b) => b._id) : formData.branchIds;
+        submitData.append("branchIds", JSON.stringify(finalBranchIds));
+
         submitData.append("isActive", formData.isActive.toString());
         submitData.append("badgeText", formData.badgeText);
         submitData.append("discountType", formData.discountType);
@@ -487,20 +418,17 @@ const Promotions = () => {
 
     const filteredUsers = users
         .filter((user) => {
-            // 1. Lọc theo Text (Tên, SĐT, Email)
             const search = removeVietnameseTones(userSearchTerm);
             const matchesText = removeVietnameseTones(user.fullName || user.username || "").includes(search) || removeVietnameseTones(user.email || "").includes(search) || (user.phoneNumber || "").includes(userSearchTerm);
 
-            // 2. Lọc theo Tháng sinh
             let matchesMonth = true;
             if (filterMonth) {
-                // Giả định field ngày sinh từ backend trả về là dateOfBirth hoặc dob
                 const dob = user.dateOfBirth || user.dob;
                 if (dob) {
-                    const birthMonth = new Date(dob).getMonth() + 1; // getMonth() trả về 0-11 nên cần +1
+                    const birthMonth = new Date(dob).getMonth() + 1;
                     matchesMonth = birthMonth.toString() === filterMonth;
                 } else {
-                    matchesMonth = false; // Nếu chọn tháng mà user ko có ngày sinh thì loại
+                    matchesMonth = false;
                 }
             }
 
@@ -509,13 +437,11 @@ const Promotions = () => {
         .sort((a, b) => {
             const aId = a.userId || a._id;
             const bId = b.userId || b._id;
-
             const isASelected = selectedUserIds.includes(aId);
             const isBSelected = selectedUserIds.includes(bId);
 
             if (isASelected && !isBSelected) return -1;
             if (!isASelected && isBSelected) return 1;
-
             return 0;
         });
 
@@ -525,9 +451,8 @@ const Promotions = () => {
     const getStatusLabelText = (status) => STATUS_OPTIONS.find((opt) => opt.value === status)?.label || "Tất cả trạng thái";
     const formatDiscount = (type, value) => (type === "percentage" ? `${value}%` : `${value.toLocaleString("vi-VN")} đ`);
 
-    // 🟢 Tùy chọn Branch cho Filter và Form
     const formBranchOptions = branches.map((b) => ({ value: b._id, label: b.name }));
-    const filterBranchOptions = isSuperAdmin ? [{ value: "", label: "Tất cả chi nhánh" }, ...formBranchOptions] : formBranchOptions; // Admin không có mục "Tất cả chi nhánh"
+    const filterBranchOptions = canViewAllBranches ? [{ value: "", label: "Tất cả chi nhánh" }, ...formBranchOptions] : formBranchOptions;
 
     const customSelectStyles = {
         control: (provided, state) => ({ ...provided, minHeight: "38px", borderRadius: "6px", fontSize: "14px", borderColor: state.isFocused ? "var(--primary-color)" : "#d1d5db", boxShadow: "none", "&:hover": { borderColor: "var(--primary-color)" }, backgroundColor: "#fff" }),
@@ -560,7 +485,7 @@ const Promotions = () => {
                     <div style={{ minWidth: "300px", zIndex: 10 }}>
                         <ReactSelect
                             options={filterBranchOptions}
-                            value={filterBranchOptions.find((opt) => opt.value === filterBranch) || (isSuperAdmin ? filterBranchOptions[0] : null)}
+                            value={filterBranchOptions.find((opt) => opt.value === filterBranch) || (canViewAllBranches ? filterBranchOptions[0] : null)}
                             onChange={(selected) => {
                                 setFilterBranch(selected ? selected.value : "");
                                 setPage(1);
@@ -598,9 +523,11 @@ const Promotions = () => {
                         )}
                     </div>
 
-                    <AddButton onClick={openCreateForm} style={{ marginLeft: "auto" }}>
-                        Thêm Khuyến Mãi
-                    </AddButton>
+                    {isAdminOrSuperAdmin && (
+                        <AddButton onClick={openCreateForm} style={{ marginLeft: "auto" }}>
+                            Thêm Khuyến Mãi
+                        </AddButton>
+                    )}
                 </div>
 
                 <div className="z-promo-table-wrapper">
@@ -612,38 +539,64 @@ const Promotions = () => {
                                 <th>Mức giảm</th>
                                 <th>Thời gian áp dụng</th>
                                 <th>Đã dùng</th>
-                                <th>Trạng thái</th>
-                                <th>Thao tác</th>
+                                {isAdminOrSuperAdmin && <th>Thao tác</th>}
                             </tr>
                         </thead>
                         <tbody>
                             {isLoadingPromos && promotions.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7">
+                                    <td colSpan={isAdminOrSuperAdmin ? "6" : "5"}>
                                         <div className="z-promo-state">Đang tải dữ liệu...</div>
                                     </td>
                                 </tr>
                             ) : promoError ? (
                                 <tr>
-                                    <td colSpan="7">
+                                    <td colSpan={isAdminOrSuperAdmin ? "6" : "5"}>
                                         <div className="z-promo-state z-promo-error">{promoError.message}</div>
                                     </td>
                                 </tr>
                             ) : promotions.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7">
+                                    <td colSpan={isAdminOrSuperAdmin ? "6" : "5"}>
                                         <div className="z-promo-state">Không tìm thấy khuyến mãi nào phù hợp.</div>
                                     </td>
                                 </tr>
                             ) : (
                                 promotions.map((promo) => (
-                                    <tr key={promo._id} className="z-promo-clickable-row" onClick={(e) => openUpdateForm(e, promo)}>
+                                    <tr key={promo._id} className="z-promo-clickable-row" onClick={(e) => (isAdminOrSuperAdmin ? openUpdateForm(e, promo) : null)} style={{ cursor: isAdminOrSuperAdmin ? "pointer" : "default" }}>
                                         <td>
                                             <strong style={{ color: "var(--primary-color)" }}>{promo.code}</strong>
                                         </td>
                                         <td>
                                             <div className="z-promo-text-bold z-promo-text-clamp">{promo.name}</div>
-                                            <div className="z-promo-subtext">{promo.branchId?.name || "Đang tải..."}</div>
+
+                                            {/* 🟢 SỬA LẠI ĐOẠN NÀY ĐỂ BẢO VỆ UI KHÔNG BỊ VỠ */}
+                                            <div
+                                                className="z-promo-subtext"
+                                                style={{
+                                                    display: "-webkit-box",
+                                                    WebkitLineClamp: 2,
+                                                    WebkitBoxOrient: "vertical",
+                                                    overflow: "hidden",
+                                                    marginTop: "4px",
+                                                }}
+                                            >
+                                                {(() => {
+                                                    if (promo.branchIds?.length > 0) {
+                                                        // Nếu User là Admin/SuperAdmin và số lượng bằng tổng chi nhánh hệ thống
+                                                        if (branches.length > 1 && promo.branchIds.length === branches.length) {
+                                                            return "Tất cả chi nhánh";
+                                                        }
+                                                        // Nếu khuyến mãi áp dụng cho nhiều hơn 2 chi nhánh -> Gom gọn lại
+                                                        if (promo.branchIds.length > 2) {
+                                                            return `Áp dụng ${promo.branchIds.length} chi nhánh`;
+                                                        }
+                                                        // Nếu ít (1-2 chi nhánh) thì in tên ra
+                                                        return promo.branchIds.map((b) => b.name || b).join(" • ");
+                                                    }
+                                                    return promo.branchId?.name || "Đang tải...";
+                                                })()}
+                                            </div>
                                         </td>
                                         <td>
                                             <div className="z-promo-text-bold" style={{ color: "var(--error)" }}>
@@ -660,33 +613,36 @@ const Promotions = () => {
                                                 {promo.usedCount || 0} / {promo.usageLimit || "∞"}
                                             </div>
                                         </td>
-                                        <td>
-                                            <span className={`z-promo-badge-${promo.computedStatus}`}>{getStatusLabelText(promo.computedStatus)}</span>
-                                        </td>
-                                        <td>
-                                            <div className="z-promo-dropdown-actions" onClick={(e) => e.stopPropagation()}>
-                                                <button className="z-promo-more-btn">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
-                                                        <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
-                                                    </svg>
-                                                </button>
-                                                <div className="z-promo-action-menu">
-                                                    <Button variant="complete" onClick={(e) => openApplyModal(e, promo)}>
-                                                        Tặng KH
-                                                    </Button>
-                                                    <Button variant="outline" onClick={() => toggleStatusMutation.mutate(promo._id)} disabled={toggleStatusMutation.isPending}>
-                                                        {promo.isActive ? "Tạm dừng" : "Kích hoạt"}
-                                                    </Button>
-                                                    <EditButton onClick={(e) => openUpdateForm(e, promo)} />
-                                                    <DeleteButton
-                                                        onClick={() => {
-                                                            setPromoToDelete({ id: promo._id, name: promo.name, code: promo.code });
-                                                            setIsDeleteModalOpen(true);
-                                                        }}
-                                                    />
+
+                                        {isAdminOrSuperAdmin && (
+                                            <td>
+                                                <div className="z-promo-dropdown-actions" onClick={(e) => e.stopPropagation()}>
+                                                    <button className="z-promo-more-btn">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
+                                                            <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
+                                                        </svg>
+                                                    </button>
+                                                    <div className="z-promo-action-menu">
+                                                        <Button variant="complete" onClick={(e) => openApplyModal(e, promo)}>
+                                                            Tặng KH
+                                                        </Button>
+                                                        <Button variant="outline" onClick={() => toggleStatusMutation.mutate(promo._id)} disabled={toggleStatusMutation.isPending}>
+                                                            {promo.isActive ? "Tạm dừng" : "Kích hoạt"}
+                                                        </Button>
+                                                        <EditButton onClick={(e) => openUpdateForm(e, promo)} />
+
+                                                        {isSuperAdmin && (
+                                                            <DeleteButton
+                                                                onClick={() => {
+                                                                    setPromoToDelete({ id: promo._id, name: promo.name, code: promo.code });
+                                                                    setIsDeleteModalOpen(true);
+                                                                }}
+                                                            />
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </td>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))
                             )}
@@ -722,12 +678,63 @@ const Promotions = () => {
                         <div className="z-promo-form-grid">
                             <div className="z-promo-form-column">
                                 <h3 className="z-promo-form-subtitle">Thông tin cơ bản</h3>
+
+                                {/* 🟢 MULTI-SELECT BRANCH */}
                                 <div className="z-promo-form-group">
-                                    <label>
-                                        Chi nhánh áp dụng <span className="z-promo-required">*</span>
-                                    </label>
-                                    <ReactSelect name="branchId" options={formBranchOptions} value={formBranchOptions.find((opt) => opt.value === formData.branchId) || null} onChange={(selected) => setFormData((prev) => ({ ...prev, branchId: selected ? selected.value : "" }))} isDisabled={isSubmitting || !!currentPromoId} styles={customSelectStyles} placeholder={isLoadingBranches ? "Đang tải..." : "-- Chọn chi nhánh --"} isSearchable={true} menuPosition="fixed" />
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                                        <label style={{ margin: 0 }}>
+                                            Chi nhánh áp dụng <span className="z-promo-required">*</span>
+                                        </label>
+                                        {isAdminOrSuperAdmin && (
+                                            <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "13px", color: "var(--primary-color)", fontWeight: "500" }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={formData.applyAllBranches}
+                                                    onChange={(e) => {
+                                                        const checked = e.target.checked;
+                                                        setFormData((prev) => ({
+                                                            ...prev,
+                                                            applyAllBranches: checked,
+                                                            branchIds: checked ? branches.map((b) => b._id) : [],
+                                                        }));
+                                                    }}
+                                                    style={{ accentColor: "var(--primary-color)", cursor: "pointer", width: "14px", height: "14px" }}
+                                                    disabled={isSubmitting || !!currentPromoId}
+                                                />
+                                                Áp dụng tất cả chi nhánh
+                                            </label>
+                                        )}
+                                    </div>
+                                    <ReactSelect
+                                        isMulti
+                                        name="branchIds"
+                                        options={formBranchOptions}
+                                        value={formData.applyAllBranches ? [{ value: "ALL", label: `Đã chọn tất cả chi nhánh (${branches.length})` }] : formBranchOptions.filter((opt) => formData.branchIds.includes(opt.value))}
+                                        onChange={(selected) => {
+                                            if (selected && selected.some((s) => s.value === "ALL")) return;
+                                            const selectedIds = selected ? selected.map((s) => s.value) : [];
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                branchIds: selectedIds,
+                                                applyAllBranches: selectedIds.length === branches.length && branches.length > 0,
+                                            }));
+                                        }}
+                                        isDisabled={isSubmitting || !!currentPromoId || formData.applyAllBranches || !isAdminOrSuperAdmin}
+                                        styles={{
+                                            ...customSelectStyles,
+                                            valueContainer: (provided) => ({
+                                                ...provided,
+                                                maxHeight: "85px",
+                                                overflowY: "auto",
+                                            }),
+                                        }}
+                                        placeholder={isLoadingBranches ? "Đang tải..." : "-- Chọn chi nhánh --"}
+                                        isSearchable={true}
+                                        menuPosition="fixed"
+                                        noOptionsMessage={() => "Không tìm thấy chi nhánh"}
+                                    />
                                 </div>
+
                                 <div className="z-promo-form-row">
                                     <div className="z-promo-form-group" style={{ flex: 1 }}>
                                         <label>
@@ -753,15 +760,19 @@ const Promotions = () => {
                                 <div className="z-promo-form-row">
                                     <div className="z-promo-form-group" style={{ flex: 1 }}>
                                         <label>Loại giảm giá</label>
-                                        <Select
+                                        <ReactSelect
                                             name="discountType"
                                             options={[
                                                 { value: "percentage", label: "Theo phần trăm (%)" },
                                                 { value: "fixed", label: "Số tiền cố định (VNĐ)" },
                                             ]}
-                                            value={formData.discountType}
-                                            onChange={handleFormChange}
-                                            disabled={isSubmitting}
+                                            value={[
+                                                { value: "percentage", label: "Theo phần trăm (%)" },
+                                                { value: "fixed", label: "Số tiền cố định (VNĐ)" },
+                                            ].find((opt) => opt.value === formData.discountType)}
+                                            onChange={(selected) => setFormData((prev) => ({ ...prev, discountType: selected.value }))}
+                                            isDisabled={isSubmitting}
+                                            styles={customSelectStyles}
                                         />
                                     </div>
                                     <div className="z-promo-form-group" style={{ flex: 1 }}>
@@ -869,15 +880,19 @@ const Promotions = () => {
                                 </div>
                                 <div className="z-promo-form-group">
                                     <label>Trạng thái khởi tạo</label>
-                                    <Select
+                                    <ReactSelect
                                         name="isActive"
                                         options={[
                                             { value: "true", label: "Bật (Tự động kích hoạt khi đến ngày)" },
                                             { value: "false", label: "Tắt (Lưu nháp/Tạm dừng)" },
                                         ]}
-                                        value={formData.isActive.toString()}
-                                        onChange={handleFormChange}
-                                        disabled={isSubmitting}
+                                        value={[
+                                            { value: "true", label: "Bật (Tự động kích hoạt khi đến ngày)" },
+                                            { value: "false", label: "Tắt (Lưu nháp/Tạm dừng)" },
+                                        ].find((opt) => opt.value === formData.isActive.toString())}
+                                        onChange={(selected) => setFormData((prev) => ({ ...prev, isActive: selected.value === "true" }))}
+                                        isDisabled={isSubmitting}
+                                        styles={customSelectStyles}
                                     />
                                 </div>
                             </div>
@@ -906,11 +921,9 @@ const Promotions = () => {
                     <div className="z-promo-apply-content">
                         <p style={{ marginBottom: "15px", color: "#6b7280", fontSize: "14px" }}>Chọn khách hàng bạn muốn gửi trực tiếp mã giảm giá này vào tài khoản.</p>
 
-                        {/* Khu vực Search và Filter Tháng */}
                         <div style={{ display: "flex", gap: "12px", marginBottom: "15px", alignItems: "center" }}>
                             <input type="text" className="z-promo-input" placeholder="Tìm theo tên, SĐT, email..." value={userSearchTerm} onChange={(e) => setUserSearchTerm(e.target.value)} style={{ flex: 1, margin: 0 }} />
 
-                            {/* Custom Dropdown thay cho <select> */}
                             <div className="z-promo-filter" style={{ minWidth: "200px" }}>
                                 <button type="button" className="z-promo-btn-filter" onClick={() => setShowMonthDropdown(!showMonthDropdown)} style={{ width: "100%", justifyContent: "space-between", height: "42px" }}>
                                     <span>{getMonthLabelText(filterMonth)}</span>
@@ -970,7 +983,6 @@ const Promotions = () => {
                             ) : (
                                 filteredUsers.map((user) => {
                                     const userId = user.userId || user._id;
-                                    // Xử lý chuỗi ngày sinh để render
                                     const dobString = user.dateOfBirth || user.dob;
                                     const dobFormatted = dobString ? new Date(dobString).toLocaleDateString("vi-VN") : "";
 
@@ -992,7 +1004,6 @@ const Promotions = () => {
                                                 <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>
                                                     {user.phoneNumber || "Chưa có SĐT"}
                                                     {user.email ? ` • ${user.email}` : ""}
-                                                    {/* Render thêm ngày sinh ở đây */}
                                                     {dobFormatted ? <span style={{ color: "var(--primary-color)", fontWeight: "500" }}> • {dobFormatted}</span> : ""}
                                                 </div>
                                             </div>

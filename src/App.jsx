@@ -38,11 +38,13 @@ function App() {
     );
   }
 
-  // ✅ THÊM MỚI: Lấy role của user để phân quyền
-  // (Lưu ý: Tuỳ thuộc vào cấu trúc dữ liệu user của bạn, có thể là user?.role hoặc user?.account?.role)
-  const userRole = user?.role || user?.account?.role;
+  // 🟢 LẤY ROLE TỪ TÀI KHOẢN ĐĂNG NHẬP
+  const userRole = user?.role || user?.account?.role || user?.user?.account?.role;
+  
+  // 🟢 ĐỊNH NGHĨA 3 CẤP ĐỘ QUYỀN TRUY CẬP (Khớp 100% với Sidebar)
   const isSuperAdmin = userRole === "SUPERADMIN";
-  const isAdmin = userRole === "ADMIN" || isSuperAdmin; // SUPERADMIN cũng có mọi quyền của ADMIN
+  const isAdminOrSuperAdmin = ["SUPERADMIN", "ADMIN"].includes(userRole);
+  const isStaff = ["SUPERADMIN", "ADMIN", "SALE", "RECEPTIONIST"].includes(userRole);
 
   return (
     <BrowserRouter>
@@ -54,39 +56,49 @@ function App() {
           </Route>
         ) : (
           <Route element={<MainLayout />}>
+            
             {/* ========================================== */}
-            {/* NHÓM 1: CÁC ROUTE CỦA ADMIN (Superadmin cũng vào được) */}
+            {/* NHÓM 1: QUYỀN VẬN HÀNH CHUNG */}
+            {/* (SUPERADMIN, ADMIN, SALE, RECEPTIONIST) */}
             {/* ========================================== */}
-            {isAdmin && (
+            {isStaff && (
                 <>
-                  <Route path="/" element={<Dashboard />} /> {/* Lịch hẹn */}
+                  <Route path="/" element={<Dashboard />} />
                   <Route path="/clinics" element={<Clinics />} />
                   <Route path="/clinics/:id" element={<ClinicDetail />} />
                   <Route path="/promotions" element={<Promotions />} />
+                  <Route path="/services" element={<Services />} />
+                  <Route path="/services/:id" element={<ServiceDetail />} />
+                  <Route path="/categories" element={<Categories />} />
                 </>
             )}
 
             {/* ========================================== */}
-            {/* NHÓM 2: CÁC ROUTE CHỈ DÀNH CHO SUPERADMIN */}
+            {/* NHÓM 2: QUYỀN QUẢN LÝ NỘI DUNG */}
+            {/* (SUPERADMIN, ADMIN) */}
+            {/* ========================================== */}
+            {isAdminOrSuperAdmin && (
+                <>
+                  <Route path="/notifications" element={<Notifications />} />
+                  <Route path="/banners" element={<Banners />} />
+                  <Route path="/companies" element={<Companies />} />
+                  <Route path="/blogs" element={<Blogs />} />
+                </>
+            )}
+
+            {/* ========================================== */}
+            {/* NHÓM 3: QUYỀN QUẢN TRỊ HỆ THỐNG LÕI */}
+            {/* (CHỈ SUPERADMIN) */}
             {/* ========================================== */}
             {isSuperAdmin && (
                 <>
                   <Route path="/users" element={<Users />} />
-                  <Route path="/clinics" element={<Clinics />} />
-                  <Route path="/clinics/:id" element={<ClinicDetail />} />
-                  <Route path="/services" element={<Services />} />
-                  <Route path="/services/:id" element={<ServiceDetail />} />
-                  <Route path="/categories" element={<Categories />} />
-                  <Route path="/blogs" element={<Blogs />} />
-                  <Route path="/banners" element={<Banners />} />
-                  <Route path="/notifications" element={<Notifications />} />
                   <Route path="/locations" element={<Location />} />
-                  <Route path="/companies" element={<Companies />} />
                   <Route path="/warranties" element={<Warranties />} />
                 </>
             )}
 
-            {/* Nếu truy cập vào trang không tồn tại hoặc không có quyền -> Đẩy về trang chủ */}
+            {/* Fallback: Bắt mọi route sai hoặc không có quyền đẩy về trang chủ */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         )}
