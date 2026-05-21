@@ -52,51 +52,51 @@ export const AuthProvider = ({ children }) => {
         initAuth();
     }, [refreshUser]);
 
-const login = async (identifier, password) => {
-    // Logic Demo giữ nguyên
-    if (identifier === "demo.eonsr" && password === "Eonsr@Demo2026!") {
-        const demoProfile = { fullName: "Admin (Demo)", role: "ADMIN" };
-        setUser(demoProfile);
-        localStorage.setItem("accessToken", "demo-token");
-        localStorage.setItem("userInfo", JSON.stringify(demoProfile));
-        return { success: true, message: "Đăng nhập Demo thành công!" };
-    }
-
-    try {
-        const response = await authApi.login(identifier, password);
-        if (response.success) {
-            const { user: userData, account, tokens } = response.data;
-
-            // Kiểm tra quyền
-            if (!["ADMIN", "SUPERADMIN", "MANAGER"].includes(account.role)) {
-                throw new Error("Tài khoản của bạn không có quyền truy cập!");
-            }
-
-            const fullProfile = {
-                ...userData,
-                ...account,
-                avatarUrl: userData.avatar || userData.avatarUrl || null,
-                accountId: account.id || account._id,
-            };
-
-            // LƯU TOKEN VÀ USER VÀO MÁY
-            localStorage.setItem("accessToken", tokens.accessToken);
-            localStorage.setItem("refreshToken", tokens.refreshToken);
-            localStorage.setItem("userInfo", JSON.stringify(fullProfile));
-            
-            setUser(fullProfile);
-            return { success: true, message: "Đăng nhập thành công!" };
+    const login = async (identifier, password) => {
+        // Logic Demo giữ nguyên
+        if (identifier === "demo.eonsr" && password === "Eonsr@Demo2026!") {
+            const demoProfile = { fullName: "Admin (Demo)", role: "ADMIN" };
+            setUser(demoProfile);
+            localStorage.setItem("accessToken", "demo-token");
+            localStorage.setItem("userInfo", JSON.stringify(demoProfile));
+            return { success: true, message: "Đăng nhập Demo thành công!" };
         }
-        throw new Error(response.message || "Thất bại");
-    } catch (error) {
-        let backendMessage = error.response?.data?.message || error.message || "Lỗi kết nối.";
-        const errorDictionary = {
-            "Invalid identifier or password!": "Tài khoản hoặc mật khẩu không chính xác!",
-            "Tài khoản của bạn không có quyền truy cập hệ thống quản trị!": "Bạn không có quyền truy cập!",
-        };
-        return { success: false, message: errorDictionary[backendMessage] || backendMessage };
-    }
-};
+
+        try {
+            const response = await authApi.login(identifier, password);
+            if (response.success) {
+                const { user: userData, account, tokens } = response.data;
+
+                // Kiểm tra quyền
+                if (!["SUPERADMIN", "ADMIN", "MANAGER", "SALE", "RECEPTIONIST"].includes(account.role)) {
+                    throw new Error("Tài khoản của bạn không có quyền truy cập hệ thống quản trị!");
+                }
+
+                const fullProfile = {
+                    ...userData,
+                    ...account,
+                    avatarUrl: userData.avatar || userData.avatarUrl || null,
+                    accountId: account.id || account._id,
+                };
+
+                // LƯU TOKEN VÀ USER VÀO MÁY
+                localStorage.setItem("accessToken", tokens.accessToken);
+                localStorage.setItem("refreshToken", tokens.refreshToken);
+                localStorage.setItem("userInfo", JSON.stringify(fullProfile));
+
+                setUser(fullProfile);
+                return { success: true, message: "Đăng nhập thành công!" };
+            }
+            throw new Error(response.message || "Thất bại");
+        } catch (error) {
+            let backendMessage = error.response?.data?.message || error.message || "Lỗi kết nối.";
+            const errorDictionary = {
+                "Invalid identifier or password!": "Tài khoản hoặc mật khẩu không chính xác!",
+                "Tài khoản của bạn không có quyền truy cập hệ thống quản trị!": "Bạn không có quyền truy cập!",
+            };
+            return { success: false, message: errorDictionary[backendMessage] || backendMessage };
+        }
+    };
 
     const logout = async () => {
         const rfToken = localStorage.getItem("refreshToken");
@@ -106,11 +106,7 @@ const login = async (identifier, password) => {
         window.location.href = "/login";
     };
 
-    return (
-        <AuthContext.Provider value={{ user, login, logout, loading, refreshUser }}>
-            {!loading && children}
-        </AuthContext.Provider>
-    );
+    return <AuthContext.Provider value={{ user, login, logout, loading, refreshUser }}>{!loading && children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => useContext(AuthContext);

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { serviceApi, categoryApi } from "../../api/axiosApi";
+import { useAuth } from "../../context/AuthContext"; // 🟢 THÊM IMPORT Auth
 import PageHeader from "../../ui/PageHeader/PageHeader";
 import ToastMessage from "../../ui/ToastMessage/ToastMessage";
 import Modal from "../../ui/Modal/Modal";
@@ -34,13 +35,9 @@ const getActiveCategoryFromStorage = () => {
     }
 };
 
-// 🟢 HÀM MAPPING LỖI TỪ BACKEND
 const translateErrorMessage = (errorMsg) => {
     if (!errorMsg) return "Có lỗi xảy ra, vui lòng thử lại!";
-
     const msg = errorMsg.toLowerCase();
-
-    // Mapping dựa theo các throw error trong serviceVariant.service.js
     if (msg.includes("service, name and price are required")) return "Vui lòng nhập đầy đủ Dịch vụ, Tên và Giá sản phẩm!";
     if (msg.includes("service not found")) return "Không tìm thấy dịch vụ gốc của sản phẩm này!";
     if (msg.includes("cannot add variant to inactive service")) return "Không thể thêm sản phẩm vào Dịch vụ đang bị vô hiệu hóa!";
@@ -49,8 +46,6 @@ const translateErrorMessage = (errorMsg) => {
     if (msg.includes("cannot delete variant with") && msg.includes("booking")) return "Không thể xóa sản phẩm này vì đã có khách hàng đặt lịch. Vui lòng chuyển sang trạng thái Ẩn thay vì xóa!";
     if (msg.includes("updates array is required")) return "Danh sách cập nhật thứ tự không hợp lệ!";
     if (msg.includes("file too large") || msg.includes("large")) return "Kích thước ảnh quá lớn! Vui lòng chọn ảnh dung lượng nhỏ hơn.";
-
-    // Fallback cho các lỗi chưa handle
     return errorMsg;
 };
 
@@ -58,24 +53,39 @@ const Services = () => {
     const queryClient = useQueryClient();
     const navigate = useNavigate();
 
-    // 1. Quản lý trạng thái danh mục gốc từ LocalStorage
+    // ==========================================
+    // 1. KHỞI TẠO QUYỀN TRUY CẬP 
+    // ==========================================
+    const { user } = useAuth();
+    const userRole = user?.role || user?.account?.role || "USER";
+
+    const isSuperAdmin = userRole === "SUPERADMIN";
+    const isAdmin = userRole === "ADMIN";
+
+    // Phân quyền theo chức năng
+    const canAdd = isSuperAdmin || isAdmin;
+    const canEdit = isSuperAdmin || isAdmin;
+    const canDelete = isSuperAdmin; // Chỉ SuperAdmin mới được xóa
+    const hasActionColumn = canEdit || canDelete;
+
+    // ==========================================
+    // 2. STATE QUẢN LÝ LỌC & UI
+    // ==========================================
     const [activeParentCategory, setActiveParentCategory] = useState(getActiveCategoryFromStorage());
     const activeParentId = activeParentCategory?._id || null;
 
-    // Lắng nghe sự kiện đổi danh mục
     useEffect(() => {
         const handleStorageChange = () => setActiveParentCategory(getActiveCategoryFromStorage());
         window.addEventListener("activeCategoryChanged", handleStorageChange);
         return () => window.removeEventListener("activeCategoryChanged", handleStorageChange);
     }, []);
 
-    // 2. States cho Lọc, Tìm kiếm, UI
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("");
     const [sortOrder, setSortOrder] = useState("newest");
     const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
-    // 3. States cho Modals
+    // Modals
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editProductId, setEditProductId] = useState(null);
@@ -116,7 +126,6 @@ const Services = () => {
         queryFn: async () => {
             if (!activeParentId) return { allProducts: [], categories: [], rawServices: [] };
 
-            // 1. Lấy danh sách Services
             const serviceRes = await categoryApi.getAllCategories({ limit: 100, categoryId: activeParentId });
             if (!serviceRes || !serviceRes.success) throw new Error("Không thể tải danh sách dịch vụ.");
 
@@ -125,7 +134,6 @@ const Services = () => {
 
             if (servicesData.length === 0) return { allProducts: [], categories: uniqueCategories, rawServices: servicesData };
 
-            // 2. Lấy Variants cho từng Service
             const productPromises = servicesData.map(async (service) => {
                 try {
                     const res = await serviceApi.getVariantsByServiceId(service._id);
@@ -161,7 +169,7 @@ const Services = () => {
                 rawServices: servicesData,
             };
         },
-        enabled: !!activeParentId, // Chỉ chạy khi đã xác định được activeParentId
+        enabled: !!activeParentId,
         staleTime: 5 * 60 * 1000,
     });
 
@@ -169,17 +177,14 @@ const Services = () => {
     const categories = pageData?.categories || [];
     const rawServices = pageData?.rawServices || [];
 
-    // Lấy tên category dựa vào serviceId
     const getCategoryNameByServiceId = (serviceId) => {
         const service = rawServices.find((s) => s._id === serviceId);
         return service ? service.name : "";
     };
 
     // ==========================================
-    // REACT QUERY: MUTATIONS (Không độ trễ)
+    // REACT QUERY: MUTATIONS
     // ==========================================
-
-    // 1. MUTATION: XÓA SẢN PHẨM
     const deleteMutation = useMutation({
         mutationFn: (id) => serviceApi.deleteVariant(id),
         onSuccess: (res, deletedId) => {
@@ -192,21 +197,17 @@ const Services = () => {
             setProductToDelete(null);
             queryClient.invalidateQueries({ queryKey: ["servicesAndVariants", activeParentId] });
         },
-        // 🟢 MAPPING LỖI KHI XÓA
         onError: (err) => {
             const serverMsg = err.response?.data?.error || err.response?.data?.message || err.message;
             showToast(translateErrorMessage(serverMsg), "error");
         },
     });
 
-    // 2. MUTATION: THÊM / CẬP NHẬT SẢN PHẨM (Dùng chung cho Form)
     const saveProductMutation = useMutation({
         mutationFn: ({ isEdit, id, payload }) => (isEdit ? serviceApi.updateVariant(id, payload) : serviceApi.createVariant(payload)),
         onSuccess: (res, variables) => {
             const serverVariant = res.data?.variant || res.data;
             const categoryName = getCategoryNameByServiceId(formData.serviceId);
-
-            // Xử lý ảnh tạm thời để hiển thị liền mạch trên UI
             const updatedImageUrls = serverVariant?.imageUrls || [...oldImageUrls, ...imagePreviews];
 
             queryClient.setQueryData(["servicesAndVariants", activeParentId], (old) => {
@@ -261,7 +262,6 @@ const Services = () => {
             setIsModalOpen(false);
             queryClient.invalidateQueries({ queryKey: ["servicesAndVariants", activeParentId] });
         },
-        // 🟢 MAPPING LỖI KHI LƯU
         onError: (err) => {
             const serverMsg = err.response?.data?.error || err.response?.data?.message || err.message;
             showToast(translateErrorMessage(serverMsg), "error");
@@ -271,9 +271,8 @@ const Services = () => {
     const isSubmitting = deleteMutation.isPending || saveProductMutation.isPending;
 
     // ==========================================
-    // HANDLERS BÌNH THƯỜNG
+    // HANDLERS
     // ==========================================
-
     const handleAddImageClick = () => {
         const fileInput = document.createElement("input");
         fileInput.type = "file";
@@ -342,8 +341,6 @@ const Services = () => {
 
     const handleSubmitForm = (e) => {
         e.preventDefault();
-
-        // Frontend Validate nhẹ
         if (!formData.serviceId) return showToast("Vui lòng chọn Danh mục dịch vụ!", "error");
         if (!formData.name) return showToast("Vui lòng nhập tên sản phẩm!", "error");
         if (!formData.price || Number(formData.price) < 0) return showToast("Giá sản phẩm không hợp lệ!", "error");
@@ -369,9 +366,7 @@ const Services = () => {
         setIsDeleteModalOpen(true);
     };
 
-    // ==========================================
-    // FILTER & LỌC DỮ LIỆU CỤC BỘ
-    // ==========================================
+    // LỌC DỮ LIỆU CỤC BỘ
     const filteredProducts = allProducts
         .filter((product) => {
             const normalizedSearchTerm = removeVietnameseTones(searchTerm);
@@ -391,9 +386,7 @@ const Services = () => {
             return 0;
         });
 
-    // ==========================================
     // CẤU HÌNH UI (React-Select)
-    // ==========================================
     const formServiceOptions = rawServices.map((srv) => ({ value: srv._id, label: srv.name }));
     const filterCategoryOptions = [{ value: "", label: "Tất cả dịch vụ" }, ...categories.map((cat) => ({ value: cat, label: cat }))];
     const sortOptions = [
@@ -429,7 +422,6 @@ const Services = () => {
         menuList: (provided) => ({ ...provided, overflowX: "hidden" }),
     };
 
-    // Renders
     if (isLoading && !allProducts.length) return <div className="z-services-state">Đang tải dữ liệu...</div>;
     if (error) return <div className="z-services-state z-services-error">{error.message || error}</div>;
 
@@ -457,9 +449,12 @@ const Services = () => {
                         <ReactSelect options={sortOptions} value={sortOptions.find((opt) => opt.value === sortOrder) || sortOptions[0]} onChange={(selected) => setSortOrder(selected ? selected.value : "newest")} styles={customSelectStyles} isSearchable={false} />
                     </div>
 
-                    <AddButton style={{ marginLeft: "auto" }} onClick={openAddModal}>
-                        Thêm sản phẩm
-                    </AddButton>
+                    {/* 🟢 CHỈ HIỂN THỊ NÚT THÊM NẾU CÓ QUYỀN */}
+                    {canAdd && (
+                        <AddButton style={{ marginLeft: "auto" }} onClick={openAddModal}>
+                            Thêm sản phẩm
+                        </AddButton>
+                    )}
                 </div>
 
                 <div className="z-services-table-wrapper">
@@ -472,12 +467,13 @@ const Services = () => {
                                 <th>Danh mục</th>
                                 <th>Giá</th>
                                 <th>Đơn vị</th>
-                                <th>Thao tác</th>
+                                {/* 🟢 ẨN CỘT THAO TÁC NẾU KHÔNG CÓ QUYỀN SỬA/XÓA */}
+                                {hasActionColumn && <th>Thao tác</th>}
                             </tr>
                         </thead>
                         <tbody>
                             {filteredProducts.map((item, index) => (
-                                <tr key={item.id} onClick={() => navigate(`/services/${item.id}`)}>
+                                <tr key={item.id} onClick={() => navigate(`/services/${item.id}`)} style={{ cursor: "pointer" }}>
                                     <td>{index + 1}</td>
                                     <td>
                                         <img
@@ -504,21 +500,25 @@ const Services = () => {
                                     <td>
                                         <span style={{ fontWeight: "500", color: "#374151" }}>{item.unit || "-"}</span>
                                     </td>
-                                    <td>
-                                        <div className="z-services-actions" onClick={(e) => e.stopPropagation()}>
-                                            <div className="z-services-dropdown-actions">
-                                                <button className="z-services-more-btn">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
-                                                        <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
-                                                    </svg>
-                                                </button>
-                                                <div className="z-services-action-menu">
-                                                    <EditButton onClick={(e) => handleEditClick(e, item)} />
-                                                    <DeleteButton onClick={(e) => handleDeleteClick(e, item.id, item.name)} />
+
+                                    {/* 🟢 CHỈ HIỆN CỘT THAO TÁC NẾU CÓ QUYỀN */}
+                                    {hasActionColumn && (
+                                        <td>
+                                            <div className="z-services-actions" onClick={(e) => e.stopPropagation()}>
+                                                <div className="z-services-dropdown-actions">
+                                                    <button className="z-services-more-btn">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#5f6368">
+                                                            <path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z" />
+                                                        </svg>
+                                                    </button>
+                                                    <div className="z-services-action-menu">
+                                                        {canEdit && <EditButton onClick={(e) => handleEditClick(e, item)} />}
+                                                        {canDelete && <DeleteButton onClick={(e) => handleDeleteClick(e, item.id, item.name)} />}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </td>
+                                        </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>
@@ -526,135 +526,141 @@ const Services = () => {
                     {filteredProducts.length === 0 && <div className="z-services-state">Không tìm thấy sản phẩm nào.</div>}
                 </div>
 
-                <Modal isOpen={isModalOpen} onClose={() => !isSubmitting && setIsModalOpen(false)} title={isEditMode ? "Cập nhật Sản phẩm" : "Thêm Sản phẩm mới"} size="lg" onSave={handleSubmitForm} saveText={isSubmitting ? "Đang xử lý..." : isEditMode ? "Lưu thay đổi" : "Tạo Sản phẩm"}>
-                    <div className="z-services-form">
-                        <div style={{ marginTop: "-15px", paddingBottom: "6px", borderBottom: "1px dashed #e5e7eb" }}>
-                            <span style={{ color: "red", fontWeight: "bold", fontSize: "16px" }}>*</span>
-                            <span style={{ color: "#6b7280", fontSize: "12px", fontStyle: "italic", marginLeft: "4px" }}>: Các trường có dấu sao là bắt buộc. Vui lòng nhập đầy đủ thông tin.</span>
-                        </div>
-                        <div className="z-services-form-grid">
-                            <div className="z-services-form-column">
-                                <div className="z-services-form-group">
-                                    <label>Thuộc Danh mục</label>
-                                    <input type="text" value={activeParentCategory?.title || "N/A"} disabled className="z-services-input readonly" style={{ backgroundColor: "#f3f4f6", color: "#12915A", fontWeight: "bold" }} />
-                                </div>
+                {/* MODAL THÊM / CẬP NHẬT */}
+                {(canAdd || canEdit) && (
+                    <Modal isOpen={isModalOpen} onClose={() => !isSubmitting && setIsModalOpen(false)} title={isEditMode ? "Cập nhật Sản phẩm" : "Thêm Sản phẩm mới"} size="lg" onSave={handleSubmitForm} saveText={isSubmitting ? "Đang xử lý..." : isEditMode ? "Lưu thay đổi" : "Tạo Sản phẩm"}>
+                        <div className="z-services-form">
+                            <div style={{ marginTop: "-15px", paddingBottom: "6px", borderBottom: "1px dashed #e5e7eb" }}>
+                                <span style={{ color: "red", fontWeight: "bold", fontSize: "16px" }}>*</span>
+                                <span style={{ color: "#6b7280", fontSize: "12px", fontStyle: "italic", marginLeft: "4px" }}>: Các trường có dấu sao là bắt buộc. Vui lòng nhập đầy đủ thông tin.</span>
+                            </div>
+                            <div className="z-services-form-grid">
+                                <div className="z-services-form-column">
+                                    <div className="z-services-form-group">
+                                        <label>Thuộc Danh mục</label>
+                                        <input type="text" value={activeParentCategory?.title || "N/A"} disabled className="z-services-input readonly" style={{ backgroundColor: "#f3f4f6", color: "#12915A", fontWeight: "bold" }} />
+                                    </div>
 
-                                <div className="z-services-form-group">
-                                    <label>
-                                        Dịch vụ <span className="z-services-required">*</span>
-                                    </label>
-                                    <ReactSelect options={formServiceOptions} value={formServiceOptions.find((opt) => opt.value === formData.serviceId) || null} onChange={(selected) => setFormData({ ...formData, serviceId: selected ? selected.value : "" })} isDisabled={isSubmitting} styles={customSelectStyles} placeholder="-- Chọn dịch vụ --" isSearchable={true} noOptionsMessage={() => "Không tìm thấy dịch vụ"} menuPosition="fixed" />
-                                </div>
-
-                                <div className="z-services-form-group">
-                                    <label>
-                                        Tên sản phẩm <span className="z-services-required">*</span>
-                                    </label>
-                                    <input type="text" className="z-services-input" required placeholder="VD: Implant Zygoma" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} disabled={isSubmitting} />
-                                </div>
-
-                                <div className="z-services-form-row">
-                                    <div className="z-services-form-group z-services-flex-1">
+                                    <div className="z-services-form-group">
                                         <label>
-                                            Giá (VNĐ) <span className="z-services-required">*</span>
+                                            Dịch vụ <span className="z-services-required">*</span>
                                         </label>
-                                        <input
-                                            type="number"
-                                            className="z-services-input"
-                                            required
-                                            min="0"
-                                            placeholder="VD: 45000000"
-                                            value={formData.price}
-                                            onChange={(e) => {
-                                                let value = e.target.value;
-                                                if (!/^\d*$/.test(value)) return;
-                                                setFormData({ ...formData, price: value });
-                                            }}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "-" || e.key === "e") e.preventDefault();
-                                            }}
-                                            disabled={isSubmitting}
-                                        />
+                                        <ReactSelect options={formServiceOptions} value={formServiceOptions.find((opt) => opt.value === formData.serviceId) || null} onChange={(selected) => setFormData({ ...formData, serviceId: selected ? selected.value : "" })} isDisabled={isSubmitting} styles={customSelectStyles} placeholder="-- Chọn dịch vụ --" isSearchable={true} noOptionsMessage={() => "Không tìm thấy dịch vụ"} menuPosition="fixed" />
                                     </div>
-                                    <div className="z-services-form-group z-services-flex-1">
-                                        <label>Đơn vị</label>
-                                        <input type="text" className="z-services-input" placeholder="VD: cái, răng" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} disabled={isSubmitting} />
+
+                                    <div className="z-services-form-group">
+                                        <label>
+                                            Tên sản phẩm <span className="z-services-required">*</span>
+                                        </label>
+                                        <input type="text" className="z-services-input" required placeholder="VD: Implant Zygoma" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} disabled={isSubmitting} />
+                                    </div>
+
+                                    <div className="z-services-form-row">
+                                        <div className="z-services-form-group z-services-flex-1">
+                                            <label>
+                                                Giá (VNĐ) <span className="z-services-required">*</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                className="z-services-input"
+                                                required
+                                                min="0"
+                                                placeholder="VD: 45000000"
+                                                value={formData.price}
+                                                onChange={(e) => {
+                                                    let value = e.target.value;
+                                                    if (!/^\d*$/.test(value)) return;
+                                                    setFormData({ ...formData, price: value });
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "-" || e.key === "e") e.preventDefault();
+                                                }}
+                                                disabled={isSubmitting}
+                                            />
+                                        </div>
+                                        <div className="z-services-form-group z-services-flex-1">
+                                            <label>Đơn vị</label>
+                                            <input type="text" className="z-services-input" placeholder="VD: cái, răng" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} disabled={isSubmitting} />
+                                        </div>
+                                    </div>
+
+                                    <div className="z-services-form-group">
+                                        <label>Mô tả chi tiết</label>
+                                        <textarea className="z-services-textarea" rows="3" placeholder="Nhập mô tả sản phẩm..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} disabled={isSubmitting}></textarea>
                                     </div>
                                 </div>
 
-                                <div className="z-services-form-group">
-                                    <label>Mô tả chi tiết</label>
-                                    <textarea className="z-services-textarea" rows="3" placeholder="Nhập mô tả sản phẩm..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} disabled={isSubmitting}></textarea>
-                                </div>
-                            </div>
+                                <div className="z-services-form-column">
+                                    <h3 className="z-services-form-section-title">Thông số kỹ thuật</h3>
+                                    <div className="z-services-form-group">
+                                        <label>Xuất xứ / Hãng SX</label>
+                                        <input type="text" className="z-services-input" placeholder="VD: Đức, Mỹ" value={formData.manufacturer} onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })} disabled={isSubmitting} />
+                                    </div>
+                                    <div className="z-services-form-group">
+                                        <label>Thời gian bảo hành</label>
+                                        <input type="text" className="z-services-input" placeholder="VD: 10 năm" value={formData.warranty_period} onChange={(e) => setFormData({ ...formData, warranty_period: e.target.value })} disabled={isSubmitting} />
+                                    </div>
+                                    <div className="z-services-form-group">
+                                        <label>Độ cứng (Mpa)</label>
+                                        <input type="text" className="z-services-input" placeholder="VD: 500-530Mpa" value={formData.hardness} onChange={(e) => setFormData({ ...formData, hardness: e.target.value })} disabled={isSubmitting} />
+                                    </div>
+                                    <div className="z-services-form-group">
+                                        <label>Độ trong suốt</label>
+                                        <input type="text" className="z-services-input" placeholder="VD: Cao, tự nhiên" value={formData.transparency} onChange={(e) => setFormData({ ...formData, transparency: e.target.value })} disabled={isSubmitting} />
+                                    </div>
 
-                            <div className="z-services-form-column">
-                                <h3 className="z-services-form-section-title">Thông số kỹ thuật</h3>
-                                <div className="z-services-form-group">
-                                    <label>Xuất xứ / Hãng SX</label>
-                                    <input type="text" className="z-services-input" placeholder="VD: Đức, Mỹ" value={formData.manufacturer} onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })} disabled={isSubmitting} />
-                                </div>
-                                <div className="z-services-form-group">
-                                    <label>Thời gian bảo hành</label>
-                                    <input type="text" className="z-services-input" placeholder="VD: 10 năm" value={formData.warranty_period} onChange={(e) => setFormData({ ...formData, warranty_period: e.target.value })} disabled={isSubmitting} />
-                                </div>
-                                <div className="z-services-form-group">
-                                    <label>Độ cứng (Mpa)</label>
-                                    <input type="text" className="z-services-input" placeholder="VD: 500-530Mpa" value={formData.hardness} onChange={(e) => setFormData({ ...formData, hardness: e.target.value })} disabled={isSubmitting} />
-                                </div>
-                                <div className="z-services-form-group">
-                                    <label>Độ trong suốt</label>
-                                    <input type="text" className="z-services-input" placeholder="VD: Cao, tự nhiên" value={formData.transparency} onChange={(e) => setFormData({ ...formData, transparency: e.target.value })} disabled={isSubmitting} />
-                                </div>
-
-                                <h3 className="z-services-form-section-title" style={{ marginTop: "16px" }}>
-                                    Thư viện Ảnh
-                                </h3>
-                                <div className="z-services-form-group">
-                                    <label>Hình ảnh (Tối đa 5 ảnh)</label>
-                                    <div className="z-services-upload-wrapper">
-                                        {oldImageUrls.map((url, index) => (
-                                            <div key={`old-${index}`} className="z-services-image-box">
-                                                <img src={url} alt={`old-preview-${index}`} className="z-services-preview-img" />
-                                                <button type="button" className="z-services-remove-img-btn" onClick={() => removeOldImage(index)}>
-                                                    ×
-                                                </button>
-                                            </div>
-                                        ))}
-                                        {imagePreviews.map((src, index) => (
-                                            <div key={`new-${index}`} className="z-services-image-box">
-                                                <img src={src} alt={`new-preview-${index}`} className="z-services-preview-img" />
-                                                <button type="button" className="z-services-remove-img-btn" onClick={() => removeNewImage(index)}>
-                                                    ×
-                                                </button>
-                                            </div>
-                                        ))}
-                                        {oldImageUrls.length + imagePreviews.length < 5 && (
-                                            <div className="z-services-add-img-btn" onClick={handleAddImageClick}>
-                                                + Ảnh
-                                            </div>
-                                        )}
+                                    <h3 className="z-services-form-section-title" style={{ marginTop: "16px" }}>
+                                        Thư viện Ảnh
+                                    </h3>
+                                    <div className="z-services-form-group">
+                                        <label>Hình ảnh (Tối đa 5 ảnh)</label>
+                                        <div className="z-services-upload-wrapper">
+                                            {oldImageUrls.map((url, index) => (
+                                                <div key={`old-${index}`} className="z-services-image-box">
+                                                    <img src={url} alt={`old-preview-${index}`} className="z-services-preview-img" />
+                                                    <button type="button" className="z-services-remove-img-btn" onClick={() => removeOldImage(index)}>
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {imagePreviews.map((src, index) => (
+                                                <div key={`new-${index}`} className="z-services-image-box">
+                                                    <img src={src} alt={`new-preview-${index}`} className="z-services-preview-img" />
+                                                    <button type="button" className="z-services-remove-img-btn" onClick={() => removeNewImage(index)}>
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {oldImageUrls.length + imagePreviews.length < 5 && (
+                                                <div className="z-services-add-img-btn" onClick={handleAddImageClick}>
+                                                    + Ảnh
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </Modal>
+                    </Modal>
+                )}
 
-                <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmitting && setIsDeleteModalOpen(false)} title="Xác nhận xóa" size="sm" onSave={() => deleteMutation.mutate(productToDelete?.id)} saveText={isSubmitting ? "Đang xóa..." : "Xác nhận xóa"}>
-                    <div className="z-services-delete-content">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 6h18"></path>
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                        </svg>
-                        <h3>Xác nhận xóa</h3>
-                        <p>
-                            Bạn có chắc chắn muốn xóa sản phẩm <br />
-                            <strong>"{productToDelete?.name}"</strong> không?
-                        </p>
-                    </div>
-                </Modal>
+                {/* MODAL XÓA */}
+                {canDelete && (
+                    <Modal isOpen={isDeleteModalOpen} onClose={() => !isSubmitting && setIsDeleteModalOpen(false)} title="Xác nhận xóa" size="sm" onSave={() => deleteMutation.mutate(productToDelete?.id)} saveText={isSubmitting ? "Đang xóa..." : "Xác nhận xóa"}>
+                        <div className="z-services-delete-content">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#eb3c2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 6h18"></path>
+                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                            </svg>
+                            <h3>Xác nhận xóa</h3>
+                            <p>
+                                Bạn có chắc chắn muốn xóa sản phẩm <br />
+                                <strong>"{productToDelete?.name}"</strong> không?
+                            </p>
+                        </div>
+                    </Modal>
+                )}
             </div>
         </>
     );

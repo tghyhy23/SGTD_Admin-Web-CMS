@@ -1,8 +1,9 @@
 // src/pages/Services/ServiceDetail.jsx
 import React, { useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // 🟢 THÊM IMPORT
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { serviceApi } from "../../api/axiosApi";
+import { useAuth } from "../../context/AuthContext"; // 🟢 THÊM IMPORT Auth
 import PageHeader from "../../ui/PageHeader/PageHeader";
 import ToastMessage from "../../ui/ToastMessage/ToastMessage";
 import Modal from "../../ui/Modal/Modal";
@@ -16,6 +17,21 @@ const ServiceDetail = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
+    // ==========================================
+    // 1. KHỞI TẠO QUYỀN TRUY CẬP 
+    // ==========================================
+    const { user } = useAuth();
+    const userRole = user?.role || user?.account?.role || "USER";
+
+    const isSuperAdmin = userRole === "SUPERADMIN";
+    const isAdmin = userRole === "ADMIN";
+
+    // Phân quyền theo chức năng (Sales/Lễ tân chỉ được xem)
+    const canEdit = isSuperAdmin || isAdmin;
+
+    // ==========================================
+    // 2. STATE UI & FORM
+    // ==========================================
     const [activeImage, setActiveImage] = useState(0);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const fileInputRef = useRef(null);
@@ -48,7 +64,6 @@ const ServiceDetail = () => {
     const { data, isLoading, error } = useQuery({
         queryKey: ["serviceDetail", id],
         queryFn: async () => {
-            // Gọi song song 2 API để tiết kiệm thời gian chờ
             const [serviceRes, variantRes] = await Promise.all([serviceApi.getAllServices(), serviceApi.getVariantById(id)]);
 
             const rawServices = serviceRes?.data?.services || [];
@@ -68,7 +83,7 @@ const ServiceDetail = () => {
             return { product, rawServices, images };
         },
         enabled: !!id,
-        staleTime: 5 * 60 * 1000, // Giữ cache 5 phút
+        staleTime: 5 * 60 * 1000,
     });
 
     const product = data?.product;
@@ -85,7 +100,6 @@ const ServiceDetail = () => {
             const selectedService = rawServices.find((s) => s._id === formData.serviceId);
             const updatedImageUrls = serverVariant?.imageUrls || [...oldImageUrls, ...imagePreviews];
 
-            // CẬP NHẬT CACHE CỦA TRANG DETAIL
             queryClient.setQueryData(["serviceDetail", id], (old) => {
                 if (!old) return old;
                 return {
@@ -107,7 +121,6 @@ const ServiceDetail = () => {
                 };
             });
 
-            // VÔ HIỆU HOÁ CACHE DANH SÁCH (Để khi bấm nút "Back", ds ngoài kia cập nhật luôn)
             queryClient.invalidateQueries({ queryKey: ["servicesAndVariants"] });
 
             showToast("Cập nhật sản phẩm thành công!");
@@ -117,7 +130,6 @@ const ServiceDetail = () => {
             setOldImageUrls([]);
             setActiveImage(0);
 
-            // Fetch lại để chắc chắn khớp Backend 100%
             queryClient.invalidateQueries({ queryKey: ["serviceDetail", id] });
         },
         onError: (error) => {
@@ -184,7 +196,6 @@ const ServiceDetail = () => {
 
         const submitData = new FormData();
 
-        // 1. Gửi các thông tin text bình thường
         Object.keys(formData).forEach((key) => {
             if (key === "image" || key === "images" || key === "imageUrls" || key === "existingUrls") return;
             if (formData[key] !== null && formData[key] !== undefined && formData[key] !== "") {
@@ -192,10 +203,8 @@ const ServiceDetail = () => {
             }
         });
 
-        // 2. 🟢 ĐỒNG BỘ LOGIC: Gửi danh sách ảnh cũ bằng key "existingUrls" giống trang Services
         submitData.append("existingUrls", JSON.stringify(oldImageUrls));
 
-        // 3. Xử lý các file ảnh MỚI được thêm vào
         if (imageFiles && imageFiles.length > 0) {
             Array.from(imageFiles).forEach((file) => submitData.append("image", file));
         }
@@ -215,7 +224,6 @@ const ServiceDetail = () => {
         menuList: (provided) => ({ ...provided, overflowX: "hidden" }),
     };
 
-    // Render States
     if (isLoading) return <div className="z-service-detail-state">Đang tải chi tiết sản phẩm...</div>;
     if (error) return <div className="z-service-detail-state z-service-detail-error">{error.message || "Đã có lỗi xảy ra."}</div>;
     if (!product) return <div className="z-service-detail-state">Không có dữ liệu.</div>;
@@ -305,115 +313,121 @@ const ServiceDetail = () => {
                                 <button className="z-service-detail-btn-back" onClick={() => navigate("/services")}>
                                     Quay lại danh sách
                                 </button>
-                                <button className="z-service-detail-btn-primary" onClick={handleEditClick} disabled={isSubmitting}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                    </svg>
-                                    Chỉnh sửa
-                                </button>
+                                
+                                {/* 🟢 CHỈ HIỆN NÚT SỬA CHO ADMIN & SUPERADMIN */}
+                                {canEdit && (
+                                    <button className="z-service-detail-btn-primary" onClick={handleEditClick} disabled={isSubmitting}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                        </svg>
+                                        Chỉnh sửa
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* MODAL CẬP NHẬT */}
-                <Modal isOpen={isModalOpen} onClose={() => !isSubmitting && setIsModalOpen(false)} title="Cập nhật Sản phẩm" size="lg" onSave={handleUpdateSubmit} saveText={isSubmitting ? "Đang xử lý..." : "Lưu thay đổi"}>
-                    <div className="z-service-detail-form">
-                        <div className="z-service-detail-form-grid">
-                            {/* CỘT TRÁI */}
-                            <div className="z-service-detail-form-col">
-                                <div className="z-service-detail-form-group">
-                                    <label>
-                                        Danh mục Dịch vụ <span className="z-service-detail-required">*</span>
-                                    </label>
-                                    <ReactSelect options={formServiceOptions} value={formServiceOptions.find((opt) => opt.value === formData.serviceId) || null} onChange={(selected) => setFormData({ ...formData, serviceId: selected ? selected.value : "" })} isDisabled={isSubmitting} styles={customSelectStyles} placeholder="-- Chọn dịch vụ --" isSearchable={true} menuPosition="fixed" />
-                                </div>
-
-                                <div className="z-service-detail-form-group">
-                                    <label>
-                                        Tên sản phẩm <span className="z-service-detail-required">*</span>
-                                    </label>
-                                    <input type="text" className="z-service-detail-input" required placeholder="VD: Implant Zygoma" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} disabled={isSubmitting} />
-                                </div>
-
-                                <div className="z-service-detail-form-row">
-                                    <div className="z-service-detail-form-group" style={{ flex: 1 }}>
+                {/* MODAL CẬP NHẬT (Chỉ render khi có quyền edit) */}
+                {canEdit && (
+                    <Modal isOpen={isModalOpen} onClose={() => !isSubmitting && setIsModalOpen(false)} title="Cập nhật Sản phẩm" size="lg" onSave={handleUpdateSubmit} saveText={isSubmitting ? "Đang xử lý..." : "Lưu thay đổi"}>
+                        <div className="z-service-detail-form">
+                            <div className="z-service-detail-form-grid">
+                                {/* CỘT TRÁI */}
+                                <div className="z-service-detail-form-col">
+                                    <div className="z-service-detail-form-group">
                                         <label>
-                                            Giá (VNĐ) <span className="z-service-detail-required">*</span>
+                                            Danh mục Dịch vụ <span className="z-service-detail-required">*</span>
                                         </label>
-                                        <input type="number" className="z-service-detail-input" required min="0" placeholder="VD: 45000000" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} disabled={isSubmitting} />
+                                        <ReactSelect options={formServiceOptions} value={formServiceOptions.find((opt) => opt.value === formData.serviceId) || null} onChange={(selected) => setFormData({ ...formData, serviceId: selected ? selected.value : "" })} isDisabled={isSubmitting} styles={customSelectStyles} placeholder="-- Chọn dịch vụ --" isSearchable={true} menuPosition="fixed" />
                                     </div>
-                                    <div className="z-service-detail-form-group" style={{ flex: 1 }}>
-                                        <label>Đơn vị</label>
-                                        <input type="text" className="z-service-detail-input" placeholder="VD: cái, răng" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} disabled={isSubmitting} />
+
+                                    <div className="z-service-detail-form-group">
+                                        <label>
+                                            Tên sản phẩm <span className="z-service-detail-required">*</span>
+                                        </label>
+                                        <input type="text" className="z-service-detail-input" required placeholder="VD: Implant Zygoma" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} disabled={isSubmitting} />
+                                    </div>
+
+                                    <div className="z-service-detail-form-row">
+                                        <div className="z-service-detail-form-group" style={{ flex: 1 }}>
+                                            <label>
+                                                Giá (VNĐ) <span className="z-service-detail-required">*</span>
+                                            </label>
+                                            <input type="number" className="z-service-detail-input" required min="0" placeholder="VD: 45000000" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} disabled={isSubmitting} />
+                                        </div>
+                                        <div className="z-service-detail-form-group" style={{ flex: 1 }}>
+                                            <label>Đơn vị</label>
+                                            <input type="text" className="z-service-detail-input" placeholder="VD: cái, răng" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} disabled={isSubmitting} />
+                                        </div>
+                                    </div>
+
+                                    <div className="z-service-detail-form-group">
+                                        <label>Mô tả chi tiết</label>
+                                        <textarea className="z-service-detail-textarea" rows="4" placeholder="Nhập mô tả sản phẩm..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} disabled={isSubmitting}></textarea>
                                     </div>
                                 </div>
 
-                                <div className="z-service-detail-form-group">
-                                    <label>Mô tả chi tiết</label>
-                                    <textarea className="z-service-detail-textarea" rows="4" placeholder="Nhập mô tả sản phẩm..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} disabled={isSubmitting}></textarea>
-                                </div>
-                            </div>
+                                {/* CỘT PHẢI */}
+                                <div className="z-service-detail-form-col">
+                                    <h3 className="z-service-detail-form-title">Thông số kỹ thuật</h3>
 
-                            {/* CỘT PHẢI */}
-                            <div className="z-service-detail-form-col">
-                                <h3 className="z-service-detail-form-title">Thông số kỹ thuật</h3>
-
-                                <div className="z-service-detail-form-group">
-                                    <label>Xuất xứ / Hãng SX</label>
-                                    <input type="text" className="z-service-detail-input" placeholder="VD: Đức, Mỹ" value={formData.manufacturer} onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })} disabled={isSubmitting} />
-                                </div>
-
-                                <div className="z-service-detail-form-group">
-                                    <label>Thời gian bảo hành</label>
-                                    <input type="text" className="z-service-detail-input" placeholder="VD: 10 năm" value={formData.warranty_period} onChange={(e) => setFormData({ ...formData, warranty_period: e.target.value })} disabled={isSubmitting} />
-                                </div>
-
-                                <div className="z-service-detail-form-group">
-                                    <label>Độ cứng (Mpa)</label>
-                                    <input type="text" className="z-service-detail-input" placeholder="VD: 500-530Mpa" value={formData.hardness} onChange={(e) => setFormData({ ...formData, hardness: e.target.value })} disabled={isSubmitting} />
-                                </div>
-
-                                <div className="z-service-detail-form-group">
-                                    <label>Độ trong suốt</label>
-                                    <input type="text" className="z-service-detail-input" placeholder="VD: Cao, tự nhiên" value={formData.transparency} onChange={(e) => setFormData({ ...formData, transparency: e.target.value })} disabled={isSubmitting} />
-                                </div>
-
-                                <h3 className="z-service-detail-form-title" style={{ marginTop: "12px" }}>
-                                    Thư viện Ảnh
-                                </h3>
-                                <div className="z-service-detail-form-group">
-                                    <label>Hình ảnh (Tối đa 5 ảnh)</label>
-                                    <div className="z-service-detail-upload-wrapper">
-                                        {oldImageUrls.map((url, index) => (
-                                            <div key={`old-${index}`} className="z-service-detail-img-box">
-                                                <img src={url} alt={`old-preview-${index}`} />
-                                                <button type="button" className="z-service-detail-remove-btn" onClick={() => removeOldImage(index)}>
-                                                    ×
-                                                </button>
-                                            </div>
-                                        ))}
-                                        {imagePreviews.map((src, index) => (
-                                            <div key={`new-${index}`} className="z-service-detail-img-box">
-                                                <img src={src} alt={`new-preview-${index}`} />
-                                                <button type="button" className="z-service-detail-remove-btn" onClick={() => removeNewImage(index)}>
-                                                    ×
-                                                </button>
-                                            </div>
-                                        ))}
-                                        {oldImageUrls.length + imagePreviews.length < 5 && (
-                                            <div className="z-service-detail-add-img-btn" onClick={handleAddImageClick}>
-                                                + Tải ảnh
-                                            </div>
-                                        )}
+                                    <div className="z-service-detail-form-group">
+                                        <label>Xuất xứ / Hãng SX</label>
+                                        <input type="text" className="z-service-detail-input" placeholder="VD: Đức, Mỹ" value={formData.manufacturer} onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })} disabled={isSubmitting} />
                                     </div>
-                                    <input type="file" multiple accept="image/*" ref={fileInputRef} style={{ display: "none" }} onChange={handleImageChange} />
+
+                                    <div className="z-service-detail-form-group">
+                                        <label>Thời gian bảo hành</label>
+                                        <input type="text" className="z-service-detail-input" placeholder="VD: 10 năm" value={formData.warranty_period} onChange={(e) => setFormData({ ...formData, warranty_period: e.target.value })} disabled={isSubmitting} />
+                                    </div>
+
+                                    <div className="z-service-detail-form-group">
+                                        <label>Độ cứng (Mpa)</label>
+                                        <input type="text" className="z-service-detail-input" placeholder="VD: 500-530Mpa" value={formData.hardness} onChange={(e) => setFormData({ ...formData, hardness: e.target.value })} disabled={isSubmitting} />
+                                    </div>
+
+                                    <div className="z-service-detail-form-group">
+                                        <label>Độ trong suốt</label>
+                                        <input type="text" className="z-service-detail-input" placeholder="VD: Cao, tự nhiên" value={formData.transparency} onChange={(e) => setFormData({ ...formData, transparency: e.target.value })} disabled={isSubmitting} />
+                                    </div>
+
+                                    <h3 className="z-service-detail-form-title" style={{ marginTop: "12px" }}>
+                                        Thư viện Ảnh
+                                    </h3>
+                                    <div className="z-service-detail-form-group">
+                                        <label>Hình ảnh (Tối đa 5 ảnh)</label>
+                                        <div className="z-service-detail-upload-wrapper">
+                                            {oldImageUrls.map((url, index) => (
+                                                <div key={`old-${index}`} className="z-service-detail-img-box">
+                                                    <img src={url} alt={`old-preview-${index}`} />
+                                                    <button type="button" className="z-service-detail-remove-btn" onClick={() => removeOldImage(index)}>
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {imagePreviews.map((src, index) => (
+                                                <div key={`new-${index}`} className="z-service-detail-img-box">
+                                                    <img src={src} alt={`new-preview-${index}`} />
+                                                    <button type="button" className="z-service-detail-remove-btn" onClick={() => removeNewImage(index)}>
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {oldImageUrls.length + imagePreviews.length < 5 && (
+                                                <div className="z-service-detail-add-img-btn" onClick={handleAddImageClick}>
+                                                    + Tải ảnh
+                                                </div>
+                                            )}
+                                        </div>
+                                        <input type="file" multiple accept="image/*" ref={fileInputRef} style={{ display: "none" }} onChange={handleImageChange} />
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </Modal>
+                    </Modal>
+                )}
             </div>
         </>
     );
